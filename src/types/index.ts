@@ -15,6 +15,7 @@ export interface Restaurant {
     category: string;
     promoted?: boolean;
     isOpen?: boolean;
+    isActive?: boolean;
     address?: string;
     description?: string;
     deliveryRadius?: number;
@@ -25,6 +26,46 @@ export interface Restaurant {
     addressLng?: number;
     addressStreet?: string;
     addressNumber?: string;
+    logo?: string;
+    coverImage?: string;
+    street?: string;
+    number?: string;
+    neighborhood?: string;
+    city?: string;
+    state?: string;
+    zipCode?: string;
+    latitude?: number;
+    longitude?: number;
+    openingHours?: OpeningHours[];
+    settings?: RestaurantSettings;
+    cnpj?: string;
+    email?: string;
+    phone?: string;
+    whatsapp?: string;
+}
+
+export type DayOfWeek =
+    | 'monday'
+    | 'tuesday'
+    | 'wednesday'
+    | 'thursday'
+    | 'friday'
+    | 'saturday'
+    | 'sunday';
+
+export interface OpeningHours {
+    day: DayOfWeek;
+    isOpen: boolean;
+    openTime?: string;
+    closeTime?: string;
+}
+
+export interface RestaurantSettings {
+    acceptsReservation?: boolean;
+    deliveryRadius?: number;
+    minimumOrder?: number;
+    estimatedDeliveryTime?: number;
+    taxPercentage?: number;
 }
 
 export interface Category {

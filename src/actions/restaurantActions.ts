@@ -11,6 +11,7 @@ import {
     userOwnsReviewRestaurant,
     userOwnsTable,
 } from '@/lib/authz'
+import { parseOperatingHours } from '@/lib/utils/restaurant.utils'
 import {
     CreateRestaurantForm,
     RestaurantProfile,
@@ -90,8 +91,12 @@ export async function getPublicRestaurants(): Promise<{ data?: import('@/types')
                 promoted: false,
                 isOpen: r.status === 'OPEN',
                 isActive: r.is_active,
-                openingHours: [],
-                settings: {},
+                openingHours: parseOperatingHours(r.operating_hours),
+                settings: {
+                    deliveryRadius: r.delivery_radius ?? undefined,
+                    minimumOrder: r.minimum_order ?? undefined,
+                    estimatedDeliveryTime: r.estimated_delivery_time ?? undefined,
+                },
                 description: r.description || undefined,
                 logo: r.logo || undefined,
                 coverImage: r.cover_image || undefined,
