@@ -22,11 +22,11 @@ export interface RestaurantSocialMedia {
 }
 
 export interface RestaurantSettings {
-    acceptsReservation: boolean;
-    deliveryRadius: number; // in km
-    minimumOrder: number;
-    estimatedDeliveryTime: number; // in minutes
-    taxPercentage: number;
+    acceptsReservation?: boolean;
+    deliveryRadius?: number; // in km
+    minimumOrder?: number;
+    estimatedDeliveryTime?: number; // in minutes
+    taxPercentage?: number;
 }
 
 export interface Restaurant {

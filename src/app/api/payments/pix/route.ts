@@ -1,5 +1,6 @@
 // src/app/api/payments/pix/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { getCurrentUser } from '@/lib/authz';
 
 const FEATURE_ENABLED = process.env.ENABLE_PIX_AUTO === 'true';
 const PIX_KEY = process.env.PIX_KEY || 'foodie@email.com';
@@ -79,6 +80,14 @@ export async function POST(request: NextRequest) {
                 message: 'Please use manual PIX payment for now. Automatic PIX will be available in v5.0.'
             },
             { status: 503 }
+        );
+    }
+
+    const { error: authError } = await getCurrentUser();
+    if (authError) {
+        return NextResponse.json(
+            { error: authError },
+            { status: 401 }
         );
     }
 

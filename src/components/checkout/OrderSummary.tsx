@@ -1,24 +1,35 @@
 // src/components/checkout/OrderSummary.tsx
 'use client';
 
-import Image from 'next/image';
-import { ShoppingBag } from 'lucide-react';
 import { useCart } from '@/hooks/useCart';
-import { getRestaurantById } from '@/data/mock';
 import { formatPrice } from '@/lib/utils/format.utils';
-import { CHECKOUT_MESSAGES } from '@/lib/constants/checkout.constants';
+import { Truck, Clock, MapPin, Tag } from 'lucide-react';
 
-export default function OrderSummary() {
-    const { items, restaurantId, totalPrice, appliedCoupon, couponDiscount } =
-        useCart();
+interface OrderSummaryProps {
+    customDeliveryFee?: number | null;
+    deliveryDistance?: number;
+    estimatedTime?: string | null;
+}
 
-    const restaurant = restaurantId ? getRestaurantById(restaurantId) : null;
-    const deliveryFee = restaurant?.deliveryFee || 0;
+export default function OrderSummary({
+                                         customDeliveryFee,
+                                         deliveryDistance,
+                                         estimatedTime
+                                     }: OrderSummaryProps) {
+    const {
+        items,
+        restaurantId,
+        totalPrice,
+        appliedCoupon,
+        couponDiscount
+    } = useCart();
 
+    const deliveryFee = customDeliveryFee ?? 0;
     const isFreeDeliveryCoupon = appliedCoupon?.code === 'FRETEGRATIS';
-    const actualDeliveryFee = isFreeDeliveryCoupon ? 0 : deliveryFee;
+    const finalDeliveryFee = isFreeDeliveryCoupon ? 0 : deliveryFee;
+    const finalTotal = totalPrice + finalDeliveryFee - couponDiscount;
 
-    const finalTotal = totalPrice + actualDeliveryFee - couponDiscount;
+    const itemCount = items.reduce((total, item) => total + item.quantity, 0);
 
     return (
         <div
@@ -30,141 +41,204 @@ export default function OrderSummary() {
         >
             {/* Header */}
             <div
-                className="flex items-center gap-3 p-4 border-b transition-colors"
+                className="px-4 py-3 border-b transition-colors"
                 style={{
                     backgroundColor: 'var(--color-bg-secondary)',
                     borderColor: 'var(--color-border)',
                 }}
             >
-                <div className="w-10 h-10 bg-[#00A082] rounded-full flex items-center justify-center">
-                    <ShoppingBag size={20} className="text-white" />
-                </div>
-                <div>
-                    <h2
-                        className="font-bold text-lg"
-                        style={{ color: 'var(--color-text)' }}
-                    >
-                        {CHECKOUT_MESSAGES.summaryTitle}
-                    </h2>
-                    {restaurant && (
-                        <p
-                            className="text-sm"
-                            style={{ color: 'var(--color-text-secondary)' }}
-                        >
-                            {restaurant.name}
-                        </p>
-                    )}
-                </div>
+                <h2
+                    className="font-bold text-lg"
+                    style={{ color: 'var(--color-text)' }}
+                >
+                    🛒 Resumo do Pedido
+                </h2>
+                <p
+                    className="text-sm"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                >
+                    {itemCount} {itemCount === 1 ? 'item' : 'itens'}
+                </p>
             </div>
 
-            {/* Itens */}
-            <div className="p-4 space-y-3">
-                {items.map((item, index) => (
-                    <div
-                        key={`${item.menuItem.id}-${index}`}
-                        className="flex items-center gap-3"
-                    >
-                        {/* Imagem */}
-                        <div className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0">
-                            <Image
-                                src={item.menuItem.image || '/placeholder.png'}
+            {/* Items List */}
+            <div className="p-4 space-y-3 max-h-64 overflow-y-auto">
+                {items.map((item) => (
+                    <div key={item.menuItem.id} className="flex gap-3">
+                        {/* Imagem do produto */}
+                        <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
+                            <img
+                                src={item.menuItem.image || '/placeholder.svg'}
                                 alt={item.menuItem.name}
-                                fill
-                                className="object-cover"
+                                className="w-full h-full object-cover"
                             />
                         </div>
 
-                        {/* Info */}
+                        {/* Detalhes do item */}
                         <div className="flex-1 min-w-0">
-                            <p
-                                className="font-medium text-sm truncate"
-                                style={{ color: 'var(--color-text)' }}
-                            >
-                                {item.quantity}x {item.menuItem.name}
-                            </p>
-                            {item.observation && (
-                                <p
-                                    className="text-xs truncate"
-                                    style={{ color: 'var(--color-text-tertiary)' }}
+                            <div className="flex justify-between items-start">
+                                <div className="flex-1">
+                                    <p
+                                        className="font-medium text-sm truncate"
+                                        style={{ color: 'var(--color-text)' }}
+                                    >
+                                        {item.quantity}x {item.menuItem.name}
+                                    </p>
+                                    {item.observation && (
+                                        <p
+                                            className="text-xs mt-0.5 truncate"
+                                            style={{ color: 'var(--color-text-tertiary)' }}
+                                        >
+                                            Obs: {item.observation}
+                                        </p>
+                                    )}
+                                </div>
+                                <span
+                                    className="font-medium text-sm ml-2"
+                                    style={{ color: 'var(--color-text)' }}
                                 >
-                                    📝 {item.observation}
-                                </p>
-                            )}
+                                    {formatPrice(item.menuItem.price * item.quantity)}
+                                </span>
+                            </div>
                         </div>
-
-                        {/* Preço */}
-                        <p
-                            className="font-medium text-sm"
-                            style={{ color: 'var(--color-text)' }}
-                        >
-                            {formatPrice(item.menuItem.price * item.quantity)}
-                        </p>
                     </div>
                 ))}
             </div>
 
-            {/* Totais */}
+            {/* Totals */}
             <div
-                className="p-4 border-t space-y-2"
+                className="p-4 space-y-3 border-t"
                 style={{ borderColor: 'var(--color-border)' }}
             >
-                <div className="flex justify-between text-sm">
-                    <span style={{ color: 'var(--color-text-secondary)' }}>
+                {/* Subtotal */}
+                <div className="flex justify-between items-center">
+                    <span
+                        className="text-sm"
+                        style={{ color: 'var(--color-text-secondary)' }}
+                    >
                         Subtotal
                     </span>
-                    <span style={{ color: 'var(--color-text-secondary)' }}>
+                    <span
+                        className="font-medium"
+                        style={{ color: 'var(--color-text)' }}
+                    >
                         {formatPrice(totalPrice)}
                     </span>
                 </div>
 
-                <div className="flex justify-between text-sm">
-                    <span style={{ color: 'var(--color-text-secondary)' }}>
-                        Taxa de entrega
+                {/* Entrega */}
+                <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-1.5">
+                            <Truck size={14} style={{ color: 'var(--color-text-tertiary)' }} />
+                            <span
+                                className="text-sm"
+                                style={{ color: 'var(--color-text-secondary)' }}
+                            >
+                                Entrega
+                            </span>
+                        </div>
+
+                        {isFreeDeliveryCoupon ? (
+                            <div className="text-right">
+                                <span
+                                    className="text-sm line-through mr-2"
+                                    style={{ color: 'var(--color-text-tertiary)' }}
+                                >
+                                    {formatPrice(deliveryFee)}
+                                </span>
+                                <span
+                                    className="font-medium"
+                                    style={{ color: '#00A082' }}
+                                >
+                                    Grátis
+                                </span>
+                            </div>
+                        ) : (
+                            <span
+                                className="font-medium"
+                                style={{ color: 'var(--color-text)' }}
+                            >
+                                {formatPrice(finalDeliveryFee)}
+                            </span>
+                        )}
+                    </div>
+
+                    {/* Informações adicionais da entrega */}
+                    {(deliveryDistance !== undefined && deliveryDistance > 0) && (
+                        <div className="flex items-center gap-1.5 ml-6">
+                            <MapPin size={12} style={{ color: 'var(--color-text-tertiary)' }} />
+                            <span
+                                className="text-xs"
+                                style={{ color: 'var(--color-text-tertiary)' }}
+                            >
+                                Distância: {deliveryDistance} km
+                            </span>
+                        </div>
+                    )}
+
+                    {estimatedTime && (
+                        <div className="flex items-center gap-1.5 ml-6">
+                            <Clock size={12} style={{ color: 'var(--color-text-tertiary)' }} />
+                            <span
+                                className="text-xs"
+                                style={{ color: 'var(--color-text-tertiary)' }}
+                            >
+                                Tempo estimado: {estimatedTime}
+                            </span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Cupom de desconto */}
+                {appliedCoupon && (
+                    <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-1.5">
+                            <Tag size={14} style={{ color: '#00A082' }} />
+                            <span
+                                className="text-sm"
+                                style={{ color: '#00A082' }}
+                            >
+                                Cupom: {appliedCoupon.code}
+                            </span>
+                        </div>
+                        <span
+                            className="font-medium"
+                            style={{ color: '#00A082' }}
+                        >
+                            - {formatPrice(couponDiscount)}
+                        </span>
+                    </div>
+                )}
+
+                {/* Total */}
+                <div
+                    className="flex justify-between items-center pt-3 border-t"
+                    style={{ borderColor: 'var(--color-border)' }}
+                >
+                    <span
+                        className="font-bold text-lg"
+                        style={{ color: 'var(--color-text)' }}
+                    >
+                        Total
                     </span>
                     <span
-                        style={{
-                            color:
-                                actualDeliveryFee === 0
-                                    ? 'var(--color-primary)'
-                                    : 'var(--color-text-secondary)',
-                        }}
+                        className="font-bold text-xl"
+                        style={{ color: 'var(--color-text)' }}
                     >
-                        {actualDeliveryFee === 0
-                            ? 'Grátis'
-                            : formatPrice(actualDeliveryFee)}
+                        {formatPrice(Math.max(0, finalTotal))}
                     </span>
                 </div>
 
-                {couponDiscount > 0 && (
-                    <div
-                        className="flex justify-between text-sm"
-                        style={{ color: 'var(--color-primary)' }}
+                {/* Aviso de pedido mínimo */}
+                {restaurantId && (
+                    <p
+                        className="text-xs text-center"
+                        style={{ color: 'var(--color-text-tertiary)' }}
                     >
-                        <span>Desconto ({appliedCoupon?.code})</span>
-                        <span>-{formatPrice(couponDiscount)}</span>
-                    </div>
+                        Pedido mínimo: {formatPrice(0)}
+                    </p>
                 )}
-
-                {isFreeDeliveryCoupon && deliveryFee > 0 && (
-                    <div
-                        className="flex justify-between text-sm"
-                        style={{ color: 'var(--color-primary)' }}
-                    >
-                        <span>Frete Grátis</span>
-                        <span>-{formatPrice(deliveryFee)}</span>
-                    </div>
-                )}
-
-                <div
-                    className="flex justify-between font-bold text-lg pt-2 border-t"
-                    style={{
-                        color: 'var(--color-text)',
-                        borderColor: 'var(--color-border)',
-                    }}
-                >
-                    <span>Total</span>
-                    <span>{formatPrice(Math.max(0, finalTotal))}</span>
-                </div>
             </div>
         </div>
     );

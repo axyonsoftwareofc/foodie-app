@@ -20,7 +20,7 @@ export function OrderCard({ order, index }: OrderCardProps) {
     const itemCount = order.items.reduce((sum, item) => sum + item.quantity, 0)
 
     const handleClick = (): void => {
-        router.push(`/order/${order.id}`)
+        router.push(`/orders/${order.id}`)
     }
 
     const formatOrderDate = (dateString: string): string => {

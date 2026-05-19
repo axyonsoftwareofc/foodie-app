@@ -10,7 +10,7 @@ import {
     ACCESSIBILITY_PRESETS,
     DEFAULT_ACCESSIBILITY_SETTINGS,
 } from '@/lib/constants/accessibility.constants';
-import { AccessibilityPreset } from '@/types/accessibility.types';
+import { AccessibilityPreset, AccessibilitySettings } from '@/types/accessibility.types';
 
 function isPresetActive(
     preset: AccessibilityPreset,
@@ -61,11 +61,11 @@ export default function AccessibilityWidget() {
         announce(`Perfil de acessibilidade ${label} aplicado`);
     };
 
-    const handleSettingToggle = (key: string) => {
-        const currentSettings = settings as unknown as Record<string, boolean>;
+    const handleSettingToggle = (key: keyof AccessibilitySettings) => {
+        const currentSettings = settings as Record<keyof AccessibilitySettings, boolean>;
         const newValue = !currentSettings[key];
 
-        updateSetting(key as any, newValue);
+        updateSetting(key, newValue);
 
         const label = ACCESSIBILITY_LABELS[key as keyof typeof ACCESSIBILITY_LABELS];
         announce(`${label} ${newValue ? 'ativado' : 'desativado'}`);
@@ -182,6 +182,7 @@ export default function AccessibilityWidget() {
                             ) : (
                                 <div className="space-y-3">
                                     {Object.entries(settings).map(([key, value]) => {
+                                        const settingKey = key as keyof AccessibilitySettings;
                                         const labelKey = key as keyof typeof ACCESSIBILITY_LABELS;
                                         const isChecked = Boolean(value);
                                         return (
@@ -195,7 +196,7 @@ export default function AccessibilityWidget() {
                                                 <input
                                                     type="checkbox"
                                                     checked={isChecked}
-                                                    onChange={() => handleSettingToggle(key)}
+                                                    onChange={() => handleSettingToggle(settingKey)}
                                                     className="sr-only"
                                                 />
                                                 <span

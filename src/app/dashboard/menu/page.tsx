@@ -1,18 +1,33 @@
 // src/app/dashboard/menu/page.tsx
 import { prisma } from "@/lib/prisma";
-import { cookies } from "next/headers";
+import { requireAuth } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { CategoryForm } from "./CategoryForm";
 import { CategoryItem } from "./CategoryItem";
 
 export default async function MenuPage() {
-    const cookieStore = await cookies();
-    const restaurantId = cookieStore.get("restaurantId")?.value;
+    const session = await requireAuth();
+    const restaurant = await prisma.restaurant.findFirst({
+        where: {
+            user_id: session.user.id,
+            is_active: true,
+        },
+        select: { id: true },
+    });
+
+    if (!restaurant) {
+        redirect('/register');
+    }
 
     const categories = await prisma.category.findMany({
-        where: { restaurant_id: restaurantId || "" }, // ✅ SNAKE_CASE
+        where: {
+            restaurant_id: restaurant.id,
+            is_active: true,
+        },
         orderBy: { name: 'asc' },
         include: {
             products: {
+                where: { is_active: true },
                 orderBy: { name: 'asc' }
             }
         }

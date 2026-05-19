@@ -104,7 +104,7 @@ export async function updateProfile(formData: {
 
     // Normalizar dados (aceita ambos os formatos)
     const fullName = formData.fullName || formData.full_name
-    const updates: any = {}
+    const updates: Record<string, string> = {}
 
     if (fullName) updates.full_name = fullName
     if (formData.phone) updates.phone = formData.phone

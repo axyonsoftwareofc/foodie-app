@@ -1,6 +1,7 @@
+// src/app/checkout/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -23,6 +24,7 @@ import CheckoutHeader from '@/components/checkout/CheckoutHeader';
 import AddressForm from '@/components/checkout/AddressForm';
 import PaymentForm from '@/components/checkout/PaymentForm';
 import OrderSummary from '@/components/checkout/OrderSummary';
+import { DeliveryCalculator } from '@/components/checkout/DeliveryCalculator';
 import CartEmpty from '@/components/cart/CartEmpty';
 
 export default function CheckoutPage() {
@@ -36,7 +38,6 @@ export default function CheckoutPage() {
         clearCart,
     } = useCart();
 
-    // ✅ Usa AuthContext — fonte única da verdade
     const { isAuthenticated, isLoading: isCheckingAuth } = useAuth();
 
     // Saved addresses
@@ -63,16 +64,40 @@ export default function CheckoutPage() {
     const [paymentError, setPaymentError] = useState<string>('');
     const [cardDetails, setCardDetails] = useState<CardDetails | null>(null);
 
+    // Delivery calculation state
+    const [calculatedDeliveryFee, setCalculatedDeliveryFee] = useState<number | null>(null);
+    const [deliveryDistance, setDeliveryDistance] = useState<number>(0);
+    const [dynamicEstimatedTime, setDynamicEstimatedTime] = useState<string | null>(null);
+    const [isAddressWithinRadius, setIsAddressWithinRadius] = useState<boolean>(true);
+
     // Loading state
     const [isLoading, setIsLoading] = useState<boolean>(false);
 
     const restaurant = restaurantId ? getRestaurantById(restaurantId) : null;
-    const deliveryFee = restaurant?.deliveryFee || 0;
+    const baseDeliveryFee = restaurant?.deliveryFee || 0;
     const isFreeDeliveryCoupon = appliedCoupon?.code === 'FRETEGRATIS';
-    const actualDeliveryFee = isFreeDeliveryCoupon ? 0 : deliveryFee;
-    const finalTotal = totalPrice + actualDeliveryFee - couponDiscount;
 
-    // ✅ Carrega endereços quando autenticação estiver confirmada
+    // Usar frete calculado ou fixo
+    const finalDeliveryFee = isFreeDeliveryCoupon
+        ? 0
+        : (calculatedDeliveryFee ?? baseDeliveryFee);
+
+    const finalTotal = totalPrice + finalDeliveryFee - couponDiscount;
+
+    const fillAddressForm = useCallback((address: AddressData): void => {
+        setAddressData({
+            street: address.street,
+            number: address.number,
+            complement: address.complement || '',
+            neighborhood: address.neighborhood,
+            city: address.city,
+            state: address.state,
+            zipCode: address.zipCode,
+        });
+        setAddressErrors({});
+    }, []);
+
+    // Carrega endereços quando autenticação estiver confirmada
     useEffect(() => {
         if (!isAuthenticated || isCheckingAuth) return;
 
@@ -90,20 +115,7 @@ export default function CheckoutPage() {
         };
 
         loadAddresses();
-    }, [isAuthenticated, isCheckingAuth]);
-
-    const fillAddressForm = (address: AddressData): void => {
-        setAddressData({
-            street: address.street,
-            number: address.number,
-            complement: address.complement || '',
-            neighborhood: address.neighborhood,
-            city: address.city,
-            state: address.state,
-            zipCode: address.zipCode,
-        });
-        setAddressErrors({});
-    };
+    }, [isAuthenticated, isCheckingAuth, fillAddressForm]);
 
     const handleSelectAddress = (addressId: string): void => {
         setSelectedAddressId(addressId);
@@ -136,6 +148,40 @@ export default function CheckoutPage() {
         if (selectedAddressId) setSelectedAddressId(null);
     };
 
+    const handleCepFound = (address: Partial<AddressFormData>): void => {
+        // Limpar erros dos campos que foram preenchidos automaticamente
+        const fieldsToClear: (keyof AddressFormData)[] = [];
+
+        if (address.street) fieldsToClear.push('street');
+        if (address.neighborhood) fieldsToClear.push('neighborhood');
+        if (address.city) fieldsToClear.push('city');
+        if (address.state) fieldsToClear.push('state');
+
+        fieldsToClear.forEach(field => {
+            if (addressErrors[field]) {
+                setAddressErrors(prev => ({ ...prev, [field]: undefined }));
+            }
+        });
+    };
+
+    const handleDeliveryCalculated = (
+        fee: number,
+        distance: number,
+        estimatedTime: string,
+        withinRadius: boolean
+    ): void => {
+        setCalculatedDeliveryFee(fee);
+        setDeliveryDistance(distance);
+        setDynamicEstimatedTime(estimatedTime);
+        setIsAddressWithinRadius(withinRadius);
+
+        if (!withinRadius) {
+            toast.error('Endereço fora da área de entrega', {
+                description: `O raio máximo de entrega é de ${restaurant?.deliveryRadius || 10} km`
+            });
+        }
+    };
+
     const handlePaymentMethodChange = (method: PaymentMethod): void => {
         setPaymentMethod(method);
         setPaymentError('');
@@ -145,6 +191,7 @@ export default function CheckoutPage() {
     const validateForm = (): boolean => {
         let isValid = true;
 
+        // Validar endereço
         const addressResult = addressSchema.safeParse(addressData);
         if (!addressResult.success) {
             const errors: Partial<Record<keyof AddressFormData, string>> = {};
@@ -156,6 +203,15 @@ export default function CheckoutPage() {
             isValid = false;
         }
 
+        // Validar se está dentro do raio de entrega (se calculado)
+        if (calculatedDeliveryFee !== null && !isAddressWithinRadius) {
+            toast.error('Não é possível entregar neste endereço', {
+                description: 'O endereço está fora da área de cobertura'
+            });
+            isValid = false;
+        }
+
+        // Validar pagamento
         const paymentResult = paymentSchema.safeParse({
             method: paymentMethod,
             changeFor: changeFor ? parseFloat(changeFor) : undefined,
@@ -165,6 +221,7 @@ export default function CheckoutPage() {
             isValid = false;
         }
 
+        // Validar cartão se necessário
         if (
             (paymentMethod === 'CREDIT_CARD' || paymentMethod === 'DEBIT_CARD') &&
             cardDetails
@@ -180,7 +237,6 @@ export default function CheckoutPage() {
     };
 
     const handleSubmit = async (): Promise<void> => {
-        // ✅ Se não autenticado, redireciona antes de qualquer validação
         if (!isAuthenticated) {
             toast.info('Faça login para finalizar seu pedido', { icon: '🔐' });
             router.push('/sign-in?redirectTo=/checkout');
@@ -202,6 +258,9 @@ export default function CheckoutPage() {
                 observation: item.observation,
             }));
 
+            const estimatedTime = dynamicEstimatedTime ||
+                `${restaurant.deliveryTimeMin || 30}-${restaurant.deliveryTimeMax || 45} min`;
+
             const result = await createOrderAction({
                 restaurantId: restaurant.id,
                 restaurantName: restaurant.name,
@@ -218,7 +277,7 @@ export default function CheckoutPage() {
                 paymentMethod,
                 changeFor: changeFor ? parseFloat(changeFor) : undefined,
                 subtotal: totalPrice,
-                deliveryFee: actualDeliveryFee,
+                deliveryFee: finalDeliveryFee,
                 discount: couponDiscount,
                 total: Math.max(0, finalTotal),
                 couponCode: appliedCoupon?.code,
@@ -231,7 +290,12 @@ export default function CheckoutPage() {
             }
 
             clearCart();
-            router.push(`/order/${result.data!.id}`);
+
+            toast.success('Pedido realizado com sucesso!', {
+                description: `Seu pedido #${result.data!.id.slice(-4)} foi confirmado`
+            });
+
+            router.push(`/orders/${result.data!.id}`);
         } catch {
             toast.error('Erro ao processar pedido. Tente novamente.');
             setIsLoading(false);
@@ -258,6 +322,24 @@ export default function CheckoutPage() {
             <CheckoutHeader />
 
             <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+                {/* Delivery Calculator - Mostrar primeiro se restaurante tem coordenadas */}
+                {restaurant?.addressLat && restaurant?.addressLng && (
+                    <DeliveryCalculator
+                        restaurantAddress={{
+                            lat: restaurant.addressLat,
+                            lng: restaurant.addressLng,
+                            address: `${restaurant.addressStreet || ''}, ${restaurant.addressNumber || ''}`
+                        }}
+                        restaurantConfig={{
+                            deliveryFee: baseDeliveryFee,
+                            deliveryRadius: restaurant.deliveryRadius || 10,
+                            minimumOrder: restaurant.minimumOrder || 0,
+                            estimatedTime: `${restaurant.deliveryTimeMin || 30}-${restaurant.deliveryTimeMax || 45} min`
+                        }}
+                        onFeeCalculated={handleDeliveryCalculated}
+                    />
+                )}
+
                 {/* Saved Addresses Selector */}
                 {isAuthenticated && savedAddresses.length > 0 && (
                     <div
@@ -391,9 +473,11 @@ export default function CheckoutPage() {
                         data={addressData}
                         errors={addressErrors}
                         onChange={handleAddressChange}
+                        onCepFound={handleCepFound}
                     />
                 )}
 
+                {/* Payment Form */}
                 <PaymentForm
                     selectedMethod={paymentMethod}
                     changeFor={changeFor}
@@ -403,7 +487,12 @@ export default function CheckoutPage() {
                     onChangeForChange={setChangeFor}
                 />
 
-                <OrderSummary />
+                {/* Order Summary */}
+                <OrderSummary
+                    customDeliveryFee={finalDeliveryFee}
+                    deliveryDistance={deliveryDistance}
+                    estimatedTime={dynamicEstimatedTime}
+                />
             </main>
 
             {/* Fixed Footer */}
@@ -423,10 +512,24 @@ export default function CheckoutPage() {
                             🔐 Você será redirecionado para fazer login
                         </p>
                     )}
+
+                    {/* Aviso de fora da área de entrega */}
+                    {calculatedDeliveryFee !== null && !isAddressWithinRadius && (
+                        <p
+                            className="mb-2 text-center text-sm font-medium"
+                            style={{ color: 'var(--color-error)' }}
+                        >
+                            ⚠️ Endereço fora da área de entrega
+                        </p>
+                    )}
+
                     <button
                         onClick={handleSubmit}
-                        // ✅ Só trava enquanto carrega — não trava por auth
-                        disabled={isLoading || isCheckingAuth}
+                        disabled={
+                            isLoading ||
+                            isCheckingAuth ||
+                            (calculatedDeliveryFee !== null && !isAddressWithinRadius)
+                        }
                         className="w-full py-4 rounded-full font-semibold transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         style={{
                             backgroundColor: 'var(--color-primary)',
@@ -446,6 +549,8 @@ export default function CheckoutPage() {
                                 <Loader2 size={20} className="animate-spin" />
                                 {CHECKOUT_MESSAGES.processing}
                             </>
+                        ) : calculatedDeliveryFee !== null && !isAddressWithinRadius ? (
+                            'Endereço fora da área de entrega'
                         ) : (
                             <>
                                 {isAuthenticated

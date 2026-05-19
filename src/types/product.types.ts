@@ -3,7 +3,7 @@
 export type ProductBadge = 'vegetarian' | 'vegan' | 'gluten_free' | 'spicy' | 'popular' | 'new' | 'discount';
 
 export interface ProductVariation {
-    id: string;
+    id?: string;
     name: string;
     price: number;
     description?: string;
@@ -11,7 +11,7 @@ export interface ProductVariation {
 }
 
 export interface ProductExtra {
-    id: string;
+    id?: string;
     name: string;
     price: number;
     maxQuantity?: number;

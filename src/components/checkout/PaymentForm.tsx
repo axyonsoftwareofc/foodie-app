@@ -1,7 +1,7 @@
 // src/components/checkout/PaymentForm.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { CreditCard } from 'lucide-react';
 import { PaymentMethod } from '@/types';
 import { CardDetails } from '@/types/payment.types';
@@ -39,20 +39,20 @@ export default function PaymentForm({
     const isPixPayment = selectedMethod === 'PIX';
     const isCashPayment = selectedMethod === 'CASH';
 
-    useEffect(() => {
-        if (selectedMethod === 'PIX' && !pixDetails && !isGeneratingPix) {
-            handleGeneratePix();
-        }
-    }, [selectedMethod]);
-
-    const handleGeneratePix = async () => {
+    const handleGeneratePix = useCallback(async () => {
         setIsGeneratingPix(true);
         const result = await createPixPayment(totalAmount, 'pending-order');
         if (result.data) {
             setPixDetails(result.data);
         }
         setIsGeneratingPix(false);
-    };
+    }, [totalAmount]);
+
+    useEffect(() => {
+        if (selectedMethod === 'PIX' && !pixDetails && !isGeneratingPix) {
+            handleGeneratePix();
+        }
+    }, [selectedMethod, pixDetails, isGeneratingPix, handleGeneratePix]);
 
     const handleMethodSelect = (method: PaymentMethod) => {
         onMethodChange(method);

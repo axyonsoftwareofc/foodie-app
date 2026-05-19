@@ -6,10 +6,17 @@ import { cookies } from "next/headers";
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import {
+    getCurrentUser,
+    userOwnsRestaurant,
+    userOwnsReviewRestaurant,
+    userOwnsTable,
+} from '@/lib/authz'
+import {
     CreateRestaurantForm,
     RestaurantProfile,
     RestaurantTable,
     BankInfo,
+    Review,
     RestaurantStatus,
     OperatingHours
 } from '@/types/restaurant-management.types'
@@ -264,6 +271,15 @@ export async function updateRestaurantProfile(
 
 export async function updateRestaurant(restaurantId: string, formData: FormData) {
     const supabase = await createClient()
+    const { user, error: authError } = await getCurrentUser()
+
+    if (authError || !user) {
+        return { error: authError || 'Usuário não autenticado' }
+    }
+
+    if (!(await userOwnsRestaurant(user.id, restaurantId))) {
+        return { error: 'Não autorizado ou restaurante não encontrado' }
+    }
 
     const data = {
         name: formData.get('name'),
@@ -319,10 +335,19 @@ export async function updateRestaurantStatus(
 
 export async function toggleRestaurantStatus(restaurantId: string, isActive: boolean) {
     const supabase = await createClient()
+    const { user, error: authError } = await getCurrentUser()
+
+    if (authError || !user) {
+        return { error: authError || 'Usuário não autenticado' }
+    }
+
+    if (!(await userOwnsRestaurant(user.id, restaurantId))) {
+        return { error: 'Não autorizado ou restaurante não encontrado' }
+    }
 
     const { error } = await supabase
         .from('restaurants')
-        .update({ isActive })
+        .update({ is_active: isActive })
         .eq('id', restaurantId)
 
     if (error) {
@@ -398,10 +423,19 @@ export async function updateBankInfo(
 
 export async function deleteRestaurant(restaurantId: string) {
     const supabase = await createClient()
+    const { user, error: authError } = await getCurrentUser()
+
+    if (authError || !user) {
+        return { error: authError || 'Usuário não autenticado' }
+    }
+
+    if (!(await userOwnsRestaurant(user.id, restaurantId))) {
+        return { error: 'Não autorizado ou restaurante não encontrado' }
+    }
 
     const { error } = await supabase
         .from('restaurants')
-        .update({ isActive: false })
+        .update({ is_active: false })
         .eq('id', restaurantId)
 
     if (error) {
@@ -498,6 +532,15 @@ export async function updateTableStatus(
 ): Promise<{ success?: boolean; error?: string }> {
     try {
         const supabase = await createClient()
+        const { user, error: authError } = await getCurrentUser()
+
+        if (authError || !user) {
+            return { error: authError || 'Usuário não autenticado' }
+        }
+
+        if (!(await userOwnsTable(user.id, tableId))) {
+            return { error: 'Não autorizado ou mesa não encontrada' }
+        }
 
         const { error } = await supabase
             .from('restaurant_tables')
@@ -518,6 +561,15 @@ export async function updateTableStatus(
 export async function deleteTable(tableId: string): Promise<{ success?: boolean; error?: string }> {
     try {
         const supabase = await createClient()
+        const { user, error: authError } = await getCurrentUser()
+
+        if (authError || !user) {
+            return { error: authError || 'Usuário não autenticado' }
+        }
+
+        if (!(await userOwnsTable(user.id, tableId))) {
+            return { error: 'Não autorizado ou mesa não encontrada' }
+        }
 
         const { error } = await supabase
             .from('restaurant_tables')
@@ -541,9 +593,18 @@ export async function deleteTable(tableId: string): Promise<{ success?: boolean;
 
 export async function getRestaurantReviews(
     restaurantId: string
-): Promise<{ data?: any[]; error?: string }> {
+): Promise<{ data?: Review[]; error?: string }> {
     try {
         const supabase = await createClient()
+        const { user, error: authError } = await getCurrentUser()
+
+        if (authError || !user) {
+            return { error: authError || 'Usuário não autenticado' }
+        }
+
+        if (!(await userOwnsRestaurant(user.id, restaurantId))) {
+            return { error: 'Não autorizado ou restaurante não encontrado' }
+        }
 
         const { data, error } = await supabase
             .from('reviews')
@@ -556,7 +617,20 @@ export async function getRestaurantReviews(
             return { error: error.message }
         }
 
-        return { data: data || [] }
+        return {
+            data: (data || []).map((review) => ({
+                id: review.id,
+                restaurantId: review.restaurant_id,
+                orderId: review.order_id || '',
+                userId: review.user_id,
+                userName: 'Cliente',
+                rating: review.rating,
+                comment: review.comment || '',
+                response: review.response || undefined,
+                createdAt: review.created_at || new Date().toISOString(),
+                helpful: 0,
+            }))
+        }
     } catch (error) {
         console.error('Error fetching reviews:', error)
         return { error: 'Erro ao buscar avaliações' }
@@ -569,6 +643,15 @@ export async function respondToReview(
 ): Promise<{ success?: boolean; error?: string }> {
     try {
         const supabase = await createClient()
+        const { user, error: authError } = await getCurrentUser()
+
+        if (authError || !user) {
+            return { error: authError || 'Usuário não autenticado' }
+        }
+
+        if (!(await userOwnsReviewRestaurant(user.id, reviewId))) {
+            return { error: 'Não autorizado ou avaliação não encontrada' }
+        }
 
         const { error } = await supabase
             .from('reviews')

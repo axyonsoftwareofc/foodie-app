@@ -6,9 +6,10 @@ import { OrderTimer } from './OrderTimer';
 interface OrderItem {
   name?: string;
   productName?: string;
+  menuItemName?: string;
   quantity?: number;
   price?: number;
-  observations?: string;
+  observation?: string;
   addons?: Array<{ name: string }>;
 }
 
@@ -44,7 +45,7 @@ export function OrderDetailsModal({ order, isOpen, onClose }: OrderDetailsModalP
         return { label: 'Mesa', value: order.tableNumber || '-' };
       case 'DELIVERY':
         return { label: 'Delivery', value: '-' };
-      case 'TAKEOUT':
+      case 'PICKUP':
         return { label: 'Retirada', value: '-' };
       default:
         return { label: type, value: '-' };
@@ -152,9 +153,9 @@ export function OrderDetailsModal({ order, isOpen, onClose }: OrderDetailsModalP
                           {item.quantity || 1}
                         </span>
                         <div>
-                          <p className="font-medium text-gray-800">{item.name || item.productName || 'Item'}</p>
-                          {item.observations && (
-                            <p className="text-xs text-gray-500">{item.observations}</p>
+                          <p className="font-medium text-gray-800">{item.name || item.productName || item.menuItemName || 'Item'}</p>
+                          {item.observation && (
+                            <p className="text-xs text-gray-500">{item.observation}</p>
                           )}
                           {item.addons && item.addons.length > 0 && (
                             <p className="text-xs text-gray-400">

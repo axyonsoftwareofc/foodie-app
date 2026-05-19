@@ -1,6 +1,5 @@
 // src/app/layout.tsx
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
 import { Toaster } from 'sonner';
 import './globals.css';
 import { CartProvider } from '@/contexts/CartContext';
@@ -10,8 +9,6 @@ import Header from '@/components/layout/Header';
 import BottomNav from '@/components/layout/BottomNav';
 import { CartSidebarGlobal } from '@/components/cart/CartSidebarGlobal';
 import ServiceWorkerRegister from '@/components/pwa/ServiceWorkerRegister';
-
-const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
     title: 'Foodie - Delivery de Comida',
@@ -58,7 +55,7 @@ export default function RootLayout({
 }>) {
     return (
         <html lang="pt-BR" suppressHydrationWarning>
-        <body className={inter.className}>
+        <body className="font-sans">
         <ThemeProvider>
             <AuthProvider>
                 <CartProvider>

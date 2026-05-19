@@ -1,5 +1,6 @@
 // src/app/api/payments/paypal/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { getCurrentUser } from '@/lib/authz';
 
 const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID || '';
 const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET || '';
@@ -36,7 +37,20 @@ interface CaptureOrderRequest {
     orderId: string;
 }
 
+interface PayPalLink {
+    rel: string;
+    href: string;
+}
+
 export async function POST(request: NextRequest) {
+    const { error: authError } = await getCurrentUser();
+    if (authError) {
+        return NextResponse.json(
+            { error: authError },
+            { status: 401 }
+        );
+    }
+
     try {
         const body: CreateOrderRequest = await request.json();
         const { amount, orderId, description, customerEmail } = body;
@@ -79,7 +93,7 @@ export async function POST(request: NextRequest) {
             body: JSON.stringify(orderData),
         });
 
-        const orderResult = await response.json();
+        const orderResult = await response.json() as { id?: string; status?: string; links?: PayPalLink[]; message?: string };
 
         if (!response.ok) {
             return NextResponse.json(
@@ -88,9 +102,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const approveLink = orderResult.links?.find(
-            (link: any) => link.rel === 'approve'
-        );
+        const approveLink = orderResult.links?.find((link) => link.rel === 'approve');
 
         return NextResponse.json({
             id: orderResult.id,
@@ -108,6 +120,14 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+    const { error: authError } = await getCurrentUser();
+    if (authError) {
+        return NextResponse.json(
+            { error: authError },
+            { status: 401 }
+        );
+    }
+
     try {
         const body: CaptureOrderRequest = await request.json();
         const { orderId } = body;
@@ -161,6 +181,14 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+    const { error: authError } = await getCurrentUser();
+    if (authError) {
+        return NextResponse.json(
+            { error: authError },
+            { status: 401 }
+        );
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const orderId = searchParams.get('orderId');
 

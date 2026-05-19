@@ -189,13 +189,15 @@ model Order {
   restaurant_id    String
 
   // Cancelamento
-  cancelled_at     DateTime?
-  cancel_reason    String?
+  cancelled_at  DateTime?
+  cancel_reason String?
 
   // Prazos de preparo
-  estimated_preparation_time Int?       // em minutos
+  confirmed_at               DateTime?
+  estimated_preparation_time Int? // em minutos
   preparation_started_at     DateTime?
   ready_at                   DateTime?
+  delivering_at              DateTime?
   delivered_at               DateTime?
 
   restaurant Restaurant @relation(fields: [restaurant_id], references: [id], onDelete: Cascade)

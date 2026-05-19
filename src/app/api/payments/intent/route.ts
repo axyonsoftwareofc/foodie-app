@@ -1,5 +1,6 @@
 // src/app/api/payments/intent/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { getCurrentUser } from '@/lib/authz';
 
 const FEATURE_ENABLED = process.env.ENABLE_STRIPE_PAYMENTS === 'true';
 
@@ -11,6 +12,14 @@ export async function POST(request: NextRequest) {
                 message: 'This feature will be available in v5.0'
             },
             { status: 503 }
+        );
+    }
+
+    const { error: authError } = await getCurrentUser();
+    if (authError) {
+        return NextResponse.json(
+            { error: authError },
+            { status: 401 }
         );
     }
 

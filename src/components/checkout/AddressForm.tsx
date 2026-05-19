@@ -1,20 +1,73 @@
-// src/components/checkout/AddressForm.tsx
+// src/components/checkout/AddressForm.tsx (atualizado)
 'use client';
 
-import { MapPin } from 'lucide-react';
+import { useState } from 'react';
+import { MapPin, Search, Loader2 } from 'lucide-react';
 import { AddressFormData } from '@/lib/validations/checkout.validations';
 import { BRAZILIAN_STATES, CHECKOUT_MESSAGES } from '@/lib/constants/checkout.constants';
 import { formatZipCode } from '@/lib/utils/checkout.utils';
+import { useViaCep } from '@/hooks/useViaCep';
+import { toast } from 'sonner';
 
 interface AddressFormProps {
     data: AddressFormData;
     errors: Partial<Record<keyof AddressFormData, string>>;
     onChange: (field: keyof AddressFormData, value: string) => void;
+    onCepFound?: (address: Partial<AddressFormData>) => void;
 }
 
-export default function AddressForm({ data, errors, onChange }: AddressFormProps) {
+export default function AddressForm({
+                                        data,
+                                        errors,
+                                        onChange,
+                                        onCepFound
+                                    }: AddressFormProps) {
+    const { fetchAddress, loading: loadingCep } = useViaCep();
+    const [cepTouched, setCepTouched] = useState(false);
+
     const handleZipCodeChange = (value: string): void => {
         onChange('zipCode', formatZipCode(value));
+        setCepTouched(true);
+    };
+
+    const handleSearchCep = async (): Promise<void> => {
+        const cleanCep = data.zipCode.replace(/\D/g, '');
+
+        if (cleanCep.length !== 8) {
+            toast.error('Digite um CEP válido com 8 dígitos');
+            return;
+        }
+
+        const result = await fetchAddress(cleanCep);
+
+        if (result) {
+            const addressData = {
+                street: result.logradouro || '',
+                neighborhood: result.bairro || '',
+                city: result.localidade || '',
+                state: result.uf || '',
+                complement: result.complemento || data.complement || '',
+            };
+
+            // Preencher campos
+            onChange('street', addressData.street);
+            onChange('neighborhood', addressData.neighborhood);
+            onChange('city', addressData.city);
+            onChange('state', addressData.state);
+
+            if (addressData.complement) {
+                onChange('complement', addressData.complement);
+            }
+
+            // Limpar erros dos campos preenchidos
+            if (onCepFound) {
+                onCepFound(addressData);
+            }
+
+            toast.success('Endereço encontrado!');
+        } else {
+            toast.error('CEP não encontrado');
+        }
     };
 
     const inputBaseStyles = "w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00A082] transition-colors";
@@ -54,6 +107,55 @@ export default function AddressForm({ data, errors, onChange }: AddressFormProps
 
             {/* Formulário */}
             <div className="p-4 space-y-4">
+                {/* CEP com busca */}
+                <div>
+                    <label
+                        className="block text-sm font-medium mb-1"
+                        style={{ color: 'var(--color-text-secondary)' }}
+                    >
+                        CEP *
+                    </label>
+                    <div className="flex gap-2">
+                        <div className="flex-1">
+                            <input
+                                type="text"
+                                value={data.zipCode}
+                                onChange={(e) => handleZipCodeChange(e.target.value)}
+                                onBlur={() => {
+                                    if (cepTouched && data.zipCode.replace(/\D/g, '').length === 8) {
+                                        handleSearchCep();
+                                    }
+                                }}
+                                placeholder="00000-000"
+                                maxLength={9}
+                                className={inputBaseStyles}
+                                style={getInputStyle(!!errors.zipCode)}
+                            />
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleSearchCep}
+                            disabled={loadingCep || data.zipCode.replace(/\D/g, '').length !== 8}
+                            className="px-4 py-3 bg-[#00A082] text-white rounded-xl hover:bg-[#008c6f] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                        >
+                            {loadingCep ? (
+                                <Loader2 size={18} className="animate-spin" />
+                            ) : (
+                                <Search size={18} />
+                            )}
+                            <span className="hidden sm:inline">Buscar</span>
+                        </button>
+                    </div>
+                    {errors.zipCode && (
+                        <p className="text-sm mt-1" style={{ color: 'var(--color-error)' }}>
+                            {errors.zipCode}
+                        </p>
+                    )}
+                    <p className="text-xs mt-1" style={{ color: 'var(--color-text-tertiary)' }}>
+                        Digite o CEP para preencher automaticamente
+                    </p>
+                </div>
+
                 {/* Rua e Número */}
                 <div className="grid grid-cols-3 gap-4">
                     <div className="col-span-2">
@@ -70,6 +172,7 @@ export default function AddressForm({ data, errors, onChange }: AddressFormProps
                             placeholder="Nome da rua"
                             className={inputBaseStyles}
                             style={getInputStyle(!!errors.street)}
+                            disabled={loadingCep}
                         />
                         {errors.street && (
                             <p className="text-sm mt-1" style={{ color: 'var(--color-error)' }}>
@@ -122,6 +225,7 @@ export default function AddressForm({ data, errors, onChange }: AddressFormProps
                         placeholder="Apto, bloco, referência..."
                         className={inputBaseStyles}
                         style={getInputStyle(false)}
+                        disabled={loadingCep}
                     />
                 </div>
 
@@ -140,6 +244,7 @@ export default function AddressForm({ data, errors, onChange }: AddressFormProps
                         placeholder="Nome do bairro"
                         className={inputBaseStyles}
                         style={getInputStyle(!!errors.neighborhood)}
+                        disabled={loadingCep}
                     />
                     {errors.neighborhood && (
                         <p className="text-sm mt-1" style={{ color: 'var(--color-error)' }}>
@@ -148,8 +253,8 @@ export default function AddressForm({ data, errors, onChange }: AddressFormProps
                     )}
                 </div>
 
-                {/* Cidade, Estado e CEP */}
-                <div className="grid grid-cols-6 gap-4">
+                {/* Cidade, Estado */}
+                <div className="grid grid-cols-4 gap-4">
                     <div className="col-span-3">
                         <label
                             className="block text-sm font-medium mb-1"
@@ -164,6 +269,7 @@ export default function AddressForm({ data, errors, onChange }: AddressFormProps
                             placeholder="Sua cidade"
                             className={inputBaseStyles}
                             style={getInputStyle(!!errors.city)}
+                            disabled={loadingCep}
                         />
                         {errors.city && (
                             <p className="text-sm mt-1" style={{ color: 'var(--color-error)' }}>
@@ -172,7 +278,7 @@ export default function AddressForm({ data, errors, onChange }: AddressFormProps
                         )}
                     </div>
 
-                    <div className="col-span-1">
+                    <div>
                         <label
                             className="block text-sm font-medium mb-1"
                             style={{ color: 'var(--color-text-secondary)' }}
@@ -184,6 +290,7 @@ export default function AddressForm({ data, errors, onChange }: AddressFormProps
                             onChange={(e) => onChange('state', e.target.value)}
                             className="w-full px-3 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00A082] transition-colors"
                             style={getInputStyle(!!errors.state)}
+                            disabled={loadingCep}
                         >
                             <option value="">-</option>
                             {BRAZILIAN_STATES.map((state) => (
@@ -195,29 +302,6 @@ export default function AddressForm({ data, errors, onChange }: AddressFormProps
                         {errors.state && (
                             <p className="text-sm mt-1" style={{ color: 'var(--color-error)' }}>
                                 {errors.state}
-                            </p>
-                        )}
-                    </div>
-
-                    <div className="col-span-2">
-                        <label
-                            className="block text-sm font-medium mb-1"
-                            style={{ color: 'var(--color-text-secondary)' }}
-                        >
-                            CEP *
-                        </label>
-                        <input
-                            type="text"
-                            value={data.zipCode}
-                            onChange={(e) => handleZipCodeChange(e.target.value)}
-                            placeholder="00000-000"
-                            maxLength={9}
-                            className={inputBaseStyles}
-                            style={getInputStyle(!!errors.zipCode)}
-                        />
-                        {errors.zipCode && (
-                            <p className="text-sm mt-1" style={{ color: 'var(--color-error)' }}>
-                                {errors.zipCode}
                             </p>
                         )}
                     </div>

@@ -1,5 +1,6 @@
 // src/app/api/payments/mercadopago/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { getCurrentUser } from '@/lib/authz';
 
 const FEATURE_ENABLED = process.env.ENABLE_MERCADOPAGO_PAYMENTS === 'true'; // ✅ FEATURE FLAG
 
@@ -20,6 +21,44 @@ interface PaymentRequest {
     installments?: number;
 }
 
+interface MercadoPagoPaymentPayload {
+    transaction_amount: number;
+    description: string;
+    payment_method_id: PaymentRequest['paymentMethod'];
+    payer: {
+        email: string;
+        first_name: string;
+        last_name: string;
+    };
+    external_reference: string;
+    date_of_expiration?: string;
+    token?: string;
+    installments?: number;
+    issuer_id?: string;
+}
+
+interface MercadoPagoPaymentResult {
+    id?: string;
+    status?: string;
+    status_detail?: string;
+    transaction_amount?: number;
+    payment_method_id?: string;
+    date_approved?: string;
+    external_reference?: string;
+    message?: string;
+    point_of_interaction?: {
+        transaction_data?: {
+            qr_code?: string;
+            qr_code_base64?: string;
+        };
+    };
+    barcode?: string;
+    digitable_line?: string;
+    transaction_details?: {
+        external_resource_url?: string;
+    };
+}
+
 export async function POST(request: NextRequest) {
     // ✅ DESABILITADO NO MVP
     if (!FEATURE_ENABLED) {
@@ -29,6 +68,14 @@ export async function POST(request: NextRequest) {
                 message: 'This feature will be available in v5.0. Use manual PIX for now.'
             },
             { status: 503 }
+        );
+    }
+
+    const { error: authError } = await getCurrentUser();
+    if (authError) {
+        return NextResponse.json(
+            { error: authError },
+            { status: 401 }
         );
     }
 
@@ -53,7 +100,7 @@ export async function POST(request: NextRequest) {
         const payerFirstName = name?.split(' ')[0] || 'Cliente';
         const payerLastName = name?.split(' ').slice(1).join(' ') || '';
 
-        const paymentData: any = {
+        const paymentData: MercadoPagoPaymentPayload = {
             transaction_amount: amount,
             description: `Pedido Foodie #${orderId}`,
             payment_method_id: paymentMethod,
@@ -85,7 +132,7 @@ export async function POST(request: NextRequest) {
             body: JSON.stringify(paymentData),
         });
 
-        const paymentResult = await response.json();
+        const paymentResult = await response.json() as MercadoPagoPaymentResult;
 
         if (!response.ok) {
             return NextResponse.json(
@@ -142,6 +189,14 @@ export async function GET(request: NextRequest) {
         );
     }
 
+    const { error: authError } = await getCurrentUser();
+    if (authError) {
+        return NextResponse.json(
+            { error: authError },
+            { status: 401 }
+        );
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const paymentId = searchParams.get('id');
 
@@ -159,7 +214,7 @@ export async function GET(request: NextRequest) {
             },
         });
 
-        const paymentResult = await response.json();
+        const paymentResult = await response.json() as MercadoPagoPaymentResult;
 
         if (!response.ok) {
             return NextResponse.json(

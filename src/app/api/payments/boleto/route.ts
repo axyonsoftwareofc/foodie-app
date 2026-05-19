@@ -1,5 +1,6 @@
 // src/app/api/payments/boleto/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { getCurrentUser } from '@/lib/authz';
 
 interface BoletoRequest {
     amount: number;
@@ -78,6 +79,14 @@ function generateBoletoId(): string {
 }
 
 export async function POST(request: NextRequest) {
+    const { error: authError } = await getCurrentUser();
+    if (authError) {
+        return NextResponse.json(
+            { error: authError },
+            { status: 401 }
+        );
+    }
+
     try {
         const body: BoletoRequest = await request.json();
         const { amount, customerName, customerDocument, customerEmail, orderId, description, dueDate } = body;
@@ -157,6 +166,14 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+    const { error: authError } = await getCurrentUser();
+    if (authError) {
+        return NextResponse.json(
+            { error: authError },
+            { status: 401 }
+        );
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const boletoId = searchParams.get('id');
 
