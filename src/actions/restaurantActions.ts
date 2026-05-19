@@ -91,6 +91,7 @@ export async function getPublicRestaurants(): Promise<{ data?: import('@/types')
                 promoted: false,
                 isOpen: r.status === 'OPEN',
                 isActive: r.is_active,
+                cnpj: r.cnpj || undefined,
                 openingHours: parseOperatingHours(r.operating_hours),
                 settings: {
                     deliveryRadius: r.delivery_radius ?? undefined,
@@ -752,6 +753,7 @@ export async function registerRestaurant(
 
     const name = formData.get("name") as string
     let subdomain = formData.get("subdomain") as string
+    const cnpj = (formData.get("cnpj") as string) || undefined
 
     if (!name || !subdomain) {
         return { error: "Nome e Subdomínio são obrigatórios." }
@@ -779,6 +781,8 @@ export async function registerRestaurant(
             where: { slug },
         })
 
+        const baseData = { name, subdomain, user_id: user.id, cnpj }
+
         if (existingSlug) {
             // Adicionar número ao slug
             const timestamp = Date.now()
@@ -786,19 +790,15 @@ export async function registerRestaurant(
 
             await prisma.restaurant.create({
                 data: {
-                    name,
-                    slug: uniqueSlug, // ✅ SLUG ÚNICO
-                    subdomain,
-                    user_id: user.id,
+                    ...baseData,
+                    slug: uniqueSlug,
                 },
             })
         } else {
             await prisma.restaurant.create({
                 data: {
-                    name,
-                    slug, // ✅ SLUG OBRIGATÓRIO
-                    subdomain,
-                    user_id: user.id,
+                    ...baseData,
+                    slug,
                 },
             })
         }

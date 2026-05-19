@@ -9,3 +9,6 @@ ADD COLUMN "estimated_delivery" TEXT NULL;
 
 -- AddRelation: Restaurant.reviews <-> Review.restaurant
 -- (No schema change needed – relation already exists via restaurant_id FK)
+
+-- AlterTable: Add CNPJ to restaurants
+ALTER TABLE "restaurants" ADD COLUMN "cnpj" TEXT NULL;

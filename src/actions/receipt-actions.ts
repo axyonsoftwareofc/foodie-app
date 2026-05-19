@@ -2,6 +2,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { prisma } from '@/lib/prisma';
 import { ReceiptData, ReceiptItem, ReceiptAddress } from '@/types/payment.types';
 
 type ReceiptOrderItem = {
@@ -77,6 +78,16 @@ export async function generateReceipt(orderId: string): Promise<{ data?: Receipt
             zipCode: order.address?.zipCode || '',
         };
 
+        let cnpj = restaurant?.cnpj || undefined
+
+        if (!cnpj && order.restaurant_id) {
+            const prismaRestaurant = await prisma.restaurant.findUnique({
+                where: { id: order.restaurant_id },
+                select: { cnpj: true },
+            })
+            cnpj = prismaRestaurant?.cnpj || undefined
+        }
+
         const receipt: ReceiptData = {
             id: `RCP-${orderId.substring(0, 8).toUpperCase()}`,
             orderId: order.id,
@@ -92,7 +103,7 @@ export async function generateReceipt(orderId: string): Promise<{ data?: Receipt
             transactionId: order.transaction_id,
             address,
             restaurantName: restaurant?.name || 'Restaurante',
-            restaurantCNPJ: restaurant?.cnpj,
+            restaurantCNPJ: cnpj,
             issuedAt: new Date().toISOString(),
             status: order.status === 'DELIVERED' ? 'PAID' : 'PENDING',
         };

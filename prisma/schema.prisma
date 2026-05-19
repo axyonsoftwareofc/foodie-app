@@ -65,6 +65,9 @@ model Restaurant {
   phone       String?
   email       String?
 
+  // Documento
+  cnpj String?
+
   // Endereço
   street       String?
   number       String?
