@@ -24,10 +24,17 @@ interface ProfileMenuItem {
     action?: () => void;
 }
 
+type ProfileRow = {
+    full_name?: string | null;
+    avatar_url?: string | null;
+    role?: string | null;
+    created_at?: string | null;
+};
+
 export default function ProfilePage() {
     const router = useRouter();
     const { user, signOut, hasRole } = useAuth();
-    const [profile, setProfile] = useState<any>(null);
+    const [profile, setProfile] = useState<ProfileRow | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [privacySettings, setPrivacySettings] = useState<UserPrivacySettings | null>(null);
     const [favoritesCount, setFavoritesCount] = useState(0);

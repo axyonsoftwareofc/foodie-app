@@ -1,84 +1,101 @@
 // src/hooks/useKitchenOrders.ts
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { getOrdersForRestaurant } from '@/actions/orders'
+import type { KitchenOrder } from '@/types/kitchen.types'
+import type { OrderType } from '@/types'
 import { toast } from 'sonner'
 
-export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED'
+// EXPORTAR o tipo para uso em outros componentes
+export type { KitchenOrder as Order }
 
-export type Order = {
-    id: string
-    customerName: string
-    status: OrderStatus
-    items: any[]
-    total: number
-    tableNumber?: string
-    orderType: string
-    createdAt: string
+export interface KitchenFilters {
+    status?: string
+    orderType?: OrderType | 'ALL'
+    searchQuery?: string
+    dateFrom?: string
+    dateTo?: string
 }
 
-export function useKitchenOrders(restaurantId: string) {
-    const [orders, setOrders] = useState<Order[]>([])
-    const [newOrderSound, setNewOrderSound] = useState<HTMLAudioElement | null>(null)
+export function useKitchenOrders() {
+    const [orders, setOrders] = useState<KitchenOrder[]>([])
+    const [loading, setLoading] = useState(true)
+    const [filters, setFilters] = useState<KitchenFilters>({})
+    const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
+
+    const previousOrderIdsRef = useRef<Set<string>>(new Set())
+    const audioRef = useRef<HTMLAudioElement | null>(null)
 
     useEffect(() => {
-        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3')
-        setNewOrderSound(audio)
+        audioRef.current = new Audio('/sounds/new-order.mp3')
     }, [])
 
     const fetchOrders = useCallback(async () => {
-        try {
-            const res = await fetch(`/api/orders?restaurantId=${restaurantId}`)
-            if (res.ok) {
-                const data = await res.json()
-                setOrders(data as Order[])
+        const result = await getOrdersForRestaurant({
+            filters: {
+                status: filters.status !== 'ALL' ? filters.status : undefined,
+                orderType: filters.orderType !== 'ALL' ? filters.orderType : undefined,
+                search: filters.searchQuery,
+                dateFrom: filters.dateFrom,
+                dateTo: filters.dateTo,
             }
-        } catch (e) {
-            console.error('Erro ao buscar pedidos:', e)
+        })
+
+        if (result.data) {
+            const newOrders = result.data
+            const currentIds = new Set(newOrders.map(o => o.id))
+            const previousIds = previousOrderIdsRef.current
+
+            // Detectar novos pedidos (apenas PENDING)
+            for (const order of newOrders) {
+                if (!previousIds.has(order.id) && order.status === 'PENDING') {
+                    // Tocar som
+                    audioRef.current?.play().catch(() => {})
+
+                    // Toast
+                    toast.success(`🔔 Novo pedido #${order.id.slice(-4)}!`, {
+                        description:
+                            order.orderType === 'DINE_IN'
+                                ? `Mesa ${order.tableNumber}`
+                                : order.orderType,
+                        duration: 5000
+                    })
+                }
+            }
+
+            previousOrderIdsRef.current = currentIds
+            setOrders(newOrders)
+            setLastUpdate(new Date())
         }
-    }, [restaurantId])
+
+        setLoading(false)
+    }, [filters])
 
     useEffect(() => {
         fetchOrders()
 
-        const supabase = createClient()
-
-        const channel = supabase
-            .channel(`kitchen-${restaurantId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'orders',
-                    filter: `restaurant_id=eq.${restaurantId}`
-                },
-                (payload) => {
-                    console.log('Mudança detectada!', payload)
-
-                    if (payload.eventType === 'INSERT' && payload.new.status === 'PENDING') {
-                        newOrderSound?.play().catch(e => console.log('Som bloqueado'))
-                        toast.success(`🔔 Novo pedido #${String(payload.new.id).slice(-4)}!`, {
-                            description: `${payload.new.customer_name} - ${payload.new.order_type === 'DINE_IN' ? 'Mesa ' + payload.new.table_number : 'Delivery'}`
-                        })
-                    }
-
-                    fetchOrders()
-                }
-            )
-            .subscribe()
-
-        return () => {
-            supabase.removeChannel(channel)
-        }
-    }, [restaurantId, fetchOrders, newOrderSound])
-
-    // Poll every 15 seconds as fallback
-    useEffect(() => {
-        const interval = setInterval(fetchOrders, 15000)
+        const interval = setInterval(fetchOrders, 30000)
         return () => clearInterval(interval)
     }, [fetchOrders])
 
-    return { orders, refresh: fetchOrders }
+    const updateFilters = useCallback((newFilters: Partial<KitchenFilters>) => {
+        setFilters(prev => ({ ...prev, ...newFilters }))
+        setLoading(true)
+    }, [])
+
+    const clearFilters = useCallback(() => {
+        setFilters({})
+        setLoading(true)
+    }, [])
+
+    return {
+        orders,
+        loading,
+        filters,
+        lastUpdate,
+        refresh: fetchOrders,
+        updateFilters,
+        clearFilters
+    }
 }

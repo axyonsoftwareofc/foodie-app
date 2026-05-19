@@ -1,6 +1,7 @@
 // src/tests/unit/types/auth.types.test.ts
 import { describe, it, expect } from 'vitest'
 import type { UserRole, UserProfile, AuthState, AuthFormData, SignUpFormData } from '@/types/auth.types'
+import type { User } from '@supabase/supabase-js'
 
 describe('Auth Types', () => {
     describe('UserRole', () => {
@@ -86,7 +87,7 @@ describe('Auth Types', () => {
             }
 
             const authState: AuthState = {
-                user: { id: 'auth-user-123', email: 'test@example.com', email_confirmed_at: '2024-01-01', created_at: '2024-01-01' } as any,
+                user: { id: 'auth-user-123', email: 'test@example.com', email_confirmed_at: '2024-01-01', created_at: '2024-01-01' } as Partial<User> as User,
                 profile,
                 isLoading: false,
                 isAuthenticated: true,

@@ -25,7 +25,7 @@ describe('MenuItemModal', () => {
     it('should render item description', () => {
         render(<MenuItemModal {...defaultProps} />);
 
-        expect(screen.getByText(mockMenuItem.description)).toBeInTheDocument();
+        expect(screen.getByText(mockMenuItem.description || '')).toBeInTheDocument();
     });
 
     it('should render item price', () => {

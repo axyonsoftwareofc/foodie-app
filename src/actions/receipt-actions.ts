@@ -1,12 +1,19 @@
 // src/actions/receipt-actions.ts
 'use server';
 
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/supabase/server';
 import { ReceiptData, ReceiptItem, ReceiptAddress } from '@/types/payment.types';
+
+type ReceiptOrderItem = {
+    menuItemName: string;
+    menuItemPrice: number;
+    quantity: number;
+    observation?: string;
+};
 
 export async function generateReceipt(orderId: string): Promise<{ data?: ReceiptData; error?: string }> {
     try {
-        const supabase = createClient();
+        const supabase = await createClient();
 
         const { data: order, error: orderError } = await supabase
             .from('orders')
@@ -20,20 +27,29 @@ export async function generateReceipt(orderId: string): Promise<{ data?: Receipt
 
         const { data: restaurant } = await supabase
             .from('restaurants')
-            .select('name, cnpj, address')
+            .select('name, cnpj, address, user_id')
             .eq('id', order.restaurant_id)
             .single();
 
-        const { data: user } = await supabase.auth.getUser();
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) {
+            return { error: 'Usuário não autenticado' };
+        }
+
+        const isCustomer = order.customer_id === user.id;
+        const isRestaurantOwner = restaurant?.user_id === user.id;
+        if (!isCustomer && !isRestaurantOwner) {
+            return { error: 'Não autorizado' };
+        }
 
         let userName = 'Cliente';
         let userEmail = '';
 
-        if (user.user) {
+        if (user) {
             const { data: profile } = await supabase
                 .from('profiles')
                 .select('full_name, email')
-                .eq('id', user.user.id)
+                .eq('id', user.id)
                 .single();
 
             if (profile) {
@@ -42,7 +58,8 @@ export async function generateReceipt(orderId: string): Promise<{ data?: Receipt
             }
         }
 
-        const items: ReceiptItem[] = order.items.map((item: any) => ({
+        const orderItems = Array.isArray(order.items) ? order.items as ReceiptOrderItem[] : [];
+        const items: ReceiptItem[] = orderItems.map((item) => ({
             name: item.menuItemName,
             quantity: item.quantity,
             unitPrice: item.menuItemPrice,
@@ -93,10 +110,20 @@ export async function getReceiptByOrder(orderId: string): Promise<{ data?: Recei
 
 export async function sendReceiptByEmail(
     receiptId: string,
-    email: string
+    email: string,
+    orderId: string
 ): Promise<{ success?: boolean; error?: string }> {
     try {
-        const supabase = createClient();
+        const receipt = await generateReceipt(orderId);
+        if (receipt.error || !receipt.data) {
+            return { error: receipt.error || 'Recibo nao encontrado' };
+        }
+
+        if (receipt.data.id !== receiptId) {
+            return { error: 'Recibo nao pertence ao pedido informado' };
+        }
+
+        const supabase = await createClient();
 
         const { error } = await supabase
             .from('receipts')

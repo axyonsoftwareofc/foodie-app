@@ -19,7 +19,7 @@ export interface CheckoutOrderData {
     total: number;
     restaurantId: string;
     restaurantName: string;
-    status: 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'DELIVERING' | 'DELIVERED';
+    status: 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED';
     createdAt: string;
     estimatedDelivery: string;
 }

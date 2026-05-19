@@ -1,4 +1,5 @@
 // src/types/index.ts
+
 // ============================================
 // RESTAURANT TYPES
 // ============================================
@@ -16,6 +17,14 @@ export interface Restaurant {
     isOpen?: boolean;
     address?: string;
     description?: string;
+    deliveryRadius?: number;
+    minimumOrder?: number;
+    deliveryTimeMin?: number;
+    deliveryTimeMax?: number;
+    addressLat?: number;
+    addressLng?: number;
+    addressStreet?: string;
+    addressNumber?: string;
 }
 
 export interface Category {
@@ -69,7 +78,7 @@ export interface CartSummary {
 }
 
 // ============================================
-// ORDER TYPES (Fase 2)
+// ORDER TYPES
 // ============================================
 
 export type OrderStatus =
@@ -78,9 +87,10 @@ export type OrderStatus =
     | 'PREPARING'
     | 'READY'
     | 'PICKED_UP'
-    | 'DELIVERING'
     | 'DELIVERED'
     | 'CANCELLED';
+
+export type OrderType = 'DELIVERY' | 'DINE_IN' | 'PICKUP';
 
 export interface Order {
     id: string;
@@ -100,7 +110,37 @@ export interface Order {
 }
 
 // ============================================
-// USER TYPES (Fase 3)
+// KITCHEN ORDER TYPES (Painel da Cozinha)
+// ============================================
+
+export interface KitchenOrderItem {
+    name?: string;
+    productName?: string;
+    quantity?: number;
+    price?: number;
+    observations?: string;
+    addons?: Array<{ name: string }>;
+}
+
+export interface KitchenOrder {
+    id: string;
+    orderNumber?: number;
+    orderType: OrderType;
+    status: OrderStatus;
+    customerName: string;
+    customerPhone?: string;
+    tableNumber?: string;
+    items: KitchenOrderItem[];
+    total: number;
+    createdAt: string;
+    confirmedAt?: string;
+    preparingAt?: string;
+    readyAt?: string;
+    deliveredAt?: string;
+}
+
+// ============================================
+// USER TYPES
 // ============================================
 
 export interface User {
@@ -121,7 +161,7 @@ export interface Address {
     state: string;
     zipCode: string;
     isDefault?: boolean;
-    label?: string; // "Casa", "Trabalho", etc.
+    label?: string;
 }
 
 export type PaymentMethod = 'CREDIT_CARD' | 'DEBIT_CARD' | 'PIX' | 'CASH';
@@ -155,6 +195,13 @@ export interface RestaurantFilters {
     maxDeliveryFee?: number;
     freeDeliveryOnly?: boolean;
     sortBy?: 'relevance' | 'rating' | 'deliveryTime' | 'deliveryFee';
+}
+
+export interface KitchenFiltersState {
+    status?: string;
+    searchQuery: string;
+    orderType?: OrderType | 'ALL';
+    sortBy: 'newest' | 'oldest' | 'priority';
 }
 
 // Re-export de tipos específicos

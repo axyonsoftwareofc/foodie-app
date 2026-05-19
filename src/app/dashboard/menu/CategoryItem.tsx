@@ -20,8 +20,21 @@ function SubmitProductButton() {
     );
 }
 
+type CategoryProduct = {
+    id: string;
+    name: string;
+    description?: string | null;
+    price: number;
+};
+
+type CategoryWithProducts = {
+    id: string;
+    name: string;
+    products?: CategoryProduct[];
+};
+
 // O componente recebe a categoria e seus produtos (se tiver)
-export function CategoryItem({ category }: { category: any }) {
+export function CategoryItem({ category }: { category: CategoryWithProducts }) {
     const [isAdding, setIsAdding] = useState(false);
     const formRef = useRef<HTMLFormElement>(null);
 
@@ -53,7 +66,7 @@ export function CategoryItem({ category }: { category: any }) {
             {/* Lista de Produtos já cadastrados nessa categoria */}
             {category.products && category.products.length > 0 && (
                 <div className="px-12 pb-4 space-y-3">
-                    {category.products.map((product: any) => (
+                    {category.products.map((product) => (
                         <div key={product.id} className="flex justify-between items-start p-3 bg-gray-50 rounded-lg border border-gray-100">
                             <div>
                                 <h4 className="font-medium text-gray-900">{product.name}</h4>

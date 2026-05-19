@@ -2,9 +2,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
+import { getOwnedCategory, userOwnsRestaurant } from '@/lib/authz'
 
 const categorySchema = z.object({
-    restaurantId: z.string().uuid(),
+    restaurantId: z.string().min(1),
     name: z.string().min(2),
     description: z.string().optional(),
     icon: z.string().optional(),
@@ -77,6 +78,10 @@ export async function POST(request: Request) {
             )
         }
 
+        if (!(await userOwnsRestaurant(user.id, result.data.restaurantId))) {
+            return NextResponse.json({ error: 'Não autorizado ou restaurante não encontrado' }, { status: 403 })
+        }
+
         const { data, error } = await supabase
             .from('categories')
             .insert({
@@ -120,6 +125,11 @@ export async function PUT(request: Request) {
         }
 
         const body = await request.json()
+
+        const categoryOwner = await getOwnedCategory(user.id, categoryId)
+        if (!categoryOwner) {
+            return NextResponse.json({ error: 'Não autorizado ou categoria não encontrada' }, { status: 403 })
+        }
         
         const { data, error } = await supabase
             .from('categories')
@@ -163,9 +173,14 @@ export async function DELETE(request: Request) {
             return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
         }
 
+        const categoryOwner = await getOwnedCategory(user.id, categoryId)
+        if (!categoryOwner) {
+            return NextResponse.json({ error: 'Não autorizado ou categoria não encontrada' }, { status: 403 })
+        }
+
         const { error } = await supabase
             .from('categories')
-            .update({ isActive: false })
+            .update({ is_active: false })
             .eq('id', categoryId)
 
         if (error) {

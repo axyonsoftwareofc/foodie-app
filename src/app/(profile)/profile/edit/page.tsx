@@ -9,15 +9,24 @@ import { useAuth } from '@/hooks/useAuth';
 import { formatPhoneInput } from '@/lib/utils/format.utils';
 import { getUserProfile, updateUserProfile } from '@/actions/profileActions';
 
+type ProfileRow = {
+    full_name?: string | null;
+    phone?: string | null;
+    avatar_url?: string | null;
+};
+
 export default function EditProfilePage() {
     const router = useRouter();
     const { user } = useAuth();
-    const [profile, setProfile] = useState<any>(null);
+    const [profile, setProfile] = useState<ProfileRow | null>(null);
     const [fullName, setFullName] = useState('');
     const [phone, setPhone] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-    const [hasChanges, setHasChanges] = useState(false);
+    const phoneDigits = phone.replace(/\D/g, '');
+    const hasChanges = profile
+        ? fullName !== (profile.full_name || '') || phoneDigits !== (profile.phone || '')
+        : false;
 
     useEffect(() => {
         async function loadProfile() {
@@ -44,22 +53,11 @@ export default function EditProfilePage() {
         loadProfile();
     }, [user, router]);
 
-    useEffect(() => {
-        if (profile) {
-            const nameChanged = fullName !== (profile.full_name || '');
-            const phoneDigits = phone.replace(/\D/g, '');
-            const phoneChanged = phoneDigits !== (profile.phone || '');
-            setHasChanges(nameChanged || phoneChanged);
-        }
-    }, [fullName, phone, profile]);
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!hasChanges) return;
 
         setIsSaving(true);
-        const phoneDigits = phone.replace(/\D/g, '');
-
         const result = await updateUserProfile({
             full_name: fullName,
             phone: phoneDigits,

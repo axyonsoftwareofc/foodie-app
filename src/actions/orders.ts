@@ -107,7 +107,50 @@ function parseAddress(deliveryAddress: unknown): OrderData['address'] {
     return deliveryAddress as OrderData['address']
 }
 
-function mapOrderToData(order: any, userId: string, restaurantName?: string): OrderData {
+type OrderReviewRecord = {
+    id: string
+    rating: number
+    comment: string | null
+    created_at?: Date | string | null
+    createdAt?: string
+}
+
+type OrderRecord = {
+    id: string
+    customer_name: string
+    customer_phone: string | null
+    restaurant_id: string
+    order_type: string
+    table_number: string | null
+    status: string
+    items: unknown
+    delivery_address: unknown
+    total: number
+    payment_method?: string | null
+    change_for?: number | null
+    subtotal?: number | null
+    delivery_fee?: number | null
+    discount?: number | null
+    coupon_code?: string | null
+    estimated_delivery?: string | null
+    estimated_preparation_time?: number | null
+    preparation_started_at?: Date | null
+    ready_at?: Date | null
+    delivered_at?: Date | null
+    cancelled_at?: Date | null
+    cancel_reason?: string | null
+    created_at?: Date
+    updated_at?: Date
+    restaurant?: { name: string } | null
+    reviews?: OrderReviewRecord[]
+}
+
+function toDateString(value?: Date | string | null): string {
+    if (!value) return ''
+    return value instanceof Date ? value.toISOString() : value
+}
+
+function mapOrderToData(order: OrderRecord, userId: string, restaurantName?: string): OrderData {
     const items = parseOrderItems(order.items)
     const address = parseAddress(order.delivery_address)
 
@@ -118,7 +161,7 @@ function mapOrderToData(order: any, userId: string, restaurantName?: string): Or
             id: r.id,
             rating: r.rating,
             comment: r.comment,
-            createdAt: r.created_at?.toISOString?.() || r.createdAt || '',
+            createdAt: toDateString(r.created_at) || r.createdAt || '',
         }
     }
 
@@ -244,7 +287,7 @@ export async function getOrders(): Promise<{ data?: OrderData[]; error?: string 
                 customer_id: user.id,
             },
             include: {
-                restaurant: { select: { name: true } },
+                restaurant: { select: { name: true, user_id: true } },
                 reviews: {
                     where: { user_id: user.id },
                     take: 1,
@@ -267,31 +310,40 @@ export async function getOrders(): Promise<{ data?: OrderData[]; error?: string 
 }
 
 export async function getOrderById(orderId: string): Promise<{ data?: OrderData; error?: string }> {
+    console.log('🔍 [getOrderById] Buscando pedido:', orderId)
+
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
+        console.log('❌ [getOrderById] Não autenticado')
         return { error: 'Usuário não autenticado' }
     }
 
     try {
         const order = await prisma.order.findUnique({
-            where: {
-                id: orderId,
-            },
+            where: { id: orderId },
             include: {
-                restaurant: { select: { name: true } },
+                restaurant: { select: { name: true, user_id: true } },
                 reviews: true,
             },
         })
 
         if (!order) {
+            console.log('❌ [getOrderById] Pedido não encontrado:', orderId)
             return { error: 'Pedido não encontrado' }
+        }
+
+        console.log('✅ [getOrderById] Pedido encontrado:', order.id)
+        const isCustomer = order.customer_id === user.id
+        const isRestaurantOwner = order.restaurant?.user_id === user.id
+        if (!isCustomer && !isRestaurantOwner) {
+            return { error: 'NÃ£o autorizado' }
         }
 
         return { data: mapOrderToData(order, user.id, order.restaurant?.name) }
     } catch (error) {
-        console.error('Erro ao buscar pedido:', error)
+        console.error('❌ [getOrderById] Erro:', error)
         return { error: 'Pedido não encontrado' }
     }
 }
@@ -328,7 +380,7 @@ export async function updateOrderStatus({
     }
 
     try {
-        const updateData: any = {
+        const updateData: Prisma.OrderUpdateInput = {
             status: newStatus,
             updated_at: new Date(),
         }
@@ -487,6 +539,10 @@ export async function createOrderReview({
             return { error: 'Não autorizado' }
         }
 
+        if (order.restaurant_id !== restaurantId) {
+            return { error: 'Restaurante invÃ¡lido para este pedido' }
+        }
+
         if (order.status !== 'DELIVERED') {
             return { error: 'Só é possível avaliar pedidos entregues' }
         }
@@ -539,7 +595,7 @@ export async function getOrdersForRestaurant({
             return { error: 'Restaurante não encontrado' }
         }
 
-        const where: any = { restaurant_id: restaurant.id }
+        const where: Prisma.OrderWhereInput = { restaurant_id: restaurant.id }
 
         if (filters?.status && filters.status !== 'ALL') {
             where.status = filters.status as OrderStatus

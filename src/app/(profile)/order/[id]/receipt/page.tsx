@@ -70,7 +70,7 @@ export default function ReceiptPage() {
         if (!receipt?.customerEmail) return;
         
         setIsSendingEmail(true);
-        const result = await sendReceiptByEmail(receipt.id, receipt.customerEmail);
+        const result = await sendReceiptByEmail(receipt.id, receipt.customerEmail, receipt.orderId);
         
         if (result.success) {
             toast.success('Recibo enviado por e-mail');

@@ -5,6 +5,7 @@ import { Order } from '@/hooks/useKitchenOrders';
 interface OrderItem {
   name?: string;
   productName?: string;
+  menuItemName?: string;
 }
 
 export interface NewOrderAlertProps {
@@ -19,7 +20,7 @@ export function NewOrderAlert({ order, onDismiss }: NewOrderAlertProps) {
         return `Mesa ${order.tableNumber || ''}`;
       case 'DELIVERY':
         return 'Delivery';
-      case 'TAKEOUT':
+      case 'PICKUP':
         return 'Retirada';
       default:
         return type;
@@ -28,7 +29,7 @@ export function NewOrderAlert({ order, onDismiss }: NewOrderAlertProps) {
 
   const getItemsList = (items: OrderItem[]) => {
     if (!items || items.length === 0) return [];
-    return items.map((item) => item.name || item.productName || 'Item');
+    return items.map((item) => item.name || item.productName || item.menuItemName || 'Item');
   };
 
   const itemsList = getItemsList(order.items);

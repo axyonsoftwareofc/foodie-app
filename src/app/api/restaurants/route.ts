@@ -2,6 +2,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
+import { userOwnsRestaurant } from '@/lib/authz'
 
 const restaurantSchema = z.object({
     name: z.string().min(2),
@@ -99,7 +100,7 @@ export async function POST(request: Request) {
             .from('restaurants')
             .insert({
                 ...result.data,
-                owner_id: user.id,
+                user_id: user.id,
             })
             .select()
             .single()
@@ -133,6 +134,10 @@ export async function PUT(request: Request) {
         }
 
         const body = await request.json()
+
+        if (!(await userOwnsRestaurant(user.id, restaurantId))) {
+            return NextResponse.json({ error: 'Não autorizado ou restaurante não encontrado' }, { status: 403 })
+        }
         
         const { data, error } = await supabase
             .from('restaurants')
@@ -169,9 +174,13 @@ export async function DELETE(request: Request) {
             return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
         }
 
+        if (!(await userOwnsRestaurant(user.id, restaurantId))) {
+            return NextResponse.json({ error: 'Não autorizado ou restaurante não encontrado' }, { status: 403 })
+        }
+
         const { error } = await supabase
             .from('restaurants')
-            .update({ isActive: false })
+            .update({ is_active: false })
             .eq('id', restaurantId)
 
         if (error) {

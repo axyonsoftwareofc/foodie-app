@@ -6,6 +6,18 @@ import { getOrders as getOrdersFromDB, type OrderData } from '@/actions/orders';
 
 const ORDERS_STORAGE_KEY = 'foodie-orders';
 
+function readStoredOrders(): OrderData[] {
+    try {
+        const stored = localStorage.getItem(ORDERS_STORAGE_KEY);
+        if (!stored) return [];
+        const parsed = JSON.parse(stored);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+        console.error('Error parsing stored orders:', error);
+        return [];
+    }
+}
+
 export function useOrders() {
     const [orders, setOrders] = useState<OrderData[]>([]);
     const [isHydrated, setIsHydrated] = useState(false);
@@ -21,17 +33,11 @@ export function useOrders() {
                     localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(result.data));
                 } else {
                     // Fallback to localStorage
-                    const stored = localStorage.getItem(ORDERS_STORAGE_KEY);
-                    if (stored) {
-                        setOrders(JSON.parse(stored));
-                    }
+                    setOrders(readStoredOrders());
                 }
             } catch (error) {
                 console.error('Error loading orders:', error);
-                const stored = localStorage.getItem(ORDERS_STORAGE_KEY);
-                if (stored) {
-                    setOrders(JSON.parse(stored));
-                }
+                setOrders(readStoredOrders());
             }
             setIsLoading(false);
             setIsHydrated(true);

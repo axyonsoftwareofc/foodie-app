@@ -127,7 +127,7 @@ export default async function OrdersPage() {
             </div>
 
             {/* Kanban Board */}
-            <KanbanBoard restaurantId={restaurant.id} />
+            <KanbanBoard />
         </div>
     )
 }
