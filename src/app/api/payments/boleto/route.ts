@@ -1,6 +1,7 @@
 // src/app/api/payments/boleto/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/authz';
+import { getOrderPaymentContext } from '@/lib/payments/order-payment';
 
 interface BoletoRequest {
     amount: number;
@@ -79,22 +80,23 @@ function generateBoletoId(): string {
 }
 
 export async function POST(request: NextRequest) {
-    const { error: authError } = await getCurrentUser();
-    if (authError) {
+    const { user, error: authError } = await getCurrentUser();
+    if (authError || !user) {
         return NextResponse.json(
-            { error: authError },
+            { error: authError || 'Usuario nao autenticado' },
             { status: 401 }
         );
     }
 
     try {
         const body: BoletoRequest = await request.json();
-        const { amount, customerName, customerDocument, customerEmail, orderId, description, dueDate } = body;
+        const { customerName, customerDocument, customerEmail, orderId, dueDate } = body;
 
-        if (!amount || amount <= 0) {
+        const paymentContext = await getOrderPaymentContext(user.id, orderId);
+        if (paymentContext.error || !paymentContext.data) {
             return NextResponse.json(
-                { error: 'Amount is required and must be greater than 0' },
-                { status: 400 }
+                { error: paymentContext.error || 'Pedido invalido' },
+                { status: paymentContext.status || 400 }
             );
         }
 
@@ -123,7 +125,7 @@ export async function POST(request: NextRequest) {
         const barcode = generateBoletoBarcode(
             bankCode,
             currency,
-            amount,
+            paymentContext.data.amount,
             dueDateObj,
             documentNumber
         );
@@ -136,7 +138,7 @@ export async function POST(request: NextRequest) {
         const boletoData = {
             id: boletoId,
             bankCode,
-            amount: amount.toFixed(2),
+            amount: paymentContext.data.amount.toFixed(2),
             dueDate: formattedDueDate,
             barcode,
             digitableLine,
@@ -144,9 +146,9 @@ export async function POST(request: NextRequest) {
             customer: {
                 name: customerName,
                 document: customerDocument.replace(/\D/g, ''),
-                email: customerEmail,
+                email: customerEmail || user.email,
             },
-            description: description || `Pedido Foodie #${orderId}`,
+            description: paymentContext.data.description,
             instructions: [
                 'Pagamento sujeito à confirmação após compensação bancária',
                 'Após o vencimento, multe de 2% + juros de 1% ao mês',
@@ -166,21 +168,30 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-    const { error: authError } = await getCurrentUser();
-    if (authError) {
+    const { user, error: authError } = await getCurrentUser();
+    if (authError || !user) {
         return NextResponse.json(
-            { error: authError },
+            { error: authError || 'Usuario nao autenticado' },
             { status: 401 }
         );
     }
 
     const searchParams = request.nextUrl.searchParams;
     const boletoId = searchParams.get('id');
+    const orderId = searchParams.get('orderId');
 
     if (!boletoId) {
         return NextResponse.json(
             { error: 'Boleto ID is required' },
             { status: 400 }
+        );
+    }
+
+    const paymentContext = await getOrderPaymentContext(user.id, orderId || '');
+    if (paymentContext.error) {
+        return NextResponse.json(
+            { error: paymentContext.error },
+            { status: paymentContext.status || 400 }
         );
     }
 

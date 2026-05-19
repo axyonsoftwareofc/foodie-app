@@ -15,9 +15,10 @@ export default async function RestaurantPage({
         where: { subdomain: slug },
         include: {
             categories: {
+                where: { is_active: true },
                 include: {
                     products: {
-                        where: { is_available: true },
+                        where: { is_active: true, is_available: true },
                         orderBy: { name: "asc" },
                     },
                 },
@@ -26,7 +27,7 @@ export default async function RestaurantPage({
         },
     });
 
-    if (!restaurantData) {
+    if (!restaurantData || !restaurantData.is_active) {
         notFound();
     }
 

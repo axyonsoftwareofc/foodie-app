@@ -4,7 +4,7 @@
 import { PixPaymentDetails, PaymentIntentResponse } from '@/types/payment.types';
 
 export async function createPaymentIntent(
-    amount: number,
+    orderId: string,
     email?: string
 ): Promise<{ data?: PaymentIntentResponse; error?: string }> {
     try {
@@ -12,7 +12,7 @@ export async function createPaymentIntent(
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                amount,
+                orderId,
                 email,
                 currency: 'brl',
             }),
@@ -32,7 +32,6 @@ export async function createPaymentIntent(
 }
 
 export async function createPixPayment(
-    amount: number,
     orderId: string,
     customerEmail?: string
 ): Promise<{ data?: PixPaymentDetails; error?: string }> {
@@ -41,7 +40,6 @@ export async function createPixPayment(
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                amount,
                 orderId,
                 customerEmail,
             }),

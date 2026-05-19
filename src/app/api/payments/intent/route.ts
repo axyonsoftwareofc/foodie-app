@@ -1,6 +1,7 @@
 // src/app/api/payments/intent/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/authz';
+import { getOrderPaymentContext } from '@/lib/payments/order-payment';
 
 const FEATURE_ENABLED = process.env.ENABLE_STRIPE_PAYMENTS === 'true';
 
@@ -15,10 +16,10 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    const { error: authError } = await getCurrentUser();
-    if (authError) {
+    const { user, error: authError } = await getCurrentUser();
+    if (authError || !user) {
         return NextResponse.json(
-            { error: authError },
+            { error: authError || 'Usuario nao autenticado' },
             { status: 401 }
         );
     }
@@ -38,21 +39,24 @@ export async function POST(request: NextRequest) {
         });
 
         const body = await request.json();
-        const { amount, email, currency = 'brl', metadata = {} } = body;
+        const { orderId, email, currency = 'brl', metadata = {} } = body;
 
-        if (!amount || amount <= 0) {
+        const paymentContext = await getOrderPaymentContext(user.id, orderId);
+        if (paymentContext.error || !paymentContext.data) {
             return NextResponse.json(
-                { error: 'Amount is required and must be greater than 0' },
-                { status: 400 }
+                { error: paymentContext.error || 'Pedido invalido' },
+                { status: paymentContext.status || 400 }
             );
         }
 
         const paymentIntent = await stripe.paymentIntents.create({
-            amount: Math.round(amount * 100),
+            amount: Math.round(paymentContext.data.amount * 100),
             currency,
-            receipt_email: email,
+            receipt_email: email || user.email,
             metadata: {
                 ...metadata,
+                orderId: paymentContext.data.orderId,
+                restaurantId: paymentContext.data.restaurantId,
                 platform: 'foodie-app',
             },
             payment_method_options: {
@@ -67,6 +71,7 @@ export async function POST(request: NextRequest) {
             paymentIntentId: paymentIntent.id,
             amount: paymentIntent.amount / 100,
             currency: paymentIntent.currency,
+            gateway: 'STRIPE',
         });
     } catch (error) {
         console.error('Error creating payment intent:', error);

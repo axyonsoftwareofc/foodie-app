@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { useCart } from '@/hooks/useCart';
 import { useAuth } from '@/hooks/useAuth';
 import { getRestaurantById } from '@/data/mock';
+import { getCheckoutRestaurant } from '@/actions/checkoutActions';
 import { formatPrice } from '@/lib/utils/format.utils';
 import {
     addressSchema,
@@ -15,7 +16,7 @@ import {
     cardSchema,
     AddressFormData,
 } from '@/lib/validations/checkout.validations';
-import { PaymentMethod } from '@/types';
+import { PaymentMethod, Restaurant } from '@/types';
 import { CardDetails } from '@/types/payment.types';
 import { CHECKOUT_MESSAGES } from '@/lib/constants/checkout.constants';
 import { createOrder as createOrderAction, type OrderItemData } from '@/actions/orders';
@@ -43,6 +44,7 @@ export default function CheckoutPage() {
     // Saved addresses
     const [savedAddresses, setSavedAddresses] = useState<AddressData[]>([]);
     const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+    const [realRestaurant, setRealRestaurant] = useState<Restaurant | null>(null);
 
     // Address form state
     const [addressData, setAddressData] = useState<AddressFormData>({
@@ -73,7 +75,8 @@ export default function CheckoutPage() {
     // Loading state
     const [isLoading, setIsLoading] = useState<boolean>(false);
 
-    const restaurant = restaurantId ? getRestaurantById(restaurantId) : null;
+    const mockRestaurant = restaurantId ? getRestaurantById(restaurantId) : null;
+    const restaurant = mockRestaurant || realRestaurant;
     const baseDeliveryFee = restaurant?.deliveryFee || 0;
     const isFreeDeliveryCoupon = appliedCoupon?.code === 'FRETEGRATIS';
 
@@ -116,6 +119,27 @@ export default function CheckoutPage() {
 
         loadAddresses();
     }, [isAuthenticated, isCheckingAuth, fillAddressForm]);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        if (!restaurantId || mockRestaurant) {
+            setRealRestaurant(null);
+            return;
+        }
+
+        const loadRestaurant = async (): Promise<void> => {
+            const result = await getCheckoutRestaurant(restaurantId);
+            if (!isMounted) return;
+            setRealRestaurant(result.data || null);
+        };
+
+        loadRestaurant();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [restaurantId, mockRestaurant]);
 
     const handleSelectAddress = (addressId: string): void => {
         setSelectedAddressId(addressId);

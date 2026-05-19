@@ -1,6 +1,7 @@
 // src/app/api/payments/pix/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/authz';
+import { getOrderPaymentContext } from '@/lib/payments/order-payment';
 
 const FEATURE_ENABLED = process.env.ENABLE_PIX_AUTO === 'true';
 const PIX_KEY = process.env.PIX_KEY || 'foodie@email.com';
@@ -83,22 +84,23 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    const { error: authError } = await getCurrentUser();
-    if (authError) {
+    const { user, error: authError } = await getCurrentUser();
+    if (authError || !user) {
         return NextResponse.json(
-            { error: authError },
+            { error: authError || 'Usuario nao autenticado' },
             { status: 401 }
         );
     }
 
     try {
         const body = await request.json();
-        const { amount, orderId, customerEmail } = body;
+        const { orderId, customerEmail } = body;
 
-        if (!amount || amount <= 0) {
+        const paymentContext = await getOrderPaymentContext(user.id, orderId);
+        if (paymentContext.error || !paymentContext.data) {
             return NextResponse.json(
-                { error: 'Amount is required and must be greater than 0' },
-                { status: 400 }
+                { error: paymentContext.error || 'Pedido invalido' },
+                { status: paymentContext.status || 400 }
             );
         }
 
@@ -107,8 +109,8 @@ export async function POST(request: NextRequest) {
         const pixPayload: PixPayload = {
             key: PIX_KEY,
             keyType: PIX_KEY_TYPE,
-            amount,
-            description: `Pedido Foodie #${orderId}`,
+            amount: paymentContext.data.amount,
+            description: paymentContext.data.description,
         };
 
         const qrCode = generatePixCode(pixPayload);
@@ -122,15 +124,16 @@ export async function POST(request: NextRequest) {
                 });
 
                 await stripe.paymentIntents.create({
-                    amount: Math.round(amount * 100),
+                    amount: Math.round(paymentContext.data.amount * 100),
                     currency: 'brl',
                     payment_method_types: ['card'],
-                    receipt_email: customerEmail,
+                    receipt_email: customerEmail || user.email,
                     metadata: {
-                        orderId,
+                        orderId: paymentContext.data.orderId,
+                        restaurantId: paymentContext.data.restaurantId,
                         paymentType: 'pix',
                     },
-                    description: `Pedido Foodie #${orderId}`,
+                    description: paymentContext.data.description,
                 });
             } catch (stripeError) {
                 console.log('Stripe Pix not configured, using fallback');
@@ -141,7 +144,8 @@ export async function POST(request: NextRequest) {
             qrCode,
             pixKey: PIX_KEY,
             keyType: PIX_KEY_TYPE,
-            amount,
+            amount: paymentContext.data.amount,
+            transactionId: paymentContext.data.orderId,
             expiresAt: expiresAt.toISOString(),
             instructions: [
                 'Abra o app do seu banco',

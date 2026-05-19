@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { OrderStatus, Prisma } from '@prisma/client'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { calculateOrderPricing } from '@/lib/orders/pricing'
 
 export interface OrderItemData {
     menuItemId: string
@@ -221,6 +222,11 @@ export async function createOrder(orderData: {
     const estimatedDelivery = new Date(Date.now() + estimatedMinutes * 60 * 1000).toISOString()
 
     try {
+        const pricedOrder = await calculateOrderPricing(orderData.restaurantId, orderData.items)
+        if (pricedOrder.error || !pricedOrder.data) {
+            return { error: pricedOrder.error || 'Erro ao calcular pedido' }
+        }
+
         const order = await prisma.order.create({
             data: {
                 customer_id: user.id,
@@ -229,9 +235,9 @@ export async function createOrder(orderData: {
                 order_type: 'DELIVERY',
                 delivery_address: JSON.stringify(orderData.address),
                 status: OrderStatus.PENDING,
-                items: orderData.items as unknown as Prisma.InputJsonValue,
-                total: orderData.total,
-                restaurant_id: orderData.restaurantId,
+                items: pricedOrder.data.items as unknown as Prisma.InputJsonValue,
+                total: pricedOrder.data.total,
+                restaurant_id: pricedOrder.data.restaurantId,
                 estimated_preparation_time: estimatedMinutes,
             },
         })
@@ -242,20 +248,20 @@ export async function createOrder(orderData: {
                 userId: user.id,
                 customerName: order.customer_name,
                 customerPhone: null,
-                restaurantId: order.restaurant_id,
-                restaurantName: orderData.restaurantName,
+                restaurantId: pricedOrder.data.restaurantId,
+                restaurantName: pricedOrder.data.restaurantName,
                 orderType: 'DELIVERY',
                 tableNumber: null,
                 status: order.status,
-                items: orderData.items,
+                items: pricedOrder.data.items,
                 address: orderData.address,
                 paymentMethod: orderData.paymentMethod,
                 changeFor: orderData.changeFor || null,
-                subtotal: orderData.subtotal,
-                deliveryFee: orderData.deliveryFee,
-                discount: orderData.discount,
+                subtotal: pricedOrder.data.subtotal,
+                deliveryFee: pricedOrder.data.deliveryFee,
+                discount: pricedOrder.data.discount,
                 total: order.total,
-                couponCode: orderData.couponCode || null,
+                couponCode: null,
                 estimatedDelivery,
                 estimatedPreparationTime: estimatedMinutes,
                 preparationStartedAt: null,

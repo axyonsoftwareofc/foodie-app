@@ -1,7 +1,7 @@
 // src/components/checkout/PaymentForm.tsx
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { CreditCard } from 'lucide-react';
 import { PaymentMethod } from '@/types';
 import { CardDetails } from '@/types/payment.types';
@@ -9,7 +9,6 @@ import { PAYMENT_OPTIONS, CHECKOUT_MESSAGES } from '@/lib/constants/checkout.con
 import CardForm from './CardForm';
 import PixQRCode from './PixQRCode';
 import { PixPaymentDetails } from '@/types/payment.types';
-import { createPixPayment } from '@/actions/payments';
 
 interface PaymentFormProps {
     selectedMethod: PaymentMethod | null;
@@ -40,19 +39,9 @@ export default function PaymentForm({
     const isCashPayment = selectedMethod === 'CASH';
 
     const handleGeneratePix = useCallback(async () => {
-        setIsGeneratingPix(true);
-        const result = await createPixPayment(totalAmount, 'pending-order');
-        if (result.data) {
-            setPixDetails(result.data);
-        }
+        setPixDetails(null);
         setIsGeneratingPix(false);
-    }, [totalAmount]);
-
-    useEffect(() => {
-        if (selectedMethod === 'PIX' && !pixDetails && !isGeneratingPix) {
-            handleGeneratePix();
-        }
-    }, [selectedMethod, pixDetails, isGeneratingPix, handleGeneratePix]);
+    }, []);
 
     const handleMethodSelect = (method: PaymentMethod) => {
         onMethodChange(method);

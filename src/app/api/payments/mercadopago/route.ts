@@ -1,6 +1,7 @@
 // src/app/api/payments/mercadopago/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/authz';
+import { getOrderPaymentContext } from '@/lib/payments/order-payment';
 
 const FEATURE_ENABLED = process.env.ENABLE_MERCADOPAGO_PAYMENTS === 'true'; // ✅ FEATURE FLAG
 
@@ -71,26 +72,28 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    const { error: authError } = await getCurrentUser();
-    if (authError) {
+    const { user, error: authError } = await getCurrentUser();
+    if (authError || !user) {
         return NextResponse.json(
-            { error: authError },
+            { error: authError || 'Usuario nao autenticado' },
             { status: 401 }
         );
     }
 
     try {
         const body: PaymentRequest = await request.json();
-        const { amount, email, name, document, orderId, items, paymentMethod, cardToken, installments } = body;
+        const { email, name, orderId, paymentMethod, cardToken, installments } = body;
 
-        if (!amount || amount <= 0) {
+        const paymentContext = await getOrderPaymentContext(user.id, orderId);
+        if (paymentContext.error || !paymentContext.data) {
             return NextResponse.json(
-                { error: 'Amount is required and must be greater than 0' },
-                { status: 400 }
+                { error: paymentContext.error || 'Pedido invalido' },
+                { status: paymentContext.status || 400 }
             );
         }
 
-        if (!email) {
+        const payerEmail = email || user.email;
+        if (!payerEmail) {
             return NextResponse.json(
                 { error: 'Email is required' },
                 { status: 400 }
@@ -101,15 +104,15 @@ export async function POST(request: NextRequest) {
         const payerLastName = name?.split(' ').slice(1).join(' ') || '';
 
         const paymentData: MercadoPagoPaymentPayload = {
-            transaction_amount: amount,
-            description: `Pedido Foodie #${orderId}`,
+            transaction_amount: paymentContext.data.amount,
+            description: paymentContext.data.description,
             payment_method_id: paymentMethod,
             payer: {
-                email,
+                email: payerEmail,
                 first_name: payerFirstName,
                 last_name: payerLastName,
             },
-            external_reference: orderId,
+            external_reference: paymentContext.data.orderId,
         };
 
         if (paymentMethod === 'pix') {
@@ -189,21 +192,30 @@ export async function GET(request: NextRequest) {
         );
     }
 
-    const { error: authError } = await getCurrentUser();
-    if (authError) {
+    const { user, error: authError } = await getCurrentUser();
+    if (authError || !user) {
         return NextResponse.json(
-            { error: authError },
+            { error: authError || 'Usuario nao autenticado' },
             { status: 401 }
         );
     }
 
     const searchParams = request.nextUrl.searchParams;
     const paymentId = searchParams.get('id');
+    const appOrderId = searchParams.get('orderId');
 
     if (!paymentId) {
         return NextResponse.json(
             { error: 'Payment ID is required' },
             { status: 400 }
+        );
+    }
+
+    const paymentContext = await getOrderPaymentContext(user.id, appOrderId || '');
+    if (paymentContext.error) {
+        return NextResponse.json(
+            { error: paymentContext.error },
+            { status: paymentContext.status || 400 }
         );
     }
 

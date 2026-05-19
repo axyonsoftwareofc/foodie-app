@@ -1,6 +1,7 @@
 // src/app/api/payments/paypal/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/authz';
+import { getOrderPaymentContext } from '@/lib/payments/order-payment';
 
 const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID || '';
 const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET || '';
@@ -35,6 +36,7 @@ interface CreateOrderRequest {
 
 interface CaptureOrderRequest {
     orderId: string;
+    appOrderId?: string;
 }
 
 interface PayPalLink {
@@ -43,22 +45,23 @@ interface PayPalLink {
 }
 
 export async function POST(request: NextRequest) {
-    const { error: authError } = await getCurrentUser();
-    if (authError) {
+    const { user, error: authError } = await getCurrentUser();
+    if (authError || !user) {
         return NextResponse.json(
-            { error: authError },
+            { error: authError || 'Usuario nao autenticado' },
             { status: 401 }
         );
     }
 
     try {
         const body: CreateOrderRequest = await request.json();
-        const { amount, orderId, description, customerEmail } = body;
+        const { orderId } = body;
 
-        if (!amount || amount <= 0) {
+        const paymentContext = await getOrderPaymentContext(user.id, orderId);
+        if (paymentContext.error || !paymentContext.data) {
             return NextResponse.json(
-                { error: 'Amount is required and must be greater than 0' },
-                { status: 400 }
+                { error: paymentContext.error || 'Pedido invalido' },
+                { status: paymentContext.status || 400 }
             );
         }
 
@@ -68,18 +71,18 @@ export async function POST(request: NextRequest) {
             intent: 'CAPTURE',
             purchase_units: [
                 {
-                    reference_id: orderId,
-                    description: description || `Pedido Foodie #${orderId}`,
+                    reference_id: paymentContext.data.orderId,
+                    description: paymentContext.data.description,
                     amount: {
                         currency_code: 'BRL',
-                        value: amount.toFixed(2),
+                        value: paymentContext.data.amount.toFixed(2),
                     },
                 },
             ],
             application_context: {
                 brand_name: 'Foodie App',
                 user_action: 'PAY_NOW',
-                return_url: `${process.env.NEXT_PUBLIC_APP_URL}/order/${orderId}`,
+                return_url: `${process.env.NEXT_PUBLIC_APP_URL}/orders/${paymentContext.data.orderId}`,
                 cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/checkout?cancelled=true`,
             },
         };
@@ -120,22 +123,30 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-    const { error: authError } = await getCurrentUser();
-    if (authError) {
+    const { user, error: authError } = await getCurrentUser();
+    if (authError || !user) {
         return NextResponse.json(
-            { error: authError },
+            { error: authError || 'Usuario nao autenticado' },
             { status: 401 }
         );
     }
 
     try {
         const body: CaptureOrderRequest = await request.json();
-        const { orderId } = body;
+        const { orderId, appOrderId } = body;
 
         if (!orderId) {
             return NextResponse.json(
                 { error: 'Order ID is required' },
                 { status: 400 }
+            );
+        }
+
+        const paymentContext = await getOrderPaymentContext(user.id, appOrderId || '');
+        if (paymentContext.error) {
+            return NextResponse.json(
+                { error: paymentContext.error },
+                { status: paymentContext.status || 400 }
             );
         }
 
@@ -181,21 +192,30 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-    const { error: authError } = await getCurrentUser();
-    if (authError) {
+    const { user, error: authError } = await getCurrentUser();
+    if (authError || !user) {
         return NextResponse.json(
-            { error: authError },
+            { error: authError || 'Usuario nao autenticado' },
             { status: 401 }
         );
     }
 
     const searchParams = request.nextUrl.searchParams;
     const orderId = searchParams.get('orderId');
+    const appOrderId = searchParams.get('appOrderId');
 
     if (!orderId) {
         return NextResponse.json(
             { error: 'Order ID is required' },
             { status: 400 }
+        );
+    }
+
+    const paymentContext = await getOrderPaymentContext(user.id, appOrderId || '');
+    if (paymentContext.error) {
+        return NextResponse.json(
+            { error: paymentContext.error },
+            { status: paymentContext.status || 400 }
         );
     }
 
