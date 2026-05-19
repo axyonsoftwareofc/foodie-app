@@ -60,6 +60,59 @@ const restaurantSchema = z.object({
 // FUNÇÕES DE LEITURA (GET)
 // ============================================================================
 
+export async function getPublicRestaurants(): Promise<{ data?: import('@/types').Restaurant[]; error?: string }> {
+    try {
+        const restaurants = await prisma.restaurant.findMany({
+            where: { is_active: true },
+            include: {
+                reviews: { select: { rating: true } },
+            },
+            orderBy: { name: 'asc' },
+        })
+
+        const result: import('@/types').Restaurant[] = restaurants.map((r) => {
+            const reviewCount = r.reviews.length
+            const avgRating = reviewCount > 0
+                ? Math.round((r.reviews.reduce((sum, rev) => sum + rev.rating, 0) / reviewCount) * 10) / 10
+                : 0
+
+            const time = r.estimated_delivery_time ?? 30
+
+            return {
+                id: r.id,
+                name: r.name,
+                image: r.cover_image || r.logo || '/placeholder.png',
+                rating: avgRating,
+                reviewCount,
+                deliveryTime: `${time}-${time + 10} min`,
+                deliveryFee: r.delivery_fee ?? 0,
+                category: r.category || r.cuisine || 'Restaurante',
+                promoted: false,
+                isOpen: r.status === 'OPEN',
+                isActive: r.is_active,
+                openingHours: [],
+                settings: {},
+                description: r.description || undefined,
+                logo: r.logo || undefined,
+                coverImage: r.cover_image || undefined,
+                street: r.street || undefined,
+                number: r.number || undefined,
+                neighborhood: r.neighborhood || undefined,
+                city: r.city || undefined,
+                state: r.state || undefined,
+                zipCode: r.zip_code || undefined,
+                latitude: r.latitude ?? undefined,
+                longitude: r.longitude ?? undefined,
+            }
+        })
+
+        return { data: result }
+    } catch (error) {
+        console.error('Error fetching public restaurants:', error)
+        return { error: 'Erro ao carregar restaurantes' }
+    }
+}
+
 export async function getRestaurant(restaurantId?: string) {
     const supabase = await createClient()
 

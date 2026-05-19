@@ -18,7 +18,7 @@ interface PixPayload {
 }
 
 function generatePixCode(payload: PixPayload): string {
-    const { key, keyType, amount, description } = payload;
+    const { amount, description } = payload;
 
     const formatValue = (id: string, value: string | number): string => {
         const valueStr = String(value);
@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
                     },
                     description: paymentContext.data.description,
                 });
-            } catch (stripeError) {
+            } catch {
                 console.log('Stripe Pix not configured, using fallback');
             }
         }

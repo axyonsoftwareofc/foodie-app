@@ -34,8 +34,6 @@ export default function PaymentForm({
     const [showCardForm, setShowCardForm] = useState(false);
     const [showPixForm, setShowPixForm] = useState(false);
 
-    const isCardPayment = selectedMethod === 'CREDIT_CARD' || selectedMethod === 'DEBIT_CARD';
-    const isPixPayment = selectedMethod === 'PIX';
     const isCashPayment = selectedMethod === 'CASH';
 
     const handleGeneratePix = useCallback(async () => {

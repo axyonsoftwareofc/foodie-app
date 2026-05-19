@@ -1,20 +1,34 @@
 // src/app/page.tsx
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PromoBanner from '@/components/home/PromoBanner';
 import SearchBar from '@/components/home/SearchBar';
 import FilterBar from '@/components/home/FilterBar';
 import RestaurantCard from '@/components/home/RestaurantCard';
 import { RestaurantCardSkeleton } from '@/components/ui/Skeleton';
-import { restaurants } from '@/data/mock';
+import { restaurants as mockRestaurants } from '@/data/mock';
+import { getPublicRestaurants } from '@/actions/restaurantActions';
 import { useFilters } from '@/hooks/useFilters';
 import { ActiveFilters } from '@/lib/constants/filter.constants';
+import type { Restaurant } from '@/types';
 
 export default function HomePage() {
     const [isLoading, setIsLoading] = useState(false);
+    const [dataRestaurants, setDataRestaurants] = useState<Restaurant[] | null>(null);
+    const restaurants = dataRestaurants ?? mockRestaurants;
     const { filters, updateFilter, resetFilters, filteredRestaurants, hasActiveFilters } = useFilters(restaurants);
+
+    useEffect(() => {
+        let cancelled = false;
+        getPublicRestaurants().then((result) => {
+            if (!cancelled && result.data) {
+                setDataRestaurants(result.data);
+            }
+        });
+        return () => { cancelled = true; };
+    }, []);
 
     const handleFilterChange = useCallback(<K extends keyof ActiveFilters>(
         key: K,

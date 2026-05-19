@@ -64,7 +64,7 @@ export default function CheckoutPage() {
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
     const [changeFor, setChangeFor] = useState<string>('');
     const [paymentError, setPaymentError] = useState<string>('');
-    const [cardDetails, setCardDetails] = useState<CardDetails | null>(null);
+    const [cardDetails] = useState<CardDetails | null>(null);
 
     // Delivery calculation state
     const [calculatedDeliveryFee, setCalculatedDeliveryFee] = useState<number | null>(null);
@@ -281,9 +281,6 @@ export default function CheckoutPage() {
                 quantity: item.quantity,
                 observation: item.observation,
             }));
-
-            const estimatedTime = dynamicEstimatedTime ||
-                `${restaurant.deliveryTimeMin || 30}-${restaurant.deliveryTimeMax || 45} min`;
 
             const result = await createOrderAction({
                 restaurantId: restaurant.id,

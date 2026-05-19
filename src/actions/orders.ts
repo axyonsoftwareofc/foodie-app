@@ -239,6 +239,13 @@ export async function createOrder(orderData: {
                 total: pricedOrder.data.total,
                 restaurant_id: pricedOrder.data.restaurantId,
                 estimated_preparation_time: estimatedMinutes,
+                payment_method: orderData.paymentMethod,
+                change_for: orderData.changeFor ?? null,
+                subtotal: pricedOrder.data.subtotal,
+                delivery_fee: pricedOrder.data.deliveryFee,
+                discount: pricedOrder.data.discount,
+                coupon_code: orderData.couponCode ?? null,
+                estimated_delivery: estimatedDelivery,
             },
         })
 
