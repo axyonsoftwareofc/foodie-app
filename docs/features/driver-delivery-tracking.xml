@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feature 
+  name="driver-delivery-tracking" 
+  version="1.0" 
+  status="planejado"
+  lastUpdated="2026-05-19"
+>
+  
+  <resumo>
+    Sistema de entregas com GPS em tempo real.
+    Entregadores recebem pedidos, navegam até o cliente e atualizam status.
+    Cliente acompanha o entregador no mapa ao vivo.
+    
+    ✅ Painel do entregador (disponíveis, em andamento, histórico)
+    ✅ GPS tracking em tempo real com Redis pub/sub
+    ✅ Atribuição de entregas pelo restaurante
+    ✅ Notificações push para o cliente
+    ✅ Histórico de entregas e ganhos
+    
+    Diferencial: Tracking ao vivo sem refresh — o cliente vê o entregador se aproximando.
+  </resumo>
+
+  <!-- ============================================
+       FLUXOS DO USUÁRIO
+       ============================================ -->
+  <fluxos>
+    <fluxo nome="Entregador - Ciclo Completo">
+      ```
+      ┌─────────────────────────────────────────────────────────────┐
+      │              FLUXO DO ENTREGADOR                            │
+      ├─────────────────────────────────────────────────────────────┤
+      │                                                             │
+      │  1. Entregador faz login no app (PWA mobile)                │
+      │     └─ Status: OFFLINE (não recebe pedidos)                 │
+      │                                                             │
+      │  2. Entregador clica "Ficar online"                         │
+      │     ├─ Status: ONLINE                                       │
+      │     ├─ GPS ativado (watchPosition a cada 10s)               │
+      │     ├─ Coordenadas enviadas via Server Action               │
+      │     └─ Lista de entregas disponíveis aparece                │
+      │                                                             │
+      │  3. Restaurante atribui pedido #123 ao entregador           │
+      │     ├─ Notificação push/WebSocket: "Novo pedido #123!"     │
+      │     ├─ Status do entregador: BUSY                           │
+      │     └─ Mostra detalhes: restaurante, endereço, itens        │
+      │                                                             │
+      │  4. Entregador aceita pedido                                │
+      │     ├─ Status do pedido: DELIVERING                         │
+      │     ├─ Inicia navegação até o restaurante (Google Maps)     │
+      │     └─ Cliente notificado: "Seu pedido saiu para entrega!"  │
+      │                                                             │
+      │  5. Entregador chega ao restaurante                         │
+      │     ├─ Coleta o pedido                                      │
+      │     └─ Inicia navegação até o cliente                       │
+      │                                                             │
+      │  6. CLIENTE ACOMPANHA EM TEMPO REAL                         │
+      │     ├─ Mapa mostra posição do entregador                    │
+      │     ├─ ETA: "Seu pedido chega em 12 min"                    │
+      │     └─ Notificação quando entregador está a 500m            │
+      │                                                             │
+      │  7. Entregador chega ao cliente                             │
+      │     ├─ Confirma entrega (foto ou assinatura?)               │
+      │     ├─ Status do pedido: DELIVERED                          │
+      │     ├─ Status do entregador: ONLINE (disponível)            │
+      │     └─ Valor da entrega creditado                           │
+      │                                                             │
+      │  8. Entregador vê histórico                                 │
+      │     ├─ Total de entregas do dia                             │
+      │     ├─ Ganhos do dia                                        │
+      │     └─ Distância total percorrida                           │
+      │                                                             │
+      └─────────────────────────────────────────────────────────────┘
+      ```
+    </fluxo>
+
+    <fluxo nome="Cliente - Tracking ao Vivo">
+      ```
+      ┌─────────────────────────────────────────────────────────────┐
+      │           TRACKING AO VIVO (VISÃO DO CLIENTE)              │
+      ├─────────────────────────────────────────────────────────────┤
+      │                                                             │
+      │  Página /orders/[id] — quando status = DELIVERING          │
+      │                                                             │
+      │  ┌─────────────────────────────────────────┐               │
+      │  │  🛵 Seu pedido está a caminho!          │               │
+      │  │                                         │               │
+      │  │  ┌─────────────────────────────────┐    │               │
+      │  │  │                                 │    │               │
+      │  │  │     🗺️  MAPA INTERATIVO         │    │               │
+      │  │  │   📍 Restaurante                │    │               │
+      │  │  │   🛵 Entregador (movendo!)      │    │               │
+      │  │  │   📍 Sua casa                   │    │               │
+      │  │  │                                 │    │               │
+      │  │  └─────────────────────────────────┘    │               │
+      │  │                                         │               │
+      │  │  Entregador: João                       │               │
+      │  │  Distância: 2.3 km                      │               │
+      │  │  Chega em: ~12 min                      │               │
+      │  │                                         │               │
+      │  │  [Ligar para entregador]                │               │
+      │  └─────────────────────────────────────────┘               │
+      │                                                             │
+      └─────────────────────────────────────────────────────────────┘
+      ```
+    </fluxo>
+  </fluxos>
+
+  <!-- ============================================
+       ARQUIVOS ENVOLVIDOS
+       ============================================ -->
+  <arquivos>
+    <!-- Páginas -->
+    <page path="src/app/(driver)/driver/page.tsx" status="modificar">
+      Dashboard do entregador.
+      Cards: Online/Offline toggle, Entregas hoje, Ganhos, Avaliação.
+    </page>
+
+    <page path="src/app/(driver)/driver/deliveries/[id]/page.tsx" status="a_criar">
+      Detalhes da entrega em andamento.
+      Mapa com rota, dados do pedido, botão "Confirmar entrega".
+    </page>
+
+    <!-- Componentes -->
+    <component path="src/components/delivery/DriverStatusToggle.tsx" status="a_criar">
+      Botão Online/Offline com animação.
+      Ao ficar online: ativa GPS e escuta por novos pedidos.
+    </component>
+
+    <component path="src/components/delivery/DeliveryCard.tsx" status="a_criar">
+      Card de entrega disponível ou em andamento.
+      Mostra restaurante, endereço, distância, valor.
+    </component>
+
+    <component path="src/components/delivery/LiveTracker.tsx" status="a_criar">
+      Mapa interativo com posição do entregador em tempo real.
+      Usa Leaflet ou Google Maps.
+      Atualiza marcador via Redis pub/sub.
+    </component>
+
+    <component path="src/components/kitchen/AssignDriverModal.tsx" status="a_criar">
+      Modal para restaurante atribuir pedido a entregador.
+      Lista entregadores ONLINE, ordenados por proximidade.
+    </component>
+
+    <!-- Actions -->
+    <action path="src/actions/delivery-actions.ts" status="modificar">
+      updateDriverLocation(driverId, lat, lng) — Atualiza posição + publica no Redis.
+      acceptDelivery(orderId) — Entregador aceita pedido.
+      completeDelivery(orderId) — Confirma entrega.
+      getAvailableDrivers(restaurantId) — Lista entregadores ONLINE.
+    </action>
+
+    <action path="src/actions/delivery-tracking.ts" status="a_criar">
+      subscribeToDelivery(orderId) — Cliente assina canal Redis para tracking.
+      getDriverPosition(orderId) — Última posição conhecida do entregador.
+    </action>
+
+    <!-- Redis -->
+    <file path="src/lib/redis/pubsub.ts" status="a_criar">
+      Canais Redis:
+      - driver:location:{driverId} — posição do entregador
+      - order:tracking:{orderId} — tracking para o cliente
+      - driver:available:{restaurantId} — entregadores disponíveis
+    </file>
+
+    <!-- Components do Order Detail -->
+    <file path="src/app/orders/[id]/page.tsx" status="modificar">
+      Adicionar seção LiveTracker quando status = DELIVERING.
+      Assinar canal Redis para atualizar posição.
+    </file>
+  </arquivos>
+
+  <!-- ============================================
+       MODELO DE DADOS
+       ============================================ -->
+  <modeloDeDados>
+    <migration>
+      ```sql
+      -- Nova tabela: entregadores
+      CREATE TABLE "drivers" (
+        "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        "user_id" TEXT NOT NULL UNIQUE,
+        "name" TEXT NOT NULL,
+        "phone" TEXT,
+        "vehicle_type" TEXT DEFAULT 'motorcycle',
+        "vehicle_plate" TEXT,
+        "status" TEXT DEFAULT 'OFFLINE',
+        "latitude" DOUBLE PRECISION,
+        "longitude" DOUBLE PRECISION,
+        "last_location_at" TIMESTAMP,
+        "total_deliveries" INT DEFAULT 0,
+        "total_earnings" DOUBLE PRECISION DEFAULT 0,
+        "rating" DOUBLE PRECISION,
+        "is_active" BOOLEAN DEFAULT true,
+        "created_at" TIMESTAMP DEFAULT now(),
+        "updated_at" TIMESTAMP DEFAULT now()
+      );
+
+      -- Nova tabela: entregas
+      CREATE TABLE "deliveries" (
+        "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        "order_id" TEXT NOT NULL,
+        "driver_id" TEXT NOT NULL,
+        "status" TEXT DEFAULT 'ASSIGNED',
+        "assigned_at" TIMESTAMP DEFAULT now(),
+        "picked_up_at" TIMESTAMP,
+        "delivered_at" TIMESTAMP,
+        "distance_traveled" DOUBLE PRECISION,
+        "earnings" DOUBLE PRECISION,
+        "created_at" TIMESTAMP DEFAULT now(),
+        "updated_at" TIMESTAMP DEFAULT now()
+      );
+      ```
+    </migration>
+  </modeloDeDados>
+
+  <!-- ============================================
+       REGRAS DE NEGÓCIO
+       ============================================ -->
+  <regrasDeNegocio>
+    <regra id="1" nome="Disponibilidade do Entregador">
+      Entregador só pode receber pedidos se status = ONLINE.
+      Ao aceitar pedido, status muda para BUSY.
+      Ao concluir entrega, volta para ONLINE.
+    </regra>
+
+    <regra id="2" nome="Atribuição por Proximidade">
+      Listar entregadores ONLINE ordenados por distância até o restaurante.
+      Entregador pode recusar pedido (vai para o próximo da lista).
+    </regra>
+
+    <regra id="3" nome="GPS Battery-Aware">
+      Só ativar GPS contínuo quando status = BUSY (com pedido ativo).
+      Quando ONLINE sem pedido: atualizar a cada 60s.
+      Quando BUSY: atualizar a cada 10s.
+      Quando OFFLINE: GPS desligado.
+    </regra>
+
+    <regra id="4" nome="Tracking em Tempo Real">
+      Posição do entregador publicada no Redis pub/sub.
+      Cliente assina canal order:tracking:{orderId}.
+      Mapa atualiza sem polling (Server-Sent Events via Redis).
+    </regra>
+
+    <regra id="5" nome="Confirmação de Entrega">
+      Entregador confirma entrega (botão ou gesto).
+      Opcional: foto do pedido entregue (prova de entrega).
+      Opcional: assinatura digital do cliente.
+    </regra>
+  </regrasDeNegocio>
+
+  <!-- ============================================
+       ARQUITETURA DE TEMPO REAL
+       ============================================ -->
+  <tempoReal>
+    <descricao>
+      Sistema de tracking usa Redis pub/sub para evitar polling HTTP.
+      Fluxo de dados:
+      
+      Entregador (GPS) → Server Action → Redis pub/sub → Cliente (mapa)
+      
+      Cada atualização de posição do entregador:
+      1. Server Action recebe coordenadas
+      2. Salva no banco (drivers.latitude/longitude)
+      3. Publica em driver:location:{driverId}
+      4. Se tiver pedido ativo, publica em order:tracking:{orderId}
+      
+      Cliente:
+      1. Abre ordem de pedido
+      2. Assina order:tracking:{orderId} via Redis
+      3. Recebe atualizações em tempo real (sem polling)
+      4. Atualiza marcador no mapa
+    </descricao>
+
+    <redisCanais>
+      <canal nome="driver:location:{driverId}">
+        Publica: { lat: number, lng: number, timestamp: string, speed?: number }
+        Assinantes: Sistema interno, cliente (se driver tem pedido ativo)
+      </canal>
+      <canal nome="order:tracking:{orderId}">
+        Publica: { driverLat, driverLng, status, eta }
+        Assinantes: Cliente dono do pedido
+      </canal>
+      <canal nome="driver:available:{restaurantId}">
+        Publica: { driverId, name, lat, lng, distance }
+        Assinantes: Painel do restaurante (para atribuição)
+      </canal>
+    </redisCanais>
+  </tempoReal>
+
+  <!-- ============================================
+       DECISÕES
+       ============================================ -->
+  <decisoes>
+    <decisao id="1" topico="Mapa: Leaflet vs Google Maps" status="Decidido">
+      <solucao>
+        Leaflet (OpenStreetMap) para MVP.
+        Gratuito, sem limite de requisições.
+        Migrar para Google Maps na Fase 4 se necessário (Distance Matrix API para rotas reais).
+      </solucao>
+    </decisao>
+
+    <decisao id="2" topico="Tracking: Polling vs WebSocket vs SSE" status="Decidido">
+      <solucao>
+        Redis pub/sub + Server-Sent Events para MVP.
+        Sem dependência de WebSocket server dedicado.
+        Vercel Edge Functions podem servir SSE.
+        Alternativa: polling a cada 15s (mais simples, menos tempo real).
+      </solucao>
+    </decisao>
+
+    <decisao id="3" topico="Navegação: App externo vs embutido" status="Decidido">
+      <solucao>
+        Link externo para Google Maps/Waze para navegação.
+        Não reconstruir navegação turn-by-turn (complexo, desnecessário).
+        Deep link: https://maps.google.com/?daddr={lat},{lng}
+      </solucao>
+    </decisao>
+  </decisoes>
+
+  <!-- ============================================
+       TESTES
+       ============================================ -->
+  <testes>
+    <cenario nome="Entregador Online → Entrega → Tracking">
+      1. Entregador faz login e fica ONLINE
+      2. GPS começa a enviar coordenadas
+      3. Restaurante atribui pedido #123
+      4. Entregador recebe notificação e aceita
+      5. Status muda para BUSY, pedido muda para DELIVERING
+      6. Cliente vê tracking ao vivo no mapa
+      7. Entregador navega e confirma entrega
+      8. Pedido muda para DELIVERED
+      9. Entregador volta para ONLINE
+    </cenario>
+
+    <cenario nome="Entregador Recusa Pedido">
+      1. Pedido atribuído ao Entregador A
+      2. Entregador A recusa
+      3. Sistema atribui ao Entregador B (próximo na lista)
+      4. Entregador B aceita
+    </cenario>
+
+    <cenario nome="Cliente Sem Tracking (Entregador Offline)">
+      1. Pedido em DELIVERING
+      2. Entregador perde conexão (GPS para de enviar)
+      3. Cliente vê última posição conhecida + "Atualizando..."
+      4. Após 2min sem atualização: "Entregador temporariamente indisponível"
+    </cenario>
+  </testes>
+
+  <!-- ============================================
+       MELHORIAS FUTURAS
+       ============================================ -->
+  <melhoriasFuturas>
+    <melhoria prioridade="média" versao="v5.0">
+      <titulo>Roteirização com Múltiplas Entregas</titulo>
+      <descricao>
+        Entregador pode pegar 2-3 pedidos na mesma rota.
+        Algoritmo de otimização de rota (Traveling Salesman simplificado).
+      </descricao>
+    </melhoria>
+
+    <melhoria prioridade="baixa" versao="v6.0">
+      <titulo>Prova de Entrega com Foto</titulo>
+      <descricao>
+        Entregador tira foto do pedido no local de entrega.
+        Foto anexada ao pedido como comprovante.
+      </descricao>
+    </melhoria>
+  </melhoriasFuturas>
+
+</feature>

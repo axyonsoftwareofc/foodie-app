@@ -1,0 +1,492 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feature 
+  name="multi-tenant-onboarding" 
+  version="1.0" 
+  status="planejado"
+  lastUpdated="2026-05-19"
+>
+  
+  <resumo>
+    Sistema de onboarding self-service para restaurantes.
+    Em menos de 10 minutos, um dono de restaurante cria sua loja online
+    com subdomínio, cardápio e tema personalizado.
+    
+    ✅ Cadastro guiado em 3 passos (dados, domínio, tema)
+    ✅ Subdomínio automático (restaurante.foodie.app)
+    ✅ Validação de CNPJ e unicidade de subdomínio
+    ✅ Criação de categorias e produtos iniciais
+    ✅ Dashboard pronto para uso imediato
+    
+    Diferencial: Zero fricção. Do cadastro ao primeiro pedido em minutos.
+  </resumo>
+
+  <!-- ============================================
+       FLUXO DO USUÁRIO
+       ============================================ -->
+  <fluxos>
+    <fluxo nome="Onboarding - Restaurante Novo">
+      ```
+      ┌─────────────────────────────────────────────────────────────┐
+      │                    FLUXO ONBOARDING                         │
+      ├─────────────────────────────────────────────────────────────┤
+      │                                                             │
+      │  1. Dono do restaurante acessa foodie.app                  │
+      │     └─ Clica em "Criar meu restaurante"                    │
+      │                                                             │
+      │  2. Sign Up (Supabase Auth)                                 │
+      │     └─ Email + senha ou Google OAuth                        │
+      │     └─ Email de confirmação enviado                         │
+      │                                                             │
+      │  3. STEP 1: Dados do Restaurante                           │
+      │     ├─ Nome do restaurante                                  │
+      │     ├─ Categoria (dropdown: Pizza, Burger, Japonesa...)     │
+      │     ├─ CNPJ (com máscara e validação)                       │
+      │     ├─ Telefone / WhatsApp                                  │
+      │     ├─ Email de contato                                     │
+      │     └─ Descrição curta                                      │
+      │                                                             │
+      │  4. STEP 2: Endereço Virtual                                │
+      │     ├─ Escolher subdomínio: [________].foodie.app           │
+      │     ├─ ✅ Verificação em tempo real (disponível?)           │
+      │     ├─ Endereço físico do restaurante                       │
+      │     │   ├─ CEP (ViaCEP auto-preenchimento)                  │
+      │     │   ├─ Rua, Número, Complemento                         │
+      │     │   ├─ Bairro, Cidade, Estado                           │
+      │     │   └─ Coordenadas (geolocalização automática)          │
+      │     └─ Raio de entrega (km)                                 │
+      │                                                             │
+      │  5. STEP 3: Aparência                                       │
+      │     ├─ Upload de logo (arrastar ou selecionar)              │
+      │     ├─ Upload de imagem de capa                             │
+      │     ├─ Cor primária (color picker)                          │
+      │     └─ Preview em tempo real do cardápio                    │
+      │                                                             │
+      │  6. CONFIRMAÇÃO                                             │
+      │     ├─ Resumo de tudo que foi preenchido                    │
+      │     ├─ Termos de uso e política de privacidade              │
+      │     ├─ Clica "Criar meu restaurante"                       │
+      │     │                                                       │
+      │     └─ Server Action: createTenant()                        │
+      │         ├─ Cria Restaurant no Prisma                        │
+      │         ├─ Cria Profile com role=GERENCIADOR               │
+      │         ├─ Cria categorias padrão (Lanches, Bebidas...)     │
+      │         ├─ Configura subdomínio                             │
+      │         ├─ Upload imagens para Supabase Storage              │
+      │         └─ Invalida cache                                   │
+      │                                                             │
+      │  7. REDIRECT para /dashboard                                │
+      │     ├─ Toast: "Restaurante criado! 🎉"                     │
+      │     ├─ Cardápio já está no ar em {slug}.foodie.app          │
+      │     └─ Dashboard pronto para adicionar produtos             │
+      │                                                             │
+      └─────────────────────────────────────────────────────────────┘
+      ```
+    </fluxo>
+
+    <fluxo nome="Acesso ao Cardápio via Subdomínio">
+      ```
+      ┌─────────────────────────────────────────────────────────────┐
+      │              FLUXO SUBDOMÍNIO                               │
+      ├─────────────────────────────────────────────────────────────┤
+      │                                                             │
+      │  1. Cliente acessa pizzariadoze.foodie.app                  │
+      │                                                             │
+      │  2. Middleware detecta subdomínio "pizzariadoze"            │
+      │     └─ Busca restaurante por subdomain no Redis/Prisma       │
+      │                                                             │
+      │  3. Se encontrado:                                          │
+      │     ├─ Aplica tema do restaurante (cores, logo, fonte)      │
+      │     ├─ Renderiza cardápio público                           │
+      │     ├─ URL mantém subdomínio (não redireciona)              │
+      │     └─ SEO: title = "Pizzaria do Zé - Delivery"            │
+      │                                                             │
+      │  4. Se não encontrado:                                      │
+      │     └─ 404 com link para foodie.app                         │
+      │                                                             │
+      │  5. Se restaurante inativo/fechado:                         │
+      │     └─ Página de "Em breve" ou "Fechado no momento"         │
+      │                                                             │
+      └─────────────────────────────────────────────────────────────┘
+      ```
+    </fluxo>
+  </fluxos>
+
+  <!-- ============================================
+       ARQUIVOS ENVOLVIDOS
+       ============================================ -->
+  <arquivos>
+    <!-- Páginas de Onboarding -->
+    <page path="src/app/onboarding/layout.tsx" status="a_criar">
+      Layout com stepper visual (Passo 1/3, 2/3, 3/3).
+      Progresso salvo em cookie para retomar se sair.
+    </page>
+
+    <page path="src/app/onboarding/page.tsx" status="a_criar">
+      Step 1: Dados do restaurante.
+      Form com validação Zod em tempo real.
+    </page>
+
+    <page path="src/app/onboarding/domain/page.tsx" status="a_criar">
+      Step 2: Subdomínio e endereço.
+      ViaCEP integrado para CEP. Verificação de disponibilidade do subdomínio.
+    </page>
+
+    <page path="src/app/onboarding/theme/page.tsx" status="a_criar">
+      Step 3: Logo, capa e cor primária.
+      Preview em tempo real do cardápio com o tema aplicado.
+    </page>
+
+    <!-- Actions -->
+    <action path="src/actions/tenant-actions.ts" status="a_criar">
+      createTenant(data) — Cria restaurante + perfil + categorias padrão.
+      checkSubdomainAvailability(subdomain) — Verifica se subdomínio está livre.
+      uploadRestaurantImage(file) — Upload para Supabase Storage.
+    </action>
+
+    <!-- Middleware -->
+    <file path="middleware.ts" status="modificar">
+      Adicionar detecção de subdomínio.
+      Se subdomínio != www e != app → buscar restaurante e servir cardápio.
+    </file>
+
+    <!-- Config -->
+    <file path="next.config.ts" status="modificar">
+      Adicionar suporte a wildcard subdomínios.
+    </file>
+
+    <!-- Validações -->
+    <validation path="src/lib/validations/tenant.validations.ts" status="a_criar">
+      Schemas Zod para:
+      - tenantStep1Schema (nome, categoria, CNPJ, contato)
+      - tenantStep2Schema (subdomínio, endereço, raio)
+      - tenantStep3Schema (logo, capa, cor)
+    </validation>
+
+    <!-- Cache -->
+    <file path="src/lib/redis.ts" status="a_criar">
+      Singleton Redis client (Upstash).
+    </file>
+
+    <file path="src/lib/cache/restaurant-cache.ts" status="a_criar">
+      Cache de dados do restaurante.
+      getRestaurantBySubdomain(subdomain) — cache + fallback Prisma.
+      invalidateRestaurantCache(restaurantId) — limpa cache.
+    </file>
+  </arquivos>
+
+  <!-- ============================================
+       MODELO DE DADOS
+       ============================================ -->
+  <modeloDeDados>
+    <entidade nome="Restaurant" fonte="prisma/schema.prisma">
+      Campos relevantes para tenant:
+      - name: String (obrigatório)
+      - slug: String (único, gerado do nome)
+      - subdomain: String (único, escolhido pelo usuário)
+      - cnpj: String?
+      - category: String?
+      - description: String?
+      - logo: String? (URL do Supabase Storage)
+      - cover_image: String? (URL do Supabase Storage)
+      - phone: String?
+      - email: String?
+      - user_id: String (dono, FK para Profile)
+      - is_active: Boolean (default true)
+      - status: RestaurantStatus (default CLOSED)
+      - delivery_radius: Float?
+      - Cor primária e fonte: A ADICIONAR no schema (theme JSON?)
+    </entidade>
+
+    <entidade nome="Profile" fonte="prisma/schema.prisma">
+      - id: String
+      - email: String
+      - full_name: String?
+      - role: UserRole (CLIENTE → GERENCIADOR após onboarding)
+    </entidade>
+
+    <migration>
+      ```sql
+      -- Adicionar campos de tema ao Restaurant
+      ALTER TABLE "restaurants" 
+        ADD COLUMN "theme" JSONB NULL;
+      
+      -- theme JSON structure:
+      -- {
+      --   "primaryColor": "#00A082",
+      --   "secondaryColor": "#1A1A1A",
+      --   "fontHeading": "Inter",
+      --   "fontBody": "Inter",
+      --   "borderRadius": "12px"
+      -- }
+      ```
+    </migration>
+  </modeloDeDados>
+
+  <!-- ============================================
+       REGRAS DE NEGÓCIO
+       ============================================ -->
+  <regrasDeNegocio>
+    <regra id="1" nome="Unicidade de Subdomínio">
+      Subdomínio deve ser único globalmente.
+      Validação em tempo real no blur do campo.
+      Pattern: [a-z0-9-]+, mínimo 3 caracteres.
+      Reservados: www, app, admin, api, mail, foodie.
+    </regra>
+
+    <regra id="2" nome="Categorias Padrão">
+      Ao criar restaurante, criar categorias padrão:
+      - "Lanches"
+      - "Bebidas"
+      - "Sobremesas"
+      Restaurante pode editar/excluir depois.
+    </regra>
+
+    <regra id="3" nome="Limites do Plano Grátis">
+      - 1 restaurante por usuário
+      - Até 50 pedidos/mês (track via counter no Redis)
+      - Sem domínio próprio
+      - Tema básico (cor primária apenas)
+    </regra>
+
+    <regra id="4" nome="Ativação do Restaurante">
+      Restaurante começa com status=CLOSED e is_active=true.
+      Dono precisa ir no dashboard e clicar "Abrir restaurante".
+      Cardápio público só funciona se status=OPEN.
+    </regra>
+
+    <regra id="5" nome="Cache de Subdomínio">
+      Resolução de subdomínio → restaurant é cacheada em Redis.
+      TTL: 1 hora (invalida ao editar perfil).
+      Fallback: Prisma query direta.
+    </regra>
+  </regrasDeNegocio>
+
+  <!-- ============================================
+       SERVER ACTION: createTenant
+       ============================================ -->
+  <serverAction nome="createTenant">
+    <entrada>
+      ```typescript
+      interface CreateTenantInput {
+        // Step 1
+        name: string
+        category: string
+        cnpj?: string
+        phone: string
+        email: string
+        description?: string
+        
+        // Step 2
+        subdomain: string
+        cep: string
+        street: string
+        number: string
+        complement?: string
+        neighborhood: string
+        city: string
+        state: string
+        deliveryRadius: number
+        
+        // Step 3
+        logoFile?: File
+        coverFile?: File
+        primaryColor: string
+      }
+      ```
+    </entrada>
+
+    <validacao>
+      1. Verificar autenticação (usuário logado)
+      2. Validar subdomínio disponível (não reservado, não em uso)
+      3. Validar CNPJ (formato e unicidade)
+      4. Validar todos os campos com Zod
+      5. Verificar se usuário já tem restaurante (plano grátis)
+    </validacao>
+
+    <processamento>
+      ```typescript
+      // 1. Upload de imagens
+      const logoUrl = logoFile 
+        ? await uploadToStorage(logoFile, `${subdomain}/logo`)
+        : null
+      const coverUrl = coverFile
+        ? await uploadToStorage(coverFile, `${subdomain}/cover`)
+        : null
+      
+      // 2. Criar restaurante
+      const restaurant = await prisma.restaurant.create({
+        data: {
+          name,
+          slug: generateSlug(name),
+          subdomain,
+          cnpj,
+          category,
+          phone,
+          email,
+          description,
+          logo: logoUrl,
+          cover_image: coverUrl,
+          user_id: user.id,
+          street,
+          number,
+          complement,
+          neighborhood,
+          city,
+          state,
+          zip_code: cep,
+          delivery_radius: deliveryRadius,
+          status: 'CLOSED',
+          is_active: true,
+          theme: {
+            primaryColor,
+            secondaryColor: '#1A1A1A',
+            fontHeading: 'Inter',
+            fontBody: 'Inter',
+            borderRadius: '12px',
+          },
+        }
+      })
+      
+      // 3. Atualizar role do usuário
+      await prisma.profile.update({
+        where: { id: user.id },
+        data: { role: 'GERENCIADOR' }
+      })
+      
+      // 4. Criar categorias padrão
+      const defaultCategories = ['Lanches', 'Bebidas', 'Sobremesas']
+      for (const name of defaultCategories) {
+        await prisma.category.create({
+          data: {
+            restaurant_id: restaurant.id,
+            name,
+            sort_order: defaultCategories.indexOf(name),
+          }
+        })
+      }
+      
+      // 5. Setar cookie do restaurante
+      cookies().set('restaurantId', restaurant.id)
+      
+      return { success: true, data: { id: restaurant.id, subdomain } }
+      ```
+    </processamento>
+
+    <saida>
+      ```typescript
+      {
+        success: true,
+        data: {
+          id: "restaurant-uuid",
+          subdomain: "pizzariadoze"
+        }
+      }
+      ```
+    </saida>
+
+    <erros>
+      - "Este subdomínio já está em uso"
+      - "CNPJ inválido ou já cadastrado"
+      - "Você já possui um restaurante no plano grátis"
+      - "Erro ao fazer upload da imagem"
+      - "Erro ao criar restaurante"
+    </erros>
+  </serverAction>
+
+  <!-- ============================================
+       DECISÕES
+       ============================================ -->
+  <decisoes>
+    <decisao id="1" topico="Formato do Onboarding" status="Decidido">
+      <solucao>
+        Wizard de 3 passos com progresso visual.
+        Ideal para mobile (um campo por vez, foco no que importa).
+        Alternativa rejeitada: formulário único longo (ruim em mobile).
+      </solucao>
+    </decisao>
+
+    <decisao id="2" topico="Categorias Iniciais" status="Decidido">
+      <solucao>
+        3 categorias padrão (Lanches, Bebidas, Sobremesas).
+        Cobre 80% dos restaurantes. Customizável depois.
+        Alternativa rejeitada: deixar cardápio vazio (má primeira impressão).
+      </solucao>
+    </decisao>
+
+    <decisao id="3" topico="Tema por Restaurante" status="Decidido">
+      <solucao>
+        JSON no banco (campo `theme`). Carregado no layout do cardápio.
+        Sem necessidade de compilação por tema.
+        Alternativa rejeitada: CSS customizado por tenant (complexo, risco de injeção).
+      </solucao>
+    </decisao>
+
+    <decisao id="4" topico="Domínio Próprio" status="Fase 4">
+      <solucao>
+        Fase 4 (white-label). Começar com subdomínio para todos.
+        Subdomínio é suficiente para MVP. Domínio próprio é premium.
+      </solucao>
+    </decisao>
+  </decisoes>
+
+  <!-- ============================================
+       TESTES
+       ============================================ -->
+  <testes>
+    <cenario nome="Onboarding Sucesso">
+      1. Usuário faz sign up
+      2. Preenche Step 1 (nome, categoria, CNPJ, contato)
+      3. Avança para Step 2 (subdomínio disponível, endereço)
+      4. Avança para Step 3 (upload logo, escolhe cor)
+      5. Confirma criação
+      6. Restaurante criado no banco
+      7. Categorias padrão criadas
+      8. Role atualizado para GERENCIADOR
+      9. Redirecionado para /dashboard
+      10. Cardápio acessível em {subdominio}.foodie.app
+    </cenario>
+
+    <cenario nome="Subdomínio Indisponível">
+      1. Usuário digita subdomínio "admin"
+      2. ❌ Erro: "Subdomínio reservado"
+      3. Usuário digita subdomínio já em uso
+      4. ❌ Erro: "Este subdomínio já está em uso"
+      5. Usuário digita subdomínio válido e disponível
+      6. ✅ Check verde: "Disponível!"
+    </cenario>
+
+    <cenario nome="CNPJ Inválido">
+      1. Usuário digita CNPJ com formato errado
+      2. ❌ Erro de validação
+      3. Usuário digita CNPJ já cadastrado
+      4. ❌ Erro: "CNPJ já cadastrado"
+    </cenario>
+
+    <cenario nome="Limite Plano Grátis">
+      1. Usuário já tem um restaurante
+      2. Tenta criar outro
+      3. ❌ Erro: "Você já possui um restaurante no plano grátis"
+    </cenario>
+  </testes>
+
+  <!-- ============================================
+       MELHORIAS FUTURAS
+       ============================================ -->
+  <melhoriasFuturas>
+    <melhoria prioridade="baixa" versao="v4.0">
+      <titulo>Importação de Cardápio</titulo>
+      <descricao>
+        Upload de CSV/JSON com produtos para importação em lote.
+        Alternativa: integração com iFood para sincronizar cardápio existente.
+      </descricao>
+    </melhoria>
+
+    <melhoria prioridade="média" versao="v4.0">
+      <titulo>Página Pública Personalizada</titulo>
+      <descricao>
+        Além do cardápio, permitir landing page com fotos, avaliações e história do restaurante.
+      </descricao>
+    </melhoria>
+  </melhoriasFuturas>
+
+</feature>

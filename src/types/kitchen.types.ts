@@ -1,6 +1,5 @@
 // src/types/kitchen.types.ts
 import type { OrderData } from '@/actions/orders'
-import type { OrderStatus } from '@prisma/client'
 
 export type KitchenOrder = OrderData
 
