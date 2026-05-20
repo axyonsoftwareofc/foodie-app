@@ -20,6 +20,7 @@ import { PaymentMethod, Restaurant } from '@/types';
 import { CardDetails } from '@/types/payment.types';
 import { CHECKOUT_MESSAGES } from '@/lib/constants/checkout.constants';
 import { createOrder as createOrderAction, type OrderItemData } from '@/actions/orders';
+import { createPixPayment } from '@/actions/payments';
 import { getAddresses, type AddressData } from '@/actions/addresses';
 import CheckoutHeader from '@/components/checkout/CheckoutHeader';
 import AddressForm from '@/components/checkout/AddressForm';
@@ -310,13 +311,22 @@ export default function CheckoutPage() {
                 return;
             }
 
+            const orderId = result.data!.id
+
+            if (paymentMethod === 'PIX') {
+                const pixResult = await createPixPayment(orderId)
+                if (pixResult.error) {
+                    toast.error('Pedido criado, mas erro ao gerar Pix. Va para a pagina do pedido para tentar novamente.')
+                }
+            }
+
             clearCart();
 
             toast.success('Pedido realizado com sucesso!', {
-                description: `Seu pedido #${result.data!.id.slice(-4)} foi confirmado`
+                description: `Seu pedido #${orderId.slice(-4)} foi confirmado`
             });
 
-            router.push(`/orders/${result.data!.id}`);
+            router.push(`/orders/${orderId}`);
         } catch {
             toast.error('Erro ao processar pedido. Tente novamente.');
             setIsLoading(false);

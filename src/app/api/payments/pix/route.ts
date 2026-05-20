@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/authz';
 import { getOrderPaymentContext } from '@/lib/payments/order-payment';
 
-const FEATURE_ENABLED = process.env.ENABLE_PIX_AUTO === 'true';
 const PIX_KEY = process.env.PIX_KEY || 'foodie@email.com';
 const PIX_KEY_TYPE = process.env.PIX_KEY_TYPE || 'email';
 
@@ -74,16 +73,6 @@ function generatePixCode(payload: PixPayload): string {
 }
 
 export async function POST(request: NextRequest) {
-    if (!FEATURE_ENABLED) {
-        return NextResponse.json(
-            {
-                error: 'Automatic PIX is not enabled yet',
-                message: 'Please use manual PIX payment for now. Automatic PIX will be available in v5.0.'
-            },
-            { status: 503 }
-        );
-    }
-
     const { user, error: authError } = await getCurrentUser();
     if (authError || !user) {
         return NextResponse.json(

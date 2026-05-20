@@ -20,6 +20,9 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import LiveTracker from '@/components/delivery/LiveTracker'
+import PixQRCode from '@/components/checkout/PixQRCode'
+import { createPixPayment } from '@/actions/payments'
+import type { PixPaymentDetails } from '@/types/payment.types'
 
 export default function OrderDetailsPage() {
     const params = useParams()
@@ -27,6 +30,8 @@ export default function OrderDetailsPage() {
     const [order, setOrder] = useState<OrderData | null>(null)
     const [loading, setLoading] = useState(true)
     const { addItem, clearCart, items: cartItems, restaurantId: cartRestaurantId } = useCart()
+    const [pixDetails, setPixDetails] = useState<PixPaymentDetails | null>(null)
+    const [isGeneratingPix, setIsGeneratingPix] = useState(false)
 
     const orderId = params.id as string
 
@@ -46,6 +51,25 @@ export default function OrderDetailsPage() {
 
         loadOrder()
     }, [orderId, router])
+
+    useEffect(() => {
+        if (order && order.paymentMethod === 'PIX' && order.status === 'PENDING') {
+            setIsGeneratingPix(true)
+            createPixPayment(order.id).then((result) => {
+                if (result.data) setPixDetails(result.data)
+                setIsGeneratingPix(false)
+            })
+        }
+    }, [order])
+
+    const handleGeneratePix = () => {
+        if (!order) return
+        setIsGeneratingPix(true)
+        createPixPayment(order.id).then((result) => {
+            if (result.data) setPixDetails(result.data)
+            setIsGeneratingPix(false)
+        })
+    }
 
     if (loading) {
         return (
@@ -360,6 +384,24 @@ export default function OrderDetailsPage() {
                         </div>
                     </div>
                 </div>
+
+                {/* Pix QR Code - para pedidos PIX pendentes */}
+                {order.paymentMethod === 'PIX' && order.status === 'PENDING' && (
+                    <div className="bg-white rounded-xl p-6 shadow-sm">
+                        <h2 className="font-semibold mb-4">Pagamento Pix</h2>
+                        <PixQRCode
+                            pixDetails={pixDetails}
+                            amount={order.total}
+                            onGenerateNew={handleGeneratePix}
+                            isGenerating={isGeneratingPix}
+                        />
+                        {pixDetails && (
+                            <p className="text-xs text-gray-400 text-center mt-3">
+                                Apos o pagamento, seu pedido sera confirmado automaticamente
+                            </p>
+                        )}
+                    </div>
+                )}
 
                 {/* Cancel Button */}
                 {['PENDING', 'CONFIRMED'].includes(order.status) && (
