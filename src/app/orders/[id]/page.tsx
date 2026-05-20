@@ -18,6 +18,7 @@ import {
     CreditCard
 } from 'lucide-react'
 import { toast } from 'sonner'
+import LiveTracker from '@/components/delivery/LiveTracker'
 
 export default function OrderDetailsPage() {
     const params = useParams()
@@ -226,6 +227,11 @@ export default function OrderDetailsPage() {
                             Mesa: <span className="font-bold">{order.tableNumber}</span>
                         </p>
                     </div>
+                )}
+
+                {/* Live Tracker - Apenas para Delivery em andamento ou entregando */}
+                {order.orderType === 'DELIVERY' && ['READY', 'DELIVERING'].includes(order.status) && (
+                    <LiveTracker orderId={order.id} />
                 )}
 
                 {/* Customer Info */}

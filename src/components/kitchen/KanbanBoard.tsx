@@ -17,6 +17,7 @@ import { KanbanColumn } from './KanbanColumn'
 import { OrderDetailsModal } from './OrderDetailsModal'
 import { NewOrderAlert } from './NewOrderAlert'
 import { OrderFilters } from './OrderFilters'
+import { AssignDriverModal } from './AssignDriverModal'
 
 const COLUMNS = [
     {
@@ -71,6 +72,8 @@ export function KanbanBoard() {
     const [newOrders, setNewOrders] = useState<KitchenOrder[]>([])
     const [dismissedOrderIds, setDismissedOrderIds] = useState<Set<string>>(new Set())
     const [showFilters, setShowFilters] = useState(false)
+    const [assignOrderId, setAssignOrderId] = useState<string | null>(null)
+    const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
 
     // Solicitar permissão para notificações ao montar
     useEffect(() => {
@@ -227,6 +230,10 @@ TOTAL: R$ ${order.total.toFixed(2).replace('.', ',')}
             case 'VIEW_DETAILS':
                 handleOrderClick(order)
                 break
+            case 'ASSIGN_DRIVER':
+                setAssignOrderId(orderId)
+                setIsAssignModalOpen(true)
+                break
         }
     }
 
@@ -321,6 +328,16 @@ TOTAL: R$ ${order.total.toFixed(2).replace('.', ',')}
                     setIsModalOpen(false)
                     setSelectedOrder(null)
                 }}
+            />
+
+            <AssignDriverModal
+                orderId={assignOrderId || ''}
+                isOpen={isAssignModalOpen}
+                onClose={() => {
+                    setIsAssignModalOpen(false)
+                    setAssignOrderId(null)
+                }}
+                onAssigned={refresh}
             />
         </>
     )
