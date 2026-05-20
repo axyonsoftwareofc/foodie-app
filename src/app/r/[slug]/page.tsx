@@ -1,6 +1,7 @@
 // src/app/r/[slug]/page.tsx
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { RestaurantHeader } from "@/components/restaurant/RestaurantHeader";
 import { MenuSection } from "@/components/restaurant/MenuSection";
 import { getCssVariables, DEFAULT_THEME, type RestaurantTheme } from "@/lib/theme/resolver";
@@ -16,11 +17,44 @@ function parseTheme(raw: unknown): RestaurantTheme {
     }
 }
 
-export default async function RestaurantPage({
-                                                 params,
-                                             }: {
-    params: Promise<{ slug: string }>;
-}) {
+interface Props {
+    params: Promise<{ slug: string }>
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+    const { slug } = await params
+
+    const restaurant = await prisma.restaurant.findUnique({
+        where: { subdomain: slug },
+        select: { name: true, description: true, logo: true, category: true },
+    })
+
+    if (!restaurant) {
+        return { title: 'Restaurante nao encontrado — Foodie' }
+    }
+
+    const title = `${restaurant.name} — Delivery no Foodie`
+    const description = restaurant.description || `Peca delivery do ${restaurant.name}. ${restaurant.category || 'Comida deliciosa'} entregue na sua casa.`
+
+    return {
+        title,
+        description,
+        openGraph: {
+            title,
+            description,
+            type: 'website',
+            images: restaurant.logo ? [{ url: restaurant.logo }] : [],
+        },
+        twitter: {
+            card: 'summary_large_image',
+            title,
+            description,
+            images: restaurant.logo ? [restaurant.logo] : [],
+        },
+    }
+}
+
+export default async function RestaurantPage({ params }: Props) {
     const { slug } = await params;
 
     const restaurantData = await prisma.restaurant.findUnique({
