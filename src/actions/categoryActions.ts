@@ -3,6 +3,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
+import { redisDel, cacheKey } from '@/lib/redis'
 import { z } from 'zod'
 import {
     getCurrentUser,
@@ -100,6 +101,7 @@ export async function createCategory(formData: FormData) {
         })
 
         revalidatePath('/dashboard/menu')
+        void redisDel(cacheKey('restaurants', 'public-list'))
         return { category, success: true }
     } catch (error) {
         console.error('Error creating category:', error)
@@ -137,6 +139,7 @@ export async function updateCategory(categoryId: string, formData: FormData) {
         })
 
         revalidatePath('/dashboard/menu')
+        void redisDel(cacheKey('restaurants', 'public-list'))
         return { category, success: true }
     } catch (error) {
         console.error('Error updating category:', error)
@@ -176,6 +179,7 @@ export async function reorderCategories(restaurantId: string, categoryIds: strin
         )
 
         revalidatePath('/dashboard/menu')
+        void redisDel(cacheKey('restaurants', 'public-list'))
         return { success: true }
     } catch (error) {
         console.error('Error reordering categories:', error)
@@ -218,6 +222,7 @@ export async function deleteCategory(categoryId: string) {
         })
 
         revalidatePath('/dashboard/menu')
+        void redisDel(cacheKey('restaurants', 'public-list'))
         return { success: true }
     } catch (error) {
         console.error('Error deleting category:', error)

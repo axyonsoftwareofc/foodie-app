@@ -3,6 +3,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
+import { redisDel, cacheKey } from '@/lib/redis'
 import { z } from 'zod'
 import { Prisma } from '@prisma/client'
 import {
@@ -190,6 +191,7 @@ export async function createProduct(formData: FormData) {
         })
 
         revalidatePath('/dashboard/menu')
+        void redisDel(cacheKey('restaurants', 'public-list'))
         return { product, success: true }
     } catch (error) {
         console.error('Error creating product:', error)
@@ -241,6 +243,7 @@ export async function updateProduct(productId: string, formData: FormData) {
         })
 
         revalidatePath('/dashboard/menu')
+        void redisDel(cacheKey('restaurants', 'public-list'))
         return { product, success: true }
     } catch (error) {
         console.error('Error updating product:', error)
@@ -270,6 +273,7 @@ export async function toggleProductAvailability(productId: string, isAvailable: 
         })
 
         revalidatePath('/dashboard/menu')
+        void redisDel(cacheKey('restaurants', 'public-list'))
         return { success: true }
     } catch (error) {
         console.error('Error toggling availability:', error)
@@ -299,6 +303,7 @@ export async function deleteProduct(productId: string) {
         })
 
         revalidatePath('/dashboard/menu')
+        void redisDel(cacheKey('restaurants', 'public-list'))
         return { success: true }
     } catch (error) {
         console.error('Error deleting product:', error)

@@ -63,6 +63,13 @@ const restaurantSchema = z.object({
 
 export async function getPublicRestaurants(): Promise<{ data?: import('@/types').Restaurant[]; error?: string }> {
     try {
+        const { redisGet, redisSet, cacheKey } = await import('@/lib/redis')
+        const CACHE_KEY = cacheKey('restaurants', 'public-list')
+        const cached = await redisGet<import('@/types').Restaurant[]>(CACHE_KEY)
+        if (cached) {
+            return { data: cached }
+        }
+
         const restaurants = await prisma.restaurant.findMany({
             where: { is_active: true },
             include: {
@@ -112,6 +119,7 @@ export async function getPublicRestaurants(): Promise<{ data?: import('@/types')
             }
         })
 
+        void redisSet(CACHE_KEY, result, 300)
         return { data: result }
     } catch (error) {
         console.error('Error fetching public restaurants:', error)
