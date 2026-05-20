@@ -4,7 +4,7 @@ import { getServerSession } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { Receipt, Clock, TrendingUp, AlertTriangle } from 'lucide-react'
-import { OrderStatus } from '@prisma/client'
+import type { OrderStatus } from '@prisma/client'
 
 async function getRestaurantStats(restaurantId: string) {
     const today = new Date()
@@ -25,11 +25,11 @@ async function getRestaurantStats(restaurantId: string) {
     })
 
     const pendingCount = await prisma.order.count({
-        where: { restaurant_id: restaurantId, status: OrderStatus.PENDING },
+        where: { restaurant_id: restaurantId, status: 'PENDING' as OrderStatus },
     })
 
     const preparingCount = await prisma.order.count({
-        where: { restaurant_id: restaurantId, status: OrderStatus.PREPARING },
+        where: { restaurant_id: restaurantId, status: 'PREPARING' as OrderStatus },
     })
 
     const totalToday = todayOrders.length
@@ -73,6 +73,14 @@ export default async function OrdersPage() {
 
     return (
         <div>
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">Pedidos</h1>
+                    <p className="text-sm text-gray-500 mt-1">Gerencie os pedidos do seu restaurante</p>
+                </div>
+            </div>
+
             {/* Stats Bar */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">

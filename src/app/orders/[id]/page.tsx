@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getOrderById } from '@/actions/orders'
 import type { OrderData } from '@/actions/orders'
+import { useCart } from '@/hooks/useCart'
 import { formatPrice } from '@/lib/utils/format.utils'
 import { ORDER_STATUS_CONFIG } from '@/lib/constants/order.constants'
 import {
@@ -25,6 +26,7 @@ export default function OrderDetailsPage() {
     const router = useRouter()
     const [order, setOrder] = useState<OrderData | null>(null)
     const [loading, setLoading] = useState(true)
+    const { addItem, clearCart, items: cartItems, restaurantId: cartRestaurantId } = useCart()
 
     const orderId = params.id as string
 
@@ -58,6 +60,31 @@ export default function OrderDetailsPage() {
 
     if (!order) {
         return null
+    }
+
+    const handleReorder = () => {
+        if (!order) return
+
+        if (cartRestaurantId && cartRestaurantId !== order.restaurantId && cartItems.length > 0) {
+            const confirmed = window.confirm('Seu carrinho tem itens de outro restaurante. Deseja limpar e pedir novamente?')
+            if (!confirmed) return
+            clearCart()
+        }
+
+        order.items.forEach((item) => {
+            addItem({
+                id: item.menuItemId,
+                name: item.menuItemName,
+                description: '',
+                price: item.menuItemPrice,
+                image: item.menuItemImage,
+                category: '',
+                restaurantId: order.restaurantId,
+            }, item.quantity, item.observation)
+        })
+
+        toast.success('Itens adicionados ao carrinho!')
+        router.push('/checkout')
     }
 
     const statusConfig = ORDER_STATUS_CONFIG[order.status] || {
@@ -338,12 +365,21 @@ export default function OrderDetailsPage() {
                 {['PENDING', 'CONFIRMED'].includes(order.status) && (
                     <button
                         onClick={() => {
-                            // Implementar cancelamento
                             toast.info('Funcionalidade de cancelamento em desenvolvimento')
                         }}
                         className="w-full py-3 text-red-600 font-medium border border-red-200 rounded-xl hover:bg-red-50 transition-colors"
                     >
                         Cancelar Pedido
+                    </button>
+                )}
+
+                {/* Pedir Novamente */}
+                {['DELIVERED', 'CANCELLED'].includes(order.status) && (
+                    <button
+                        onClick={handleReorder}
+                        className="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2"
+                    >
+                        🛒 Pedir Novamente
                     </button>
                 )}
             </div>
