@@ -21,6 +21,7 @@ export interface RestaurantProfile {
     bankInfo: BankInfo;
     rating: number;
     reviewCount: number;
+    theme?: string;
     createdAt: string;
     updatedAt: string;
 }
