@@ -95,6 +95,9 @@ model Restaurant {
   // Informações bancárias
   bank_info Json?
 
+  // Personalizacao
+  theme Json?
+
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 

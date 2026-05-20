@@ -3,6 +3,18 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { RestaurantHeader } from "@/components/restaurant/RestaurantHeader";
 import { MenuSection } from "@/components/restaurant/MenuSection";
+import { getCssVariables, DEFAULT_THEME, type RestaurantTheme } from "@/lib/theme/resolver";
+
+function parseTheme(raw: unknown): RestaurantTheme {
+    if (!raw) return DEFAULT_THEME
+    try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+        if (typeof parsed !== 'object' || !parsed) return DEFAULT_THEME
+        return { ...DEFAULT_THEME, ...parsed }
+    } catch {
+        return DEFAULT_THEME
+    }
+}
 
 export default async function RestaurantPage({
                                                  params,
@@ -31,27 +43,32 @@ export default async function RestaurantPage({
         notFound();
     }
 
-    // ✅ MAPEAR PARA O FORMATO QUE OS COMPONENTES ESPERAM
+    const theme = parseTheme(restaurantData.theme)
+    const cssVars = getCssVariables(theme)
+
     const restaurant = {
         ...restaurantData,
         categories: restaurantData.categories.map(category => ({
             id: category.id,
             name: category.name,
-            restaurantId: category.restaurant_id, // ✅ Converte snake → camel
+            restaurantId: category.restaurant_id,
             products: category.products.map(product => ({
                 id: product.id,
                 name: product.name,
                 description: product.description,
                 price: product.price,
-                imageUrl: product.image, // ✅ image → imageUrl
-                isAvailable: product.is_available, // ✅ is_available → isAvailable
-                restaurantId: product.restaurant_id, // ✅ restaurant_id → restaurantId
+                imageUrl: product.image,
+                isAvailable: product.is_available,
+                restaurantId: product.restaurant_id,
             }))
         }))
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-28">
+        <div className="min-h-screen pb-28" style={{
+            backgroundColor: cssVars['--restaurant-bg'],
+            fontFamily: cssVars['--restaurant-font-body'],
+        }}>
             <RestaurantHeader restaurant={restaurantData} />
             <MenuSection categories={restaurant.categories} />
         </div>

@@ -12,3 +12,6 @@ ADD COLUMN "estimated_delivery" TEXT NULL;
 
 -- AlterTable: Add CNPJ to restaurants
 ALTER TABLE "restaurants" ADD COLUMN "cnpj" TEXT NULL;
+
+-- AlterTable: Add theme JSON to restaurants
+ALTER TABLE "restaurants" ADD COLUMN "theme" JSONB NULL;

@@ -6,7 +6,10 @@ import {
     UtensilsCrossed,
     Receipt,
     Settings,
-    Store
+    Store,
+    Palette,
+    Globe,
+    CreditCard
 } from "lucide-react";
 
 export default function DashboardLayout({
@@ -55,8 +58,36 @@ export default function DashboardLayout({
                         className="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-50 hover:text-gray-900 rounded-md font-medium transition-colors"
                     >
                         <Settings className="w-5 h-5" />
-                        Configurações
+                        Configuracoes
                     </Link>
+
+                    <div className="pt-4 mt-4 border-t border-gray-100">
+                        <p className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Personalizacao</p>
+
+                        <Link
+                            href="/dashboard/theme"
+                            className="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-50 hover:text-gray-900 rounded-md font-medium transition-colors"
+                        >
+                            <Palette className="w-5 h-5" />
+                            Aparcia
+                        </Link>
+
+                        <Link
+                            href="/dashboard/domain"
+                            className="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-50 hover:text-gray-900 rounded-md font-medium transition-colors"
+                        >
+                            <Globe className="w-5 h-5" />
+                            Domio
+                        </Link>
+
+                        <Link
+                            href="/dashboard/billing"
+                            className="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-50 hover:text-gray-900 rounded-md font-medium transition-colors"
+                        >
+                            <CreditCard className="w-5 h-5" />
+                            Planos
+                        </Link>
+                    </div>
                 </nav>
 
                 {/* Footer da Sidebar (Perfil do usuário mockado por enquanto) */}
