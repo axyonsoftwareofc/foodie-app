@@ -6,17 +6,24 @@ import { toast } from 'sonner'
 import { getRestaurantProfile, updateRestaurantProfile } from '@/actions/restaurantActions'
 import type { RestaurantProfile } from '@/types/restaurant-management.types'
 import { DEFAULT_THEME, PRESET_THEMES, FONT_OPTIONS, type RestaurantTheme } from '@/lib/theme/resolver'
+import ImageUpload from '@/components/ui/ImageUpload'
 
 export default function ThemePage() {
     const [restaurant, setRestaurant] = useState<RestaurantProfile | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [isSaving, setIsSaving] = useState(false)
     const [theme, setTheme] = useState<Partial<RestaurantTheme>>({ ...DEFAULT_THEME })
+    const [logo, setLogo] = useState('')
+    const [cover, setCover] = useState('')
+    const [restaurantSubdomain, setRestaurantSubdomain] = useState('')
 
     useEffect(() => {
         getRestaurantProfile().then((result) => {
             if (result.data) {
                 setRestaurant(result.data)
+                setLogo(result.data.images?.logo || '')
+                setCover(result.data.images?.banner || '')
+                setRestaurantSubdomain(result.data.slug || '')
                 if (result.data.theme) {
                     try {
                         const stored = typeof result.data.theme === 'string'
@@ -46,6 +53,7 @@ export default function ThemePage() {
             const result = await updateRestaurantProfile({
                 id: restaurant.id,
                 theme: JSON.stringify(theme),
+                images: { logo, banner: cover, gallery: [] },
             } as Partial<RestaurantProfile>)
 
             if (result.error) {
@@ -73,6 +81,27 @@ export default function ThemePage() {
             <p className="text-gray-500 mb-8">Personalize as cores e fontes do seu cardapio publico</p>
 
             <div className="space-y-6">
+                {/* Logo e Capa */}
+                <section className="bg-white rounded-xl border border-gray-200 p-6">
+                    <h2 className="font-semibold text-gray-900 mb-4">Imagens</h2>
+                    <div className="flex gap-6">
+                        <ImageUpload
+                            value={logo}
+                            onChange={setLogo}
+                            folder={`foodie/${restaurantSubdomain || 'restaurant'}`}
+                            label="Logo"
+                            hint="PNG quadrado"
+                        />
+                        <ImageUpload
+                            value={cover}
+                            onChange={setCover}
+                            folder={`foodie/${restaurantSubdomain || 'restaurant'}`}
+                            label="Capa"
+                            hint="1200x400px"
+                        />
+                    </div>
+                </section>
+
                 {/* Presets */}
                 <section className="bg-white rounded-xl border border-gray-200 p-6">
                     <h2 className="font-semibold text-gray-900 mb-4">Temas prontos</h2>
