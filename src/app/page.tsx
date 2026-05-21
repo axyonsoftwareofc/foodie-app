@@ -11,6 +11,7 @@ import { RestaurantCardSkeleton } from '@/components/ui/Skeleton';
 import { restaurants as mockRestaurants } from '@/data/mock';
 import { getPublicRestaurants } from '@/actions/restaurantActions';
 import { useFilters } from '@/hooks/useFilters';
+import { useAuth } from '@/hooks/useAuth';
 import { ActiveFilters } from '@/lib/constants/filter.constants';
 import type { Restaurant } from '@/types';
 
@@ -19,6 +20,8 @@ export default function HomePage() {
     const [dataRestaurants, setDataRestaurants] = useState<Restaurant[] | null>(null);
     const restaurants = dataRestaurants ?? mockRestaurants;
     const { filters, updateFilter, resetFilters, filteredRestaurants, hasActiveFilters } = useFilters(restaurants);
+    const { isAuthenticated, isGerenciador, isAdmin } = useAuth();
+    const isRestaurantOwner = isGerenciador || isAdmin;
 
     useEffect(() => {
         let cancelled = false;
@@ -75,6 +78,24 @@ export default function HomePage() {
                         </motion.div>
                     )}
                 </AnimatePresence>
+
+                {/* CTA: Criar Restaurante (apenas para não-donos) */}
+                {!isRestaurantOwner && !filters.search && !hasActiveFilters && (
+                    <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h3 className="font-bold">Tem um restaurante?</h3>
+                                <p className="text-sm text-emerald-100">Crie sua loja online em 3 minutos</p>
+                            </div>
+                            <a
+                                href={isAuthenticated ? '/criar-restaurante' : '/sign-up'}
+                                className="px-4 py-2 bg-white text-emerald-700 rounded-lg font-semibold text-sm hover:bg-emerald-50 transition-colors"
+                            >
+                                Comecar agora
+                            </a>
+                        </div>
+                    </div>
+                )}
 
                 {/* Filtros */}
                 <div className="my-6">

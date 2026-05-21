@@ -17,7 +17,8 @@ export default function Header() {
     const { items, totalItems, setIsCartOpen } = useCart()
 
     // ✅ Usa o AuthContext — fonte única da verdade
-    const { user, isLoading, isAuthenticated } = useAuth()
+    const { user, isLoading, isAuthenticated, isGerenciador, isAdmin } = useAuth()
+    const isRestaurantOwner = isGerenciador || isAdmin
 
     const isHomePage = useMemo(() => pathname === '/', [pathname])
     const isAuthPage = useMemo(
@@ -140,6 +141,7 @@ export default function Header() {
                                         userName={user.fullName || ''}
                                         userEmail={user.email}
                                         userAvatar={user.avatarUrl}
+                                        isRestaurantOwner={isRestaurantOwner}
                                     />
                                 ) : (
                                     <button

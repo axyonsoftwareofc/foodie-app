@@ -4,16 +4,17 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { User, LogOut, MapPin, ClipboardList, Heart, ChevronDown } from 'lucide-react'
+import { User, LogOut, MapPin, ClipboardList, Heart, ChevronDown, Store } from 'lucide-react'
 import { signOut } from '@/actions/auth'
 
 interface UserMenuProps {
     userName: string;
     userEmail: string;
     userAvatar?: string;
+    isRestaurantOwner?: boolean;
 }
 
-export function UserMenu({ userName, userEmail, userAvatar }: UserMenuProps) {
+export function UserMenu({ userName, userEmail, userAvatar, isRestaurantOwner }: UserMenuProps) {
     const router = useRouter()
     const [isOpen, setIsOpen] = useState<boolean>(false)
     const [isSigningOut, setIsSigningOut] = useState<boolean>(false)
@@ -61,6 +62,10 @@ export function UserMenu({ userName, userEmail, userAvatar }: UserMenuProps) {
     }
 
     const menuItems = [
+        ...(isRestaurantOwner
+            ? [{ icon: Store, label: 'Meu Restaurante', path: '/dashboard' }]
+            : [{ icon: Store, label: 'Criar Restaurante', path: '/criar-restaurante' }]
+        ),
         { icon: User, label: 'Meu perfil', path: '/profile' },
         { icon: ClipboardList, label: 'Meus pedidos', path: '/orders' },
         { icon: Heart, label: 'Favoritos', path: '/favorites' },
