@@ -2,6 +2,7 @@
 'use server'
 
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { cookies } from "next/headers";
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
@@ -12,6 +13,7 @@ import {
     userOwnsTable,
 } from '@/lib/authz'
 import { parseOperatingHours } from '@/lib/utils/restaurant.utils'
+import { redisDel, cacheKey } from '@/lib/redis'
 import {
     CreateRestaurantForm,
     RestaurantProfile,
@@ -166,14 +168,48 @@ export async function getRestaurantProfile(): Promise<{ data?: RestaurantProfile
             return { error: 'Usuário não autenticado' }
         }
 
-        const { data, error } = await supabase
-            .from('restaurants')
-            .select('*')
-            .eq('user_id', user.id)
-            .single()
+        const r = await prisma.restaurant.findFirst({
+            where: { user_id: user.id, is_active: true },
+        })
 
-        if (error) {
-            return { error: error.message }
+        if (!r) {
+            return { error: 'Restaurante nao encontrado' }
+        }
+
+        const data: RestaurantProfile = {
+            id: r.id,
+            userId: r.user_id,
+            name: r.name,
+            slug: r.slug || '',
+            description: r.description || '',
+            category: r.category || '',
+            cuisine: r.cuisine ? [r.cuisine] : [],
+            images: { logo: r.logo || '', banner: r.cover_image || '', gallery: [] },
+            contact: { phone: r.phone || '', email: r.email || '' },
+            address: {
+                street: r.street || '',
+                number: r.number || '',
+                complement: r.complement || undefined,
+                neighborhood: r.neighborhood || '',
+                city: r.city || '',
+                state: r.state || '',
+                zipCode: r.zip_code || '',
+                country: 'BR',
+            },
+            location: { latitude: r.latitude || 0, longitude: r.longitude || 0 },
+            operatingHours: (r.operating_hours as unknown as OperatingHours[]) || [],
+            status: (r.status as RestaurantStatus) || 'CLOSED',
+            deliveryFee: r.delivery_fee || 0,
+            minimumOrder: r.minimum_order || 0,
+            estimatedDeliveryTime: r.estimated_delivery_time || 40,
+            acceptsReservation: false,
+            tables: [],
+            bankInfo: (r.bank_info as unknown as BankInfo) || { bank: '', agency: '', account: '', accountType: 'checking', pixKey: '', pixKeyType: 'email', holderName: '', document: '' },
+            rating: 0,
+            reviewCount: 0,
+            theme: typeof r.theme === 'string' ? r.theme : (r.theme ? JSON.stringify(r.theme) : undefined),
+            createdAt: r.created_at.toISOString(),
+            updatedAt: r.updated_at.toISOString(),
         }
 
         return { data }
@@ -317,17 +353,60 @@ export async function updateRestaurantProfile(
             return { error: 'Usuário não autenticado' }
         }
 
-        const { error } = await supabase
-            .from('restaurants')
-            .update({
-                ...data,
-                updated_at: new Date().toISOString(),
-            })
-            .eq('user_id', user.id)
+        const restaurant = await prisma.restaurant.findFirst({
+            where: { user_id: user.id, is_active: true },
+            select: { id: true },
+        })
 
-        if (error) {
-            return { error: error.message }
+        if (!restaurant) {
+            return { error: 'Restaurante nao encontrado' }
         }
+
+        const updateData: Record<string, unknown> = {}
+
+        if (data.name !== undefined) updateData.name = data.name
+        if (data.description !== undefined) updateData.description = data.description
+        if (data.category !== undefined) updateData.category = data.category
+        if (data.deliveryFee !== undefined) updateData.delivery_fee = data.deliveryFee
+        if (data.minimumOrder !== undefined) updateData.minimum_order = data.minimumOrder
+        if (data.estimatedDeliveryTime !== undefined) updateData.estimated_delivery_time = data.estimatedDeliveryTime
+        if (data.status !== undefined) updateData.status = data.status
+        if (data.acceptsReservation !== undefined) updateData.accepts_reservation = data.acceptsReservation
+        if (data.contact?.phone !== undefined) updateData.phone = data.contact.phone
+        if (data.contact?.email !== undefined) updateData.email = data.contact.email
+        if (data.images?.logo !== undefined) updateData.logo = data.images.logo
+        if (data.images?.banner !== undefined) updateData.cover_image = data.images.banner
+        if (data.address?.street !== undefined) updateData.street = data.address.street
+        if (data.address?.number !== undefined) updateData.number = data.address.number
+        if (data.address?.neighborhood !== undefined) updateData.neighborhood = data.address.neighborhood
+        if (data.address?.city !== undefined) updateData.city = data.address.city
+        if (data.address?.state !== undefined) updateData.state = data.address.state
+        if (data.address?.zipCode !== undefined) updateData.zip_code = data.address.zipCode
+        if (data.location?.latitude !== undefined) updateData.latitude = data.location.latitude
+        if (data.location?.longitude !== undefined) updateData.longitude = data.location.longitude
+        if (data.deliveryFee !== undefined) updateData.delivery_fee = data.deliveryFee
+        if (data.minimumOrder !== undefined) updateData.minimum_order = data.minimumOrder
+        if (data.operatingHours !== undefined) updateData.operating_hours = data.operatingHours
+        if (data.bankInfo !== undefined) updateData.bank_info = data.bankInfo
+        if (data.theme !== undefined) updateData.theme = data.theme
+
+        // Support flat fields passed directly (from settings page)
+        const flatData = data as Record<string, unknown>
+        if (flatData.cnpj !== undefined) updateData.cnpj = flatData.cnpj
+        if (flatData.phone !== undefined && !updateData.phone) updateData.phone = flatData.phone
+        if (flatData.email !== undefined && !updateData.email) updateData.email = flatData.email
+        if (flatData.street !== undefined && !updateData.street) updateData.street = flatData.street
+        if (flatData.number !== undefined && !updateData.number) updateData.number = flatData.number
+        if (flatData.city !== undefined && !updateData.city) updateData.city = flatData.city
+        if (flatData.state !== undefined && !updateData.state) updateData.state = flatData.state
+        if (flatData.neighborhood !== undefined && !updateData.neighborhood) updateData.neighborhood = flatData.neighborhood
+
+        await prisma.restaurant.update({
+            where: { id: restaurant.id },
+            data: updateData,
+        })
+
+        void redisDel(cacheKey('restaurants', 'public-list'))
 
         return { success: true }
     } catch (error) {
@@ -401,7 +480,6 @@ export async function updateRestaurantStatus(
 }
 
 export async function toggleRestaurantStatus(restaurantId: string, isActive: boolean) {
-    const supabase = await createClient()
     const { user, error: authError } = await getCurrentUser()
 
     if (authError || !user) {
@@ -412,15 +490,12 @@ export async function toggleRestaurantStatus(restaurantId: string, isActive: boo
         return { error: 'Não autorizado ou restaurante não encontrado' }
     }
 
-    const { error } = await supabase
-        .from('restaurants')
-        .update({ is_active: isActive })
-        .eq('id', restaurantId)
+    await prisma.restaurant.update({
+        where: { id: restaurantId },
+        data: { is_active: isActive },
+    })
 
-    if (error) {
-        return { error: error.message }
-    }
-
+    void redisDel(cacheKey('restaurants', 'public-list'))
     return { success: true }
 }
 
@@ -435,17 +510,10 @@ export async function updateOperatingHours(
             return { error: 'Usuário não autenticado' }
         }
 
-        const { error } = await supabase
-            .from('restaurants')
-            .update({
-                operating_hours: hours,
-                updated_at: new Date().toISOString(),
-            })
-            .eq('user_id', user.id)
-
-        if (error) {
-            return { error: error.message }
-        }
+        await prisma.restaurant.updateMany({
+            where: { user_id: user.id },
+            data: { operating_hours: hours as unknown as Prisma.InputJsonValue },
+        })
 
         return { success: true }
     } catch (error) {
@@ -465,17 +533,10 @@ export async function updateBankInfo(
             return { error: 'Usuário não autenticado' }
         }
 
-        const { error } = await supabase
-            .from('restaurants')
-            .update({
-                bank_info: info,
-                updated_at: new Date().toISOString(),
-            })
-            .eq('user_id', user.id)
-
-        if (error) {
-            return { error: error.message }
-        }
+        await prisma.restaurant.updateMany({
+            where: { user_id: user.id },
+            data: { bank_info: info as unknown as Prisma.InputJsonValue },
+        })
 
         return { success: true }
     } catch (error) {

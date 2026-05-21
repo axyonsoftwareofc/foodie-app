@@ -2,11 +2,8 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 import { UserPrivacySettings, UserPreferences, SavedAddressProfile } from '@/types/user-profile.types'
-
-// ============================================================================
-// TIPOS
-// ============================================================================
 
 export interface ProfileData {
     id: string
@@ -19,40 +16,24 @@ export interface ProfileData {
 }
 
 // ============================================================================
-// PERFIL BÁSICO
+// PERFIL BASICO
 // ============================================================================
 
 export async function getProfile(): Promise<{ data?: ProfileData; error?: string }> {
     const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) return { error: 'Usuario nao autenticado' }
 
-    const {
-        data: { user },
-        error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-        return { error: 'Usuário não autenticado' }
-    }
-
-    const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-
-    if (profileError) {
-        return { error: 'Erro ao carregar perfil' }
-    }
-
+    const profile = await prisma.profile.findUnique({ where: { id: user.id } })
     const authProvider = user.app_metadata?.provider || 'email'
 
     return {
         data: {
             id: user.id,
-            fullName: profile.full_name || '',
+            fullName: profile?.full_name || '',
             email: user.email || '',
-            phone: profile.phone || '',
-            avatarUrl: profile.avatar_url || '',
+            phone: profile?.phone || '',
+            avatarUrl: profile?.avatar_url || '',
             authProvider,
             createdAt: user.created_at,
         },
@@ -63,10 +44,7 @@ export async function getUserProfile() {
     try {
         const supabase = await createClient()
         const { data: { user } } = await supabase.auth.getUser()
-
-        if (!user) {
-            return { error: 'Usuário não autenticado', data: null }
-        }
+        if (!user) return { error: 'Usuario nao autenticado', data: null }
 
         const { data, error } = await supabase
             .from('profiles')
@@ -74,10 +52,7 @@ export async function getUserProfile() {
             .eq('id', user.id)
             .single()
 
-        if (error) {
-            return { error: error.message, data: null }
-        }
-
+        if (error) return { error: error.message, data: null }
         return { data, error: null }
     } catch (error) {
         console.error('Error fetching profile:', error)
@@ -92,45 +67,37 @@ export async function updateProfile(formData: {
     avatar_url?: string
 }): Promise<{ success?: boolean; error?: string }> {
     const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) return { error: 'Usuario nao autenticado' }
 
-    const {
-        data: { user },
-        error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-        return { error: 'Usuário não autenticado' }
-    }
-
-    // Normalizar dados (aceita ambos os formatos)
     const fullName = formData.fullName || formData.full_name
-    const updates: Record<string, string> = {}
 
-    if (fullName) updates.full_name = fullName
-    if (formData.phone) updates.phone = formData.phone
-    if (formData.avatar_url) updates.avatar_url = formData.avatar_url
-
-    updates.updated_at = new Date().toISOString()
-
-    const { error: updateError } = await supabase
-        .from('profiles')
-        .update(updates)
-        .eq('id', user.id)
-
-    if (updateError) {
-        return { error: 'Erro ao atualizar perfil' }
-    }
-
-    // Atualizar metadata do auth
-    if (fullName) {
-        await supabase.auth.updateUser({
-            data: {
-                full_name: fullName,
+    try {
+        await prisma.profile.upsert({
+            where: { id: user.id },
+            update: {
+                ...(fullName ? { full_name: fullName } : {}),
+                ...(formData.phone ? { phone: formData.phone } : {}),
+                ...(formData.avatar_url ? { avatar_url: formData.avatar_url } : {}),
+            },
+            create: {
+                id: user.id,
+                email: user.email || '',
+                full_name: fullName || null,
+                phone: formData.phone || null,
+                avatar_url: formData.avatar_url || null,
             },
         })
-    }
 
-    return { success: true }
+        if (fullName) {
+            await supabase.auth.updateUser({ data: { full_name: fullName } })
+        }
+
+        return { success: true }
+    } catch (error) {
+        console.error('Error updating profile:', error)
+        return { error: 'Erro ao atualizar perfil' }
+    }
 }
 
 export async function updateUserProfile(updates: {
@@ -142,49 +109,36 @@ export async function updateUserProfile(updates: {
 }
 
 // ============================================================================
-// CONFIGURAÇÕES DE PRIVACIDADE
+// PRIVACIDADE
 // ============================================================================
 
 export async function getUserPrivacySettings(): Promise<{ data?: UserPrivacySettings; error?: string }> {
     try {
         const supabase = await createClient()
         const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return { error: 'Usuario nao autenticado' }
 
-        if (!user) {
-            return { error: 'Usuário não autenticado' }
+        let settings = await prisma.userPrivacySettings.findUnique({ where: { user_id: user.id } })
+
+        if (!settings) {
+            settings = await prisma.userPrivacySettings.create({
+                data: { user_id: user.id },
+            })
         }
 
-        const { data, error } = await supabase
-            .from('user_privacy_settings')
-            .select('*')
-            .eq('user_id', user.id)
-            .single()
-
-        if (error && error.code !== 'PGRST116') {
-            return { error: error.message }
+        return {
+            data: {
+                showProfile: settings.show_profile,
+                showOrderHistory: settings.show_order_history,
+                allowMarketing: settings.allow_marketing,
+                allowNotifications: settings.allow_notifications,
+                dataSharing: settings.data_sharing,
+                twoFactorEnabled: settings.two_factor_enabled,
+            },
         }
-
-        if (!data) {
-            const defaultSettings: UserPrivacySettings = {
-                showProfile: true,
-                showOrderHistory: true,
-                allowMarketing: true,
-                allowNotifications: true,
-                dataSharing: false,
-                twoFactorEnabled: false,
-            }
-
-            await supabase
-                .from('user_privacy_settings')
-                .insert({ user_id: user.id, ...defaultSettings })
-
-            return { data: defaultSettings }
-        }
-
-        return { data }
     } catch (error) {
         console.error('Error fetching privacy settings:', error)
-        return { error: 'Erro ao buscar configurações de privacidade' }
+        return { error: 'Erro ao buscar privacidade' }
     }
 }
 
@@ -194,73 +148,64 @@ export async function updateUserPrivacySettings(
     try {
         const supabase = await createClient()
         const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return { error: 'Usuario nao autenticado' }
 
-        if (!user) {
-            return { error: 'Usuário não autenticado' }
-        }
-
-        const { error } = await supabase
-            .from('user_privacy_settings')
-            .update({
-                ...settings,
-                updated_at: new Date().toISOString(),
-            })
-            .eq('user_id', user.id)
-
-        if (error) {
-            return { error: error.message }
-        }
+        await prisma.userPrivacySettings.upsert({
+            where: { user_id: user.id },
+            update: {
+                ...(settings.showProfile !== undefined ? { show_profile: settings.showProfile } : {}),
+                ...(settings.showOrderHistory !== undefined ? { show_order_history: settings.showOrderHistory } : {}),
+                ...(settings.allowMarketing !== undefined ? { allow_marketing: settings.allowMarketing } : {}),
+                ...(settings.allowNotifications !== undefined ? { allow_notifications: settings.allowNotifications } : {}),
+                ...(settings.dataSharing !== undefined ? { data_sharing: settings.dataSharing } : {}),
+                ...(settings.twoFactorEnabled !== undefined ? { two_factor_enabled: settings.twoFactorEnabled } : {}),
+            },
+            create: {
+                user_id: user.id,
+                show_profile: settings.showProfile ?? true,
+                show_order_history: settings.showOrderHistory ?? true,
+                allow_marketing: settings.allowMarketing ?? true,
+                allow_notifications: settings.allowNotifications ?? true,
+                data_sharing: settings.dataSharing ?? false,
+                two_factor_enabled: settings.twoFactorEnabled ?? false,
+            },
+        })
 
         return { success: true }
     } catch (error) {
-        console.error('Error updating privacy settings:', error)
-        return { error: 'Erro ao atualizar configurações de privacidade' }
+        console.error('Error updating privacy:', error)
+        return { error: 'Erro ao atualizar privacidade' }
     }
 }
 
 // ============================================================================
-// PREFERÊNCIAS DO USUÁRIO
+// PREFERENCIAS
 // ============================================================================
 
 export async function getUserPreferences(): Promise<{ data?: UserPreferences; error?: string }> {
     try {
         const supabase = await createClient()
         const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return { error: 'Usuario nao autenticado' }
 
-        if (!user) {
-            return { error: 'Usuário não autenticado' }
+        let prefs = await prisma.userPreferences.findUnique({ where: { user_id: user.id } })
+
+        if (!prefs) {
+            prefs = await prisma.userPreferences.create({ data: { user_id: user.id } })
         }
 
-        const { data, error } = await supabase
-            .from('user_preferences')
-            .select('*')
-            .eq('user_id', user.id)
-            .single()
-
-        if (error && error.code !== 'PGRST116') {
-            return { error: error.message }
+        return {
+            data: {
+                dietaryRestrictions: prefs.dietary_restrictions,
+                favoriteCuisines: prefs.favorite_cuisines,
+                notificationOrderUpdates: prefs.notification_order_updates,
+                notificationPromotions: prefs.notification_promotions,
+                notificationNewsletter: prefs.notification_newsletter,
+            },
         }
-
-        if (!data) {
-            const defaultPreferences: UserPreferences = {
-                dietaryRestrictions: [],
-                favoriteCuisines: [],
-                notificationOrderUpdates: true,
-                notificationPromotions: true,
-                notificationNewsletter: true,
-            }
-
-            await supabase
-                .from('user_preferences')
-                .insert({ user_id: user.id, ...defaultPreferences })
-
-            return { data: defaultPreferences }
-        }
-
-        return { data }
     } catch (error) {
         console.error('Error fetching preferences:', error)
-        return { error: 'Erro ao buscar preferências' }
+        return { error: 'Erro ao buscar preferencias' }
     }
 }
 
@@ -270,80 +215,67 @@ export async function updateUserPreferences(
     try {
         const supabase = await createClient()
         const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return { error: 'Usuario nao autenticado' }
 
-        if (!user) {
-            return { error: 'Usuário não autenticado' }
-        }
-
-        const { error } = await supabase
-            .from('user_preferences')
-            .update({
-                ...preferences,
-                updated_at: new Date().toISOString(),
-            })
-            .eq('user_id', user.id)
-
-        if (error) {
-            return { error: error.message }
-        }
+        await prisma.userPreferences.upsert({
+            where: { user_id: user.id },
+            update: {
+                ...(preferences.dietaryRestrictions ? { dietary_restrictions: preferences.dietaryRestrictions } : {}),
+                ...(preferences.favoriteCuisines ? { favorite_cuisines: preferences.favoriteCuisines } : {}),
+                ...(preferences.notificationOrderUpdates !== undefined ? { notification_order_updates: preferences.notificationOrderUpdates } : {}),
+                ...(preferences.notificationPromotions !== undefined ? { notification_promotions: preferences.notificationPromotions } : {}),
+                ...(preferences.notificationNewsletter !== undefined ? { notification_newsletter: preferences.notificationNewsletter } : {}),
+            },
+            create: {
+                user_id: user.id,
+                dietary_restrictions: preferences.dietaryRestrictions || [],
+                favorite_cuisines: preferences.favoriteCuisines || [],
+                notification_order_updates: preferences.notificationOrderUpdates ?? true,
+                notification_promotions: preferences.notificationPromotions ?? true,
+                notification_newsletter: preferences.notificationNewsletter ?? true,
+            },
+        })
 
         return { success: true }
     } catch (error) {
         console.error('Error updating preferences:', error)
-        return { error: 'Erro ao atualizar preferências' }
+        return { error: 'Erro ao atualizar preferencias' }
     }
 }
 
 // ============================================================================
-// RESTAURANTES FAVORITOS
+// FAVORITOS
 // ============================================================================
 
 export async function getFavoriteRestaurants(): Promise<{ data?: string[]; error?: string }> {
     try {
         const supabase = await createClient()
         const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return { error: 'Usuario nao autenticado' }
 
-        if (!user) {
-            return { error: 'Usuário não autenticado' }
-        }
+        const favorites = await prisma.userFavorite.findMany({
+            where: { user_id: user.id },
+            select: { restaurant_id: true },
+        })
 
-        const { data, error } = await supabase
-            .from('user_favorites')
-            .select('restaurant_id')
-            .eq('user_id', user.id)
-
-        if (error) {
-            return { error: error.message }
-        }
-
-        return { data: data?.map(f => f.restaurant_id) || [] }
+        return { data: favorites.map((f) => f.restaurant_id) }
     } catch (error) {
         console.error('Error fetching favorites:', error)
         return { error: 'Erro ao buscar favoritos' }
     }
 }
 
-export async function addFavoriteRestaurant(
-    restaurantId: string
-): Promise<{ success?: boolean; error?: string }> {
+export async function addFavoriteRestaurant(restaurantId: string): Promise<{ success?: boolean; error?: string }> {
     try {
         const supabase = await createClient()
         const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return { error: 'Usuario nao autenticado' }
 
-        if (!user) {
-            return { error: 'Usuário não autenticado' }
-        }
-
-        const { error } = await supabase
-            .from('user_favorites')
-            .insert({
-                user_id: user.id,
-                restaurant_id: restaurantId,
-            })
-
-        if (error) {
-            return { error: error.message }
-        }
+        await prisma.userFavorite.upsert({
+            where: { user_id_restaurant_id: { user_id: user.id, restaurant_id: restaurantId } },
+            update: {},
+            create: { user_id: user.id, restaurant_id: restaurantId },
+        })
 
         return { success: true }
     } catch (error) {
@@ -352,26 +284,15 @@ export async function addFavoriteRestaurant(
     }
 }
 
-export async function removeFavoriteRestaurant(
-    restaurantId: string
-): Promise<{ success?: boolean; error?: string }> {
+export async function removeFavoriteRestaurant(restaurantId: string): Promise<{ success?: boolean; error?: string }> {
     try {
         const supabase = await createClient()
         const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return { error: 'Usuario nao autenticado' }
 
-        if (!user) {
-            return { error: 'Usuário não autenticado' }
-        }
-
-        const { error } = await supabase
-            .from('user_favorites')
-            .delete()
-            .eq('user_id', user.id)
-            .eq('restaurant_id', restaurantId)
-
-        if (error) {
-            return { error: error.message }
-        }
+        await prisma.userFavorite.deleteMany({
+            where: { user_id: user.id, restaurant_id: restaurantId },
+        })
 
         return { success: true }
     } catch (error) {
@@ -381,45 +302,37 @@ export async function removeFavoriteRestaurant(
 }
 
 // ============================================================================
-// ENDEREÇOS
+// ENDERECOS (delegate para addresses.ts)
 // ============================================================================
 
 export async function getUserAddresses(): Promise<{ data?: SavedAddressProfile[]; error?: string }> {
     try {
         const supabase = await createClient()
         const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return { error: 'Usuario nao autenticado' }
 
-        if (!user) {
-            return { error: 'Usuário não autenticado' }
-        }
-
-        const { data, error } = await supabase
-            .from('addresses')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('is_default', { ascending: false })
-
-        if (error) {
-            return { error: error.message }
-        }
+        const addresses = await prisma.address.findMany({
+            where: { user_id: user.id },
+            orderBy: { is_default: 'desc' },
+        })
 
         return {
-            data: data?.map(addr => ({
+            data: addresses.map((addr) => ({
                 id: addr.id,
                 label: addr.label,
                 street: addr.street,
                 number: addr.number,
-                complement: addr.complement,
+                complement: addr.complement || undefined,
                 neighborhood: addr.neighborhood,
                 city: addr.city,
                 state: addr.state,
                 zipCode: addr.zip_code,
                 isDefault: addr.is_default,
-                instructions: addr.instructions,
-            })) || []
+                instructions: addr.instructions || undefined,
+            })),
         }
     } catch (error) {
         console.error('Error fetching addresses:', error)
-        return { error: 'Erro ao buscar endereços' }
+        return { error: 'Erro ao buscar enderecos' }
     }
 }

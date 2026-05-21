@@ -2,6 +2,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 
 export interface AddressData {
     id: string
@@ -19,42 +20,29 @@ export interface AddressData {
 
 export async function getAddresses(): Promise<{ data?: AddressData[]; error?: string }> {
     const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) return { error: 'Usuario nao autenticado' }
 
-    const {
-        data: { user },
-        error: authError,
-    } = await supabase.auth.getUser()
+    const addresses = await prisma.address.findMany({
+        where: { user_id: user.id },
+        orderBy: [{ is_default: 'desc' }, { created_at: 'desc' }],
+    })
 
-    if (authError || !user) {
-        return { error: 'Usuário não autenticado' }
+    return {
+        data: addresses.map((addr) => ({
+            id: addr.id,
+            label: addr.label,
+            street: addr.street,
+            number: addr.number,
+            complement: addr.complement || '',
+            neighborhood: addr.neighborhood,
+            city: addr.city,
+            state: addr.state,
+            zipCode: addr.zip_code,
+            isDefault: addr.is_default,
+            createdAt: addr.created_at.toISOString(),
+        })),
     }
-
-    const { data, error } = await supabase
-        .from('addresses')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('is_default', { ascending: false })
-        .order('created_at', { ascending: false })
-
-    if (error) {
-        return { error: 'Erro ao carregar endereços' }
-    }
-
-    const addresses: AddressData[] = (data || []).map((addr) => ({
-        id: addr.id,
-        label: addr.label,
-        street: addr.street,
-        number: addr.number,
-        complement: addr.complement || '',
-        neighborhood: addr.neighborhood,
-        city: addr.city,
-        state: addr.state,
-        zipCode: addr.zip_code,
-        isDefault: addr.is_default,
-        createdAt: addr.created_at,
-    }))
-
-    return { data: addresses }
 }
 
 export async function createAddress(formData: {
@@ -69,83 +57,47 @@ export async function createAddress(formData: {
     isDefault?: boolean
 }): Promise<{ data?: AddressData; error?: string }> {
     const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) return { error: 'Usuario nao autenticado' }
 
-    const {
-        data: { user },
-        error: authError,
-    } = await supabase.auth.getUser()
+    const addressCount = await prisma.address.count({ where: { user_id: user.id } })
+    const isFirstAddress = addressCount === 0
 
-    if (authError || !user) {
-        console.error('[createAddress] Erro de autenticação:', authError?.message)
-        return { error: 'Usuário não autenticado' }
-    }
-
-    console.log('[createAddress] Usuário autenticado:', user.id, user.email)
-
-    // If setting as default, unset other defaults first
     if (formData.isDefault) {
-        await supabase
-            .from('addresses')
-            .update({ is_default: false })
-            .eq('user_id', user.id)
+        await prisma.address.updateMany({
+            where: { user_id: user.id },
+            data: { is_default: false },
+        })
     }
 
-    // Check if this is the first address (auto-set as default)
-    const { count, error: countError } = await supabase
-        .from('addresses')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-
-    console.log('[createAddress] Contagem de endereços:', count, 'Erro:', countError?.message)
-
-    const isFirstAddress = (count || 0) === 0
-
-    const insertData = {
-        user_id: user.id,
-        label: formData.label,
-        street: formData.street,
-        number: formData.number,
-        complement: formData.complement || '',
-        neighborhood: formData.neighborhood,
-        city: formData.city,
-        state: formData.state,
-        zip_code: formData.zipCode,
-        is_default: formData.isDefault || isFirstAddress,
-    }
-
-    console.log('[createAddress] Tentando inserir:', JSON.stringify(insertData))
-
-    const { data, error } = await supabase
-        .from('addresses')
-        .insert(insertData)
-        .select()
-        .single()
-
-    if (error) {
-        console.error('[createAddress] Erro detalhado:', JSON.stringify({
-            message: error.message,
-            code: error.code,
-            details: error.details,
-            hint: error.hint,
-        }))
-        return { error: 'Erro ao salvar endereço' }
-    }
-
-    console.log('[createAddress] Endereço salvo com sucesso:', data.id)
+    const addr = await prisma.address.create({
+        data: {
+            user_id: user.id,
+            label: formData.label,
+            street: formData.street,
+            number: formData.number,
+            complement: formData.complement || null,
+            neighborhood: formData.neighborhood,
+            city: formData.city,
+            state: formData.state,
+            zip_code: formData.zipCode,
+            is_default: formData.isDefault || isFirstAddress,
+        },
+    })
 
     return {
         data: {
-            id: data.id,
-            label: data.label,
-            street: data.street,
-            number: data.number,
-            complement: data.complement || '',
-            neighborhood: data.neighborhood,
-            city: data.city,
-            state: data.state,
-            zipCode: data.zip_code,
-            isDefault: data.is_default,
-            createdAt: data.created_at,
+            id: addr.id,
+            label: addr.label,
+            street: addr.street,
+            number: addr.number,
+            complement: addr.complement || '',
+            neighborhood: addr.neighborhood,
+            city: addr.city,
+            state: addr.state,
+            zipCode: addr.zip_code,
+            isDefault: addr.is_default,
+            createdAt: addr.created_at.toISOString(),
         },
     }
 }
@@ -164,95 +116,52 @@ export async function updateAddress(
     }
 ): Promise<{ success?: boolean; error?: string }> {
     const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) return { error: 'Usuario nao autenticado' }
 
-    const {
-        data: { user },
-        error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-        return { error: 'Usuário não autenticado' }
-    }
-
-    const { error } = await supabase
-        .from('addresses')
-        .update({
+    await prisma.address.updateMany({
+        where: { id: addressId, user_id: user.id },
+        data: {
             label: formData.label,
             street: formData.street,
             number: formData.number,
-            complement: formData.complement || '',
+            complement: formData.complement || null,
             neighborhood: formData.neighborhood,
             city: formData.city,
             state: formData.state,
             zip_code: formData.zipCode,
-        })
-        .eq('id', addressId)
-        .eq('user_id', user.id)
-
-    if (error) {
-        return { error: 'Erro ao atualizar endereço' }
-    }
+        },
+    })
 
     return { success: true }
 }
 
-export async function deleteAddress(
-    addressId: string
-): Promise<{ success?: boolean; error?: string }> {
+export async function deleteAddress(addressId: string): Promise<{ success?: boolean; error?: string }> {
     const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) return { error: 'Usuario nao autenticado' }
 
-    const {
-        data: { user },
-        error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-        return { error: 'Usuário não autenticado' }
-    }
-
-    const { error } = await supabase
-        .from('addresses')
-        .delete()
-        .eq('id', addressId)
-        .eq('user_id', user.id)
-
-    if (error) {
-        return { error: 'Erro ao excluir endereço' }
-    }
+    await prisma.address.deleteMany({
+        where: { id: addressId, user_id: user.id },
+    })
 
     return { success: true }
 }
 
-export async function setDefaultAddress(
-    addressId: string
-): Promise<{ success?: boolean; error?: string }> {
+export async function setDefaultAddress(addressId: string): Promise<{ success?: boolean; error?: string }> {
     const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) return { error: 'Usuario nao autenticado' }
 
-    const {
-        data: { user },
-        error: authError,
-    } = await supabase.auth.getUser()
+    await prisma.address.updateMany({
+        where: { user_id: user.id },
+        data: { is_default: false },
+    })
 
-    if (authError || !user) {
-        return { error: 'Usuário não autenticado' }
-    }
-
-    // Unset all defaults
-    await supabase
-        .from('addresses')
-        .update({ is_default: false })
-        .eq('user_id', user.id)
-
-    // Set new default
-    const { error } = await supabase
-        .from('addresses')
-        .update({ is_default: true })
-        .eq('id', addressId)
-        .eq('user_id', user.id)
-
-    if (error) {
-        return { error: 'Erro ao definir endereço padrão' }
-    }
+    await prisma.address.updateMany({
+        where: { id: addressId, user_id: user.id },
+        data: { is_default: true },
+    })
 
     return { success: true }
 }

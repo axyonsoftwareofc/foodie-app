@@ -3,6 +3,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { OrderStatus, Prisma } from '@prisma/client'
+import { sendEmail, orderConfirmationTemplate, orderStatusTemplate } from '@/lib/email'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { calculateOrderPricing } from '@/lib/orders/pricing'
@@ -249,6 +250,17 @@ export async function createOrder(orderData: {
             },
         })
 
+        void sendEmail({
+            to: user.email!,
+            subject: `Pedido #${order.id.slice(-8).toUpperCase()} confirmado — ${orderData.restaurantName}`,
+            html: orderConfirmationTemplate(
+                order.id,
+                orderData.restaurantName,
+                pricedOrder.data.total,
+                pricedOrder.data.items.map((i) => ({ name: i.menuItemName, quantity: i.quantity }))
+            ),
+        })
+
         return {
             data: {
                 id: order.id,
@@ -413,6 +425,35 @@ export async function updateOrderStatus({
             },
             data: updateData,
         })
+
+        try {
+            const updatedOrder = await prisma.order.findUnique({
+                where: { id: orderId },
+                select: { id: true, customer_name: true, customer_id: true, restaurant: { select: { name: true } } },
+            })
+            if (updatedOrder?.customer_id) {
+                const profile = await prisma.profile.findUnique({
+                    where: { id: updatedOrder.customer_id },
+                    select: { email: true },
+                })
+                if (profile?.email) {
+                    const labels: Record<string, string> = {
+                        CONFIRMED: 'Pedido confirmado',
+                        PREPARING: 'Seu pedido esta sendo preparado',
+                        READY: 'Seu pedido esta pronto',
+                        DELIVERING: 'Seu pedido saiu para entrega',
+                        DELIVERED: 'Pedido entregue',
+                    }
+                    void sendEmail({
+                        to: profile.email,
+                        subject: `Pedido #${orderId.slice(-8).toUpperCase()} — ${labels[newStatus] || newStatus}`,
+                        html: orderStatusTemplate(orderId, updatedOrder.restaurant?.name || '', newStatus, labels[newStatus] || newStatus),
+                    })
+                }
+            }
+        } catch {
+            // Email e otimizacao, nao bloqueia o fluxo
+        }
 
         revalidatePath('/dashboard/orders')
         return { success: true }
