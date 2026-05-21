@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import PromoBanner from '@/components/home/PromoBanner';
 import SearchBar from '@/components/home/SearchBar';
@@ -79,23 +80,21 @@ export default function HomePage() {
                     )}
                 </AnimatePresence>
 
-                {/* CTA: Criar Restaurante (apenas para não-donos) */}
-                {!isRestaurantOwner && !filters.search && !hasActiveFilters && (
-                    <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h3 className="font-bold">Tem um restaurante?</h3>
-                                <p className="text-sm text-emerald-100">Crie sua loja online em 3 minutos</p>
-                            </div>
-                            <a
-                                href={isAuthenticated ? '/criar-restaurante' : '/sign-up'}
-                                className="px-4 py-2 bg-white text-emerald-700 rounded-lg font-semibold text-sm hover:bg-emerald-50 transition-colors"
-                            >
-                                Comecar agora
-                            </a>
+                {/* CTA: Criar Restaurante — sempre visível */}
+                <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h3 className="font-bold">Tem um restaurante?</h3>
+                            <p className="text-sm text-emerald-100">Crie sua loja online em 3 minutos</p>
                         </div>
+                        <Link
+                            href={isAuthenticated && isRestaurantOwner ? '/dashboard' : '/criar-restaurante'}
+                            className="px-4 py-2 bg-white text-emerald-700 rounded-lg font-semibold text-sm hover:bg-emerald-50 transition-colors shrink-0"
+                        >
+                            {isAuthenticated && isRestaurantOwner ? 'Meu Restaurante' : 'Comecar agora'}
+                        </Link>
                     </div>
-                )}
+                </div>
 
                 {/* Filtros */}
                 <div className="my-6">

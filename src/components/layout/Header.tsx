@@ -144,21 +144,35 @@ export default function Header() {
                                         isRestaurantOwner={isRestaurantOwner}
                                     />
                                 ) : (
-                                    <button
-                                        onClick={handleSignIn}
-                                        className="flex items-center gap-2 rounded-full px-3 py-3 transition-colors hover:opacity-80 md:px-4"
-                                        style={{
-                                            backgroundColor:
-                                                'var(--color-bg-secondary)',
-                                            color: 'var(--color-text)',
-                                        }}
-                                        aria-label="Fazer login"
-                                    >
-                                        <User size={24} />
-                                        <span className="hidden text-sm font-medium md:inline">
-                                            Entrar
-                                        </span>
-                                    </button>
+                                    <div className="flex items-center gap-1">
+                                        <Link
+                                            href="/criar-restaurante"
+                                            className="hidden md:inline-flex items-center px-3 py-2 text-sm font-medium text-gray-600 hover:text-emerald-700 rounded-lg hover:bg-emerald-50 transition-colors"
+                                        >
+                                            Para restaurantes
+                                        </Link>
+                                        <Link
+                                            href="/planos"
+                                            className="hidden md:inline-flex items-center px-3 py-2 text-sm font-medium text-gray-600 hover:text-emerald-700 rounded-lg hover:bg-emerald-50 transition-colors"
+                                        >
+                                            Planos
+                                        </Link>
+                                        <button
+                                            onClick={handleSignIn}
+                                            className="flex items-center gap-2 rounded-full px-3 py-3 transition-colors hover:opacity-80 md:px-4"
+                                            style={{
+                                                backgroundColor:
+                                                    'var(--color-bg-secondary)',
+                                                color: 'var(--color-text)',
+                                            }}
+                                            aria-label="Fazer login"
+                                        >
+                                            <User size={24} />
+                                            <span className="hidden text-sm font-medium md:inline">
+                                                Entrar
+                                            </span>
+                                        </button>
+                                    </div>
                                 )}
                             </>
                         )}

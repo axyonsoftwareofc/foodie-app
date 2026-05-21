@@ -4,7 +4,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { User, LogOut, MapPin, ClipboardList, Heart, ChevronDown, Store } from 'lucide-react'
+import { User, LogOut, MapPin, ClipboardList, Heart, ChevronDown, Store, CreditCard } from 'lucide-react'
 import { signOut } from '@/actions/auth'
 
 interface UserMenuProps {
@@ -63,7 +63,10 @@ export function UserMenu({ userName, userEmail, userAvatar, isRestaurantOwner }:
 
     const menuItems = [
         ...(isRestaurantOwner
-            ? [{ icon: Store, label: 'Meu Restaurante', path: '/dashboard' }]
+            ? [
+                { icon: Store, label: 'Meu Restaurante', path: '/dashboard' },
+                { icon: CreditCard, label: 'Planos', path: '/planos' },
+            ]
             : [{ icon: Store, label: 'Criar Restaurante', path: '/criar-restaurante' }]
         ),
         { icon: User, label: 'Meu perfil', path: '/profile' },
