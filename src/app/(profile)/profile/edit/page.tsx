@@ -31,7 +31,7 @@ export default function EditProfilePage() {
     useEffect(() => {
         async function loadProfile() {
             if (!user) {
-                router.push('/auth/login');
+                router.push('/sign-in');
                 return;
             }
 

@@ -46,14 +46,24 @@ export async function getUserProfile() {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return { error: 'Usuario nao autenticado', data: null }
 
-        const { data, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', user.id)
-            .single()
+        const profile = await prisma.profile.findUnique({ where: { id: user.id } })
 
-        if (error) return { error: error.message, data: null }
-        return { data, error: null }
+        // Ensure profile exists (create if first login)
+        if (!profile) {
+            const created = await prisma.profile.create({
+                data: {
+                    id: user.id,
+                    email: user.email || '',
+                    full_name: user.user_metadata?.full_name || null,
+                },
+            })
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            return { data: created as any, error: null }
+        }
+
+        // Prisma returns snake_case field names — same as Supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return { data: profile as any, error: null }
     } catch (error) {
         console.error('Error fetching profile:', error)
         return { error: 'Erro ao buscar perfil', data: null }

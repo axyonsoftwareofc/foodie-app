@@ -73,15 +73,18 @@ export default function ProfilePage() {
     const handlePrivacyToggle = async (key: keyof UserPrivacySettings) => {
         if (!privacySettings) return;
 
-        const newSettings = { ...privacySettings, [key]: !privacySettings[key] };
+        const previousValue = privacySettings[key]
+        const newValue = !previousValue
 
-        const result = await updateUserPrivacySettings({ [key]: !privacySettings[key] });
+        const result = await updateUserPrivacySettings({ [key]: newValue });
 
         if (result.success) {
-            setPrivacySettings(newSettings);
+            setPrivacySettings((prev) => prev ? { ...prev, [key]: newValue } : prev);
             toast.success('Configuração atualizada');
         } else {
             toast.error(result.error || 'Erro ao atualizar');
+            // Rollback: reverte para o valor anterior
+            setPrivacySettings((prev) => prev ? { ...prev, [key]: previousValue } : prev);
         }
     };
 
@@ -170,7 +173,7 @@ export default function ProfilePage() {
                         />
                     ) : (
                         <div className="w-16 h-16 rounded-full bg-[#00A082] flex items-center justify-center text-white text-xl font-bold">
-                            {profile?.full_name?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() || '?'}
+                            {(profile?.full_name || '?').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
                         </div>
                     )}
                     <div className="flex-1">
