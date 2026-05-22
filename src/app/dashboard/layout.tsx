@@ -17,6 +17,7 @@ import {
     Package,
     Menu,
     X,
+    Truck,
 } from "lucide-react"
 import { getRestaurantProfile } from '@/actions/restaurantActions'
 import type { RestaurantProfile } from '@/types/restaurant-management.types'
@@ -27,6 +28,7 @@ const NAV_ITEMS = [
     { href: '/dashboard/orders', label: 'Pedidos', icon: Receipt },
     { href: '/dashboard/cozinha', label: 'Cozinha', icon: ChefHat },
     { href: '/dashboard/pass', label: 'Pass / Balcao', icon: Package },
+    { href: '/dashboard/entregadores', label: 'Entregadores', icon: Truck },
     { href: '/dashboard/settings', label: 'Configuracoes', icon: Settings },
 ] as const
 
