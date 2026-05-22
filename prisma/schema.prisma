@@ -223,6 +223,8 @@ model Order {
   @@index([status])
   @@index([created_at])
   @@index([customer_id])
+  @@index([restaurant_id, status])
+  @@index([restaurant_id, created_at])
   @@map("orders")
 }
 

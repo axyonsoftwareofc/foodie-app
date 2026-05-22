@@ -1,8 +1,9 @@
 // src/components/kitchen/OrderTimer.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
-import { AlertTriangle, Clock } from 'lucide-react';
+import { useMemo } from 'react'
+import { AlertTriangle, Clock } from 'lucide-react'
+import { useKitchenTimer } from '@/contexts/KitchenTimerContext'
 
 export interface OrderTimerProps {
   startTime: string;
@@ -11,22 +12,14 @@ export interface OrderTimerProps {
 }
 
 export function OrderTimer({ startTime, showAlert = true, onTimeout }: OrderTimerProps) {
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const tick = useKitchenTimer()
 
-  useEffect(() => {
-    const calculateElapsed = () => {
-      const start = new Date(startTime).getTime();
-      const now = Date.now();
-      const diffMs = now - start;
-      const seconds = Math.floor(diffMs / 1000);
-      setElapsedSeconds(seconds);
-    };
-
-    calculateElapsed();
-    const interval = setInterval(calculateElapsed, 1000);
-
-    return () => clearInterval(interval);
-  }, [startTime]);
+  const elapsedSeconds = useMemo(() => {
+    const start = new Date(startTime).getTime()
+    const now = Date.now()
+    const diffMs = now - start
+    return Math.floor(diffMs / 1000)
+  }, [startTime, tick])
 
   const formatTime = (totalSeconds: number) => {
     const minutes = Math.floor(totalSeconds / 60);
@@ -65,13 +58,6 @@ export function OrderTimer({ startTime, showAlert = true, onTimeout }: OrderTime
   };
 
   const alertLevel = getAlertLevel();
-
-  // Disparar callback quando atingir 30 minutos
-  useEffect(() => {
-    if (elapsedMinutes === 30 && onTimeout) {
-      onTimeout();
-    }
-  }, [elapsedMinutes, onTimeout]);
 
   return (
       <div className="flex items-center gap-2">

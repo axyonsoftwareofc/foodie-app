@@ -9,7 +9,7 @@ import {
     canTransitionStatus,
     getNextStatus,
 } from '@/lib/utils/order-status.utils'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Clock, ChefHat, Package, CheckCircle, Truck, Filter } from 'lucide-react'
 import { toast } from 'sonner'
 import type { OrderStatus } from '@prisma/client'
@@ -103,7 +103,7 @@ export function KanbanBoard() {
         }
     }, [orders, dismissedOrderIds, notifyNewOrder])
 
-    const grouped = {
+    const grouped = useMemo(() => ({
         NEW: orders.filter(
             o => o.status === 'PENDING' || o.status === 'CONFIRMED'
         ),
@@ -111,7 +111,7 @@ export function KanbanBoard() {
         READY: orders.filter(o => o.status === 'READY'),
         DELIVERING: orders.filter(o => o.status === 'DELIVERING'),
         COMPLETED: orders.filter(o => o.status === 'DELIVERED' || o.status === 'CANCELLED')
-    }
+    }), [orders])
 
     async function handleMove(order: KitchenOrder, nextStatus?: string) {
         const targetStatus = nextStatus || getNextStatus(order.status as OrderStatus)

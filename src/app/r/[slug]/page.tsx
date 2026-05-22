@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { RestaurantHeader } from "@/components/restaurant/RestaurantHeader";
 import { MenuSection } from "@/components/restaurant/MenuSection";
 import { getCssVariables, DEFAULT_THEME, type RestaurantTheme } from "@/lib/theme/resolver";
+import { redisGet, redisSet, cacheKey } from "@/lib/redis";
 
 function parseTheme(raw: unknown): RestaurantTheme {
     if (!raw) return DEFAULT_THEME
@@ -57,36 +58,56 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function RestaurantPage({ params }: Props) {
     const { slug } = await params;
 
-    const restaurantData = await prisma.restaurant.findUnique({
-        where: { subdomain: slug },
-        include: {
-            categories: {
-                where: { is_active: true },
-                include: {
-                    products: {
-                        where: { is_active: true, is_available: true },
-                        orderBy: { name: "asc" },
-                    },
-                },
-                orderBy: { sort_order: "asc" },
-            },
-        },
-    });
+    // Cache: tenta Redis primeiro
+    const CACHE_KEY = cacheKey('menu', 'slug', slug)
+    const cachedRaw = await redisGet<Record<string, unknown>>(CACHE_KEY)
 
-    if (!restaurantData || !restaurantData.is_active) {
+    let restaurantData: Record<string, unknown> | null = null
+
+    if (cachedRaw) {
+        restaurantData = cachedRaw
+    } else {
+        const data = await prisma.restaurant.findUnique({
+            where: { subdomain: slug },
+            include: {
+                categories: {
+                    where: { is_active: true },
+                    include: {
+                        products: {
+                            where: { is_active: true, is_available: true },
+                            orderBy: { name: "asc" },
+                        },
+                    },
+                    orderBy: { sort_order: "asc" },
+                },
+            },
+        });
+
+        if (!data || !data.is_active) {
+            notFound();
+        }
+
+        // Salva no Redis (TTL 5 min)
+        void redisSet(CACHE_KEY, data as unknown as Record<string, unknown>, 300)
+
+        restaurantData = data as unknown as Record<string, unknown>
+    }
+
+    if (!restaurantData || !(restaurantData as Record<string, boolean>).is_active) {
         notFound();
     }
 
-    const theme = parseTheme(restaurantData.theme)
+    const theme = parseTheme((restaurantData as Record<string, unknown>).theme)
     const cssVars = getCssVariables(theme)
 
+    const cats = (restaurantData as Record<string, unknown>).categories as Array<Record<string, unknown>>
     const restaurant = {
         ...restaurantData,
-        categories: restaurantData.categories.map(category => ({
+        categories: cats.map((category: Record<string, unknown>) => ({
             id: category.id,
             name: category.name,
             restaurantId: category.restaurant_id,
-            products: category.products.map(product => ({
+            products: ((category.products as Array<Record<string, unknown>>) || []).map((product: Record<string, unknown>) => ({
                 id: product.id,
                 name: product.name,
                 description: product.description,
@@ -103,8 +124,8 @@ export default async function RestaurantPage({ params }: Props) {
             backgroundColor: cssVars['--restaurant-bg'],
             fontFamily: cssVars['--restaurant-font-body'],
         }}>
-            <RestaurantHeader restaurant={restaurantData} />
-            <MenuSection categories={restaurant.categories} />
+            <RestaurantHeader restaurant={restaurantData as never} />
+            <MenuSection categories={restaurant.categories as never} />
         </div>
     );
 }

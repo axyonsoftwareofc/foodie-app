@@ -75,8 +75,33 @@ export function useKitchenOrders() {
     useEffect(() => {
         fetchOrders()
 
-        const interval = setInterval(fetchOrders, 30000)
-        return () => clearInterval(interval)
+        let interval: NodeJS.Timeout | null = null
+
+        const startPolling = () => {
+            if (interval) clearInterval(interval)
+            interval = setInterval(fetchOrders, 30000)
+        }
+
+        const stopPolling = () => {
+            if (interval) { clearInterval(interval); interval = null }
+        }
+
+        const handleVisibility = () => {
+            if (document.visibilityState === 'visible') {
+                fetchOrders()
+                startPolling()
+            } else {
+                stopPolling()
+            }
+        }
+
+        startPolling()
+        document.addEventListener('visibilitychange', handleVisibility)
+
+        return () => {
+            stopPolling()
+            document.removeEventListener('visibilitychange', handleVisibility)
+        }
     }, [fetchOrders])
 
     const updateFilters = useCallback((newFilters: Partial<KitchenFilters>) => {
