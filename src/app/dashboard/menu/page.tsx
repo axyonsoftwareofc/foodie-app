@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { CategoryForm } from "./CategoryForm";
-import { CategoryItem } from "./CategoryItem";
+import { SortableCategoryList } from "./SortableCategoryList";
 
 export default async function MenuPage() {
     const session = await requireAuth();
@@ -24,7 +24,7 @@ export default async function MenuPage() {
             restaurant_id: restaurant.id,
             is_active: true,
         },
-        orderBy: { name: 'asc' },
+        orderBy: { sort_order: 'asc' },
         include: {
             products: {
                 where: { is_active: true },
@@ -33,12 +33,25 @@ export default async function MenuPage() {
         }
     });
 
+    const mappedCategories = categories.map(c => ({
+        id: c.id,
+        name: c.name,
+        restaurantId: c.restaurant_id,
+        products: c.products.map(p => ({
+            id: p.id,
+            name: p.name,
+            description: p.description,
+            price: p.price,
+            isAvailable: p.is_available,
+        }))
+    }))
+
     return (
         <div className="max-w-4xl pb-20">
             <div className="mb-8">
-                <h1 className="text-2xl font-bold text-gray-900">Seu Cardápio</h1>
+                <h1 className="text-2xl font-bold text-gray-900">Seu Cardapio</h1>
                 <p className="text-gray-500 mt-1">
-                    Gerencie suas categorias e produtos. O que você alterar aqui aparece na hora no seu site.
+                    Gerencie suas categorias e produtos. Arraste para reordenar.
                 </p>
             </div>
 
@@ -54,11 +67,7 @@ export default async function MenuPage() {
                             Nenhuma categoria criada ainda. Crie a primeira acima!
                         </div>
                     ) : (
-                        <ul className="divide-y divide-gray-100">
-                            {categories.map((category) => (
-                                <CategoryItem key={category.id} category={category} />
-                            ))}
-                        </ul>
+                        <SortableCategoryList categories={mappedCategories} restaurantId={restaurant.id} />
                     )}
                 </div>
             </div>

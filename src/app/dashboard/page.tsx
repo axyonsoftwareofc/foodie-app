@@ -8,6 +8,7 @@ import { getRestaurantProfile } from '@/actions/restaurantActions'
 import type { RestaurantProfile } from '@/types/restaurant-management.types'
 import { Receipt, TrendingUp, Clock, Package, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
+import { RevenueChart } from '@/components/dashboard/RevenueChart'
 
 function formatCurrency(value: number): string {
     return `R$ ${value.toFixed(2).replace('.', ',')}`
@@ -94,6 +95,11 @@ export default function DashboardPage() {
                         </div>
                     )
                 })}
+            </div>
+
+            {/* Revenue Chart */}
+            <div className="mb-8">
+                <RevenueChart />
             </div>
 
             {/* Quick Actions */}
