@@ -10,7 +10,8 @@ import {
     Palette,
     Globe,
     CreditCard,
-    ChefHat
+    ChefHat,
+    Package
 } from "lucide-react";
 
 export default function DashboardLayout({
@@ -60,6 +61,14 @@ export default function DashboardLayout({
                     >
                         <ChefHat className="w-5 h-5" />
                         Cozinha
+                    </Link>
+
+                    <Link
+                        href="/dashboard/pass"
+                        className="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-50 hover:text-gray-900 rounded-md font-medium transition-colors"
+                    >
+                        <Package className="w-5 h-5" />
+                        Pass / Balcao
                     </Link>
 
                     <Link
