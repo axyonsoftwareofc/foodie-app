@@ -9,6 +9,7 @@ import type { RestaurantProfile } from '@/types/restaurant-management.types'
 import { Receipt, TrendingUp, Clock, Package, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { RevenueChart } from '@/components/dashboard/RevenueChart'
+import { WhatsAppShare } from '@/components/dashboard/WhatsAppShare'
 
 function formatCurrency(value: number): string {
     return `R$ ${value.toFixed(2).replace('.', ',')}`
@@ -140,6 +141,17 @@ export default function DashboardPage() {
                     <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-emerald-600 transition-colors" />
                 </Link>
             </div>
+
+            {/* WhatsApp Share */}
+            {restaurant && (
+                <div className="mb-8">
+                    <WhatsAppShare
+                        restaurantName={restaurant.name}
+                        menuUrl={`https://${restaurant.slug}.foodie.app`}
+                        phone={restaurant.contact?.phone}
+                    />
+                </div>
+            )}
 
             {/* Dica */}
             {(!stats || stats.totalToday === 0) && (

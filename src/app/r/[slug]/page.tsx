@@ -6,6 +6,7 @@ import { RestaurantHeader } from "@/components/restaurant/RestaurantHeader";
 import { MenuSection } from "@/components/restaurant/MenuSection";
 import { getCssVariables, DEFAULT_THEME, type RestaurantTheme } from "@/lib/theme/resolver";
 import { redisGet, redisSet, cacheKey } from "@/lib/redis";
+import { WhatsAppButton } from "@/components/restaurant/WhatsAppButton";
 
 function parseTheme(raw: unknown): RestaurantTheme {
     if (!raw) return DEFAULT_THEME
@@ -126,6 +127,10 @@ export default async function RestaurantPage({ params }: Props) {
         }}>
             <RestaurantHeader restaurant={restaurantData as never} />
             <MenuSection categories={restaurant.categories as never} />
+            <WhatsAppButton
+                phone={(restaurantData as Record<string, string>).phone || ''}
+                message={`Ola! Gostaria de fazer um pedido no ${(restaurantData as Record<string, string>).name || 'restaurante'}.`}
+            />
         </div>
     );
 }
