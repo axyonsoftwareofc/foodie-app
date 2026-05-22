@@ -125,7 +125,7 @@ export default function DashboardPage() {
                     <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-emerald-600 transition-colors" />
                 </Link>
 
-                <Link href="/criar-restaurante" target="_blank" className="bg-white rounded-xl border border-gray-200 p-5 hover:border-emerald-300 hover:shadow-md transition-all flex items-center gap-4 group">
+                <Link href={restaurant?.slug ? `https://${restaurant.slug}.foodie.app` : '/criar-restaurante'} target="_blank" rel="noopener noreferrer" className="bg-white rounded-xl border border-gray-200 p-5 hover:border-emerald-300 hover:shadow-md transition-all flex items-center gap-4 group">
                     <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-xl">🌐</div>
                     <div className="flex-1">
                         <h3 className="font-semibold text-gray-900">Ver Cardapio Publico</h3>

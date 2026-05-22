@@ -414,6 +414,8 @@ export async function updateOrderStatus({
             updateData.preparation_started_at = new Date()
         } else if (newStatus === 'READY') {
             updateData.ready_at = new Date()
+        } else if (newStatus === 'DELIVERING') {
+            updateData.delivering_at = new Date()
         } else if (newStatus === 'DELIVERED') {
             updateData.delivered_at = new Date()
         }
@@ -437,13 +439,13 @@ export async function updateOrderStatus({
                     select: { email: true },
                 })
                 if (profile?.email) {
-                    const labels: Record<string, string> = {
-                        CONFIRMED: 'Pedido confirmado',
-                        PREPARING: 'Seu pedido esta sendo preparado',
-                        READY: 'Seu pedido esta pronto',
-                        DELIVERING: 'Seu pedido saiu para entrega',
-                        DELIVERED: 'Pedido entregue',
-                    }
+                const labels: Record<string, string> = {
+                    CONFIRMED: 'Pedido confirmado',
+                    PREPARING: 'Seu pedido esta sendo preparado',
+                    READY: 'Seu pedido esta pronto',
+                    DELIVERING: 'Seu pedido saiu para entrega',
+                    DELIVERED: 'Pedido entregue',
+                }
                     void sendEmail({
                         to: profile.email,
                         subject: `Pedido #${orderId.slice(-8).toUpperCase()} — ${labels[newStatus] || newStatus}`,

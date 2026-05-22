@@ -3,6 +3,7 @@
 
 import { useKitchenOrders } from '@/hooks/useKitchenOrders'
 import { useOrderNotifications } from '@/hooks/useOrderNotifications'
+import { useTabTitle } from '@/hooks/useTabTitle'
 import type { KitchenOrder } from '@/types/kitchen.types'
 import { updateOrderStatus, cancelOrderByRestaurant } from '@/actions/orders'
 import { canTransitionStatus, getNextStatus } from '@/lib/utils/order-status.utils'
@@ -189,6 +190,11 @@ export default function CozinhaPage() {
     const { orders, refresh, loading } = useKitchenOrders()
     const { requestPermission, notifyNewOrder, isSupported } = useOrderNotifications()
     const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())
+
+    const pendingCount = useMemo(() =>
+        orders.filter(o => o.status === 'PENDING' || o.status === 'CONFIRMED').length,
+    [orders])
+    useTabTitle(pendingCount, 'Cozinha — Foodie')
 
     useEffect(() => {
         if (isSupported) requestPermission()

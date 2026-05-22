@@ -7,7 +7,8 @@ const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
     PENDING: ['CONFIRMED', 'CANCELLED'],
     CONFIRMED: ['PREPARING', 'CANCELLED'],
     PREPARING: ['READY', 'CANCELLED'],
-    READY: ['DELIVERED', 'CANCELLED'],
+    READY: ['DELIVERING', 'CANCELLED'],
+    DELIVERING: ['DELIVERED'],
     DELIVERED: [],
     CANCELLED: []
 }
@@ -28,6 +29,8 @@ export function getNextStatus(current: OrderStatus): OrderStatus | null {
         case 'PREPARING':
             return 'READY'
         case 'READY':
+            return 'DELIVERING'
+        case 'DELIVERING':
             return 'DELIVERED'
         default:
             return null
@@ -38,5 +41,6 @@ export function mapStatusToColumn(status: OrderStatus): KitchenColumn | null {
     if (status === 'PENDING' || status === 'CONFIRMED') return 'NEW'
     if (status === 'PREPARING') return 'PREPARING'
     if (status === 'READY') return 'READY'
+    if (status === 'DELIVERING') return 'READY' // mostrado na coluna READY ou DELIVERING
     return null
 }
