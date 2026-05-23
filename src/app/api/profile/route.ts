@@ -2,6 +2,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
+import { checkRateLimit, getClientIp, RateLimitConfig, buildRateLimitResponse } from '@/lib/rate-limit'
 
 const updateProfileSchema = z.object({
     fullName: z.string().min(2).optional(),
@@ -9,7 +10,7 @@ const updateProfileSchema = z.object({
     avatarUrl: z.string().url().optional(),
 })
 
-export async function GET(request: Request) {
+export async function GET() {
     try {
         const supabase = await createClient()
 
@@ -55,6 +56,10 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
+    const ip = getClientIp(request);
+    const rate = await checkRateLimit(`crud:profile:${ip}`, RateLimitConfig.moderate.limit, RateLimitConfig.moderate.windowSeconds);
+    if (!rate.success) return buildRateLimitResponse(rate);
+
     try {
         const supabase = await createClient()
 

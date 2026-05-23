@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/authz';
 import { getOrderPaymentContext } from '@/lib/payments/order-payment';
+import { checkRateLimit, getClientIp, RateLimitConfig, buildRateLimitResponse } from '@/lib/rate-limit';
 
 const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID || '';
 const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET || '';
@@ -45,6 +46,10 @@ interface PayPalLink {
 }
 
 export async function POST(request: NextRequest) {
+    const ip = getClientIp(request);
+    const rate = await checkRateLimit(`payments:paypal:${ip}`, RateLimitConfig.strict.limit, RateLimitConfig.strict.windowSeconds);
+    if (!rate.success) return buildRateLimitResponse(rate);
+
     const { user, error: authError } = await getCurrentUser();
     if (authError || !user) {
         return NextResponse.json(
@@ -123,6 +128,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+    const ip = getClientIp(request);
+    const rate = await checkRateLimit(`payments:paypal:put:${ip}`, RateLimitConfig.strict.limit, RateLimitConfig.strict.windowSeconds);
+    if (!rate.success) return buildRateLimitResponse(rate);
+
     const { user, error: authError } = await getCurrentUser();
     if (authError || !user) {
         return NextResponse.json(
@@ -192,6 +201,10 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+    const ip = getClientIp(request);
+    const rate = await checkRateLimit(`payments:paypal:get:${ip}`, RateLimitConfig.strict.limit, RateLimitConfig.strict.windowSeconds);
+    if (!rate.success) return buildRateLimitResponse(rate);
+
     const { user, error: authError } = await getCurrentUser();
     if (authError || !user) {
         return NextResponse.json(

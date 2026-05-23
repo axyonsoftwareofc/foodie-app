@@ -2,10 +2,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/authz';
 import { getOrderPaymentContext } from '@/lib/payments/order-payment';
+import { checkRateLimit, getClientIp, RateLimitConfig, buildRateLimitResponse } from '@/lib/rate-limit';
 
 const FEATURE_ENABLED = process.env.ENABLE_STRIPE_PAYMENTS === 'true';
 
 export async function POST(request: NextRequest) {
+    const ip = getClientIp(request);
+    const rate = await checkRateLimit(`payments:intent:${ip}`, RateLimitConfig.strict.limit, RateLimitConfig.strict.windowSeconds);
+    if (!rate.success) return buildRateLimitResponse(rate);
+
     if (!FEATURE_ENABLED) {
         return NextResponse.json(
             {
@@ -35,7 +40,8 @@ export async function POST(request: NextRequest) {
     try {
         const Stripe = (await import('stripe')).default;
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-            apiVersion: '2026-02-25.clover',
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            apiVersion: (process.env.STRIPE_API_VERSION as any) || '2024-12-18.acacia',
         });
 
         const body = await request.json();
@@ -64,6 +70,8 @@ export async function POST(request: NextRequest) {
                     request_three_d_secure: 'automatic',
                 },
             },
+        }, {
+            idempotencyKey: `stripe-intent-${orderId}`,
         });
 
         return NextResponse.json({

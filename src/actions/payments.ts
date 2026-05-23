@@ -2,12 +2,22 @@
 'use server';
 
 import { PixPaymentDetails, PaymentIntentResponse } from '@/types/payment.types';
+import { checkRateLimit, getClientIdentifierFromHeaders, RateLimitConfig } from '@/lib/rate-limit';
 
 export async function createPaymentIntent(
     orderId: string,
     email?: string
 ): Promise<{ data?: PaymentIntentResponse; error?: string }> {
     try {
+        const clientId = await getClientIdentifierFromHeaders();
+        const rate = await checkRateLimit(
+            `sa:payments:intent:${clientId}`,
+            RateLimitConfig.strict.limit,
+            RateLimitConfig.strict.windowSeconds
+        );
+        if (!rate.success) {
+            return { error: 'Muitas requisições. Aguarde um momento.' };
+        }
         const response = await fetch('/api/payments/intent', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -36,6 +46,15 @@ export async function createPixPayment(
     customerEmail?: string
 ): Promise<{ data?: PixPaymentDetails; error?: string }> {
     try {
+        const clientId = await getClientIdentifierFromHeaders();
+        const rate = await checkRateLimit(
+            `sa:payments:pix:${clientId}`,
+            RateLimitConfig.strict.limit,
+            RateLimitConfig.strict.windowSeconds
+        );
+        if (!rate.success) {
+            return { error: 'Muitas requisições. Aguarde um momento.' };
+        }
         const response = await fetch('/api/payments/pix', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

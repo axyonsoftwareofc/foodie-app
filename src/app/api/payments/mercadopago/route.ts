@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/authz';
 import { getOrderPaymentContext } from '@/lib/payments/order-payment';
+import { checkRateLimit, getClientIp, RateLimitConfig, buildRateLimitResponse } from '@/lib/rate-limit';
 
 const FEATURE_ENABLED = process.env.ENABLE_MERCADOPAGO_PAYMENTS === 'true'; // ✅ FEATURE FLAG
 
@@ -61,6 +62,10 @@ interface MercadoPagoPaymentResult {
 }
 
 export async function POST(request: NextRequest) {
+    const ip = getClientIp(request);
+    const rate = await checkRateLimit(`payments:mp:${ip}`, RateLimitConfig.strict.limit, RateLimitConfig.strict.windowSeconds);
+    if (!rate.success) return buildRateLimitResponse(rate);
+
     // ✅ DESABILITADO NO MVP
     if (!FEATURE_ENABLED) {
         return NextResponse.json(
@@ -131,6 +136,7 @@ export async function POST(request: NextRequest) {
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${MERCADOPAGO_ACCESS_TOKEN}`,
+                'X-Idempotency-Key': `mp-payment-${orderId}-${Date.now()}`,
             },
             body: JSON.stringify(paymentData),
         });
@@ -185,6 +191,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+    const ip = getClientIp(request);
+    const rate = await checkRateLimit(`payments:mp:get:${ip}`, RateLimitConfig.strict.limit, RateLimitConfig.strict.windowSeconds);
+    if (!rate.success) return buildRateLimitResponse(rate);
+
     if (!FEATURE_ENABLED) {
         return NextResponse.json(
             { error: 'Mercado Pago is not enabled' },

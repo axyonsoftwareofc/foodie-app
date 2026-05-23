@@ -2,6 +2,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/authz';
 import { getOrderPaymentContext } from '@/lib/payments/order-payment';
+import { checkRateLimit, getClientIp, RateLimitConfig, buildRateLimitResponse } from '@/lib/rate-limit';
+import { isDuplicateRequest } from '@/lib/idempotency';
 
 const PIX_KEY = process.env.PIX_KEY || 'foodie@email.com';
 const PIX_KEY_TYPE = process.env.PIX_KEY_TYPE || 'email';
@@ -73,6 +75,10 @@ function generatePixCode(payload: PixPayload): string {
 }
 
 export async function POST(request: NextRequest) {
+    const ip = getClientIp(request);
+    const rate = await checkRateLimit(`payments:pix:${ip}`, RateLimitConfig.strict.limit, RateLimitConfig.strict.windowSeconds);
+    if (!rate.success) return buildRateLimitResponse(rate);
+
     const { user, error: authError } = await getCurrentUser();
     if (authError || !user) {
         return NextResponse.json(
@@ -84,6 +90,14 @@ export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
         const { orderId, customerEmail } = body;
+
+        const duplicate = await isDuplicateRequest(`pix:${orderId}`, 60);
+        if (duplicate) {
+            return NextResponse.json(
+                { error: 'Pagamento Pix já está sendo processado para este pedido' },
+                { status: 409 }
+            );
+        }
 
         const paymentContext = await getOrderPaymentContext(user.id, orderId);
         if (paymentContext.error || !paymentContext.data) {
@@ -109,7 +123,8 @@ export async function POST(request: NextRequest) {
             try {
                 const Stripe = (await import('stripe')).default;
                 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-                    apiVersion: '2026-02-25.clover',
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    apiVersion: (process.env.STRIPE_API_VERSION as any) || '2024-12-18.acacia',
                 });
 
                 await stripe.paymentIntents.create({
@@ -123,6 +138,8 @@ export async function POST(request: NextRequest) {
                         paymentType: 'pix',
                     },
                     description: paymentContext.data.description,
+                }, {
+                    idempotencyKey: `stripe-pix-${orderId}`,
                 });
             } catch {
                 console.log('Stripe Pix not configured, using fallback');

@@ -4,11 +4,21 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
+import { checkRateLimit, getClientIdentifierFromHeaders, RateLimitConfig } from '@/lib/rate-limit'
 
 export async function signInWithEmail(formData: {
     email: string;
     password: string;
 }) {
+    const rate = await checkRateLimit(
+        `auth:signin:${formData.email.toLowerCase()}`,
+        RateLimitConfig.strict.limit,
+        RateLimitConfig.strict.windowSeconds
+    );
+    if (!rate.success) {
+        return { error: 'Muitas tentativas. Aguarde um momento.' };
+    }
+
     const supabase = await createClient()
 
     const { error } = await supabase.auth.signInWithPassword({
@@ -29,6 +39,15 @@ export async function signUpWithEmail(formData: {
     password: string;
     fullName: string;
 }) {
+    const rate = await checkRateLimit(
+        `auth:signup:${formData.email.toLowerCase()}`,
+        RateLimitConfig.strict.limit,
+        RateLimitConfig.strict.windowSeconds
+    );
+    if (!rate.success) {
+        return { error: 'Muitas tentativas. Aguarde um momento.' };
+    }
+
     const supabase = await createClient()
 
     const { error } = await supabase.auth.signUp({
@@ -49,6 +68,16 @@ export async function signUpWithEmail(formData: {
 }
 
 export async function signInWithGoogle() {
+    const clientId = await getClientIdentifierFromHeaders();
+    const rate = await checkRateLimit(
+        `auth:google:${clientId}`,
+        RateLimitConfig.strict.limit,
+        RateLimitConfig.strict.windowSeconds
+    );
+    if (!rate.success) {
+        return { error: 'Muitas tentativas. Aguarde um momento.' };
+    }
+
     const supabase = await createClient()
     const headersList = await headers()
     const origin = headersList.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
@@ -78,6 +107,15 @@ export async function signOut() {
 }
 
 export async function resetPassword(email: string) {
+    const rate = await checkRateLimit(
+        `auth:reset:${email.toLowerCase()}`,
+        RateLimitConfig.strict.limit,
+        RateLimitConfig.strict.windowSeconds
+    );
+    if (!rate.success) {
+        return { error: 'Muitas tentativas. Aguarde um momento.' };
+    }
+
     const supabase = await createClient()
     const headersList = await headers()
     const origin = headersList.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'

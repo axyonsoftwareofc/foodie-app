@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getOwnedCategory, userOwnsRestaurant } from '@/lib/authz'
+import { checkRateLimit, getClientIp, RateLimitConfig, buildRateLimitResponse } from '@/lib/rate-limit'
 
 const categorySchema = z.object({
     restaurantId: z.string().min(1),
@@ -58,6 +59,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+    const ip = getClientIp(request);
+    const rate = await checkRateLimit(`crud:categories:${ip}`, RateLimitConfig.moderate.limit, RateLimitConfig.moderate.windowSeconds);
+    if (!rate.success) return buildRateLimitResponse(rate);
+
     try {
         const supabase = await createClient()
         
@@ -108,6 +113,10 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
+    const ip = getClientIp(request);
+    const rate = await checkRateLimit(`crud:categories:put:${ip}`, RateLimitConfig.moderate.limit, RateLimitConfig.moderate.windowSeconds);
+    if (!rate.success) return buildRateLimitResponse(rate);
+
     try {
         const supabase = await createClient()
         
@@ -157,6 +166,10 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+    const ip = getClientIp(request);
+    const rate = await checkRateLimit(`crud:categories:del:${ip}`, RateLimitConfig.moderate.limit, RateLimitConfig.moderate.windowSeconds);
+    if (!rate.success) return buildRateLimitResponse(rate);
+
     try {
         const supabase = await createClient()
         
