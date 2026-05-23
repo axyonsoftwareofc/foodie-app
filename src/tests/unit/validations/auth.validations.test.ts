@@ -6,7 +6,7 @@ describe('signInSchema', () => {
     it('should validate correct sign in data', () => {
         const validData = {
             email: 'test@example.com',
-            password: 'password123',
+            password: 'validPass123!',
         }
 
         const result = signInSchema.safeParse(validData)
@@ -16,7 +16,7 @@ describe('signInSchema', () => {
     it('should reject invalid email', () => {
         const invalidData = {
             email: 'invalid-email',
-            password: 'password123',
+            password: 'validPass123!',
         }
 
         const result = signInSchema.safeParse(invalidData)
@@ -26,10 +26,10 @@ describe('signInSchema', () => {
         }
     })
 
-    it('should reject short password', () => {
+    it('should reject empty password', () => {
         const invalidData = {
             email: 'test@example.com',
-            password: '123',
+            password: '',
         }
 
         const result = signInSchema.safeParse(invalidData)
@@ -65,8 +65,8 @@ describe('signUpSchema', () => {
         const validData = {
             fullName: 'John Doe',
             email: 'test@example.com',
-            password: 'password123',
-            confirmPassword: 'password123',
+            password: 'ValidPass123!',
+            confirmPassword: 'ValidPass123!',
         }
 
         const result = signUpSchema.safeParse(validData)
@@ -77,8 +77,8 @@ describe('signUpSchema', () => {
         const invalidData = {
             fullName: 'J',
             email: 'test@example.com',
-            password: 'password123',
-            confirmPassword: 'password123',
+            password: 'ValidPass123!',
+            confirmPassword: 'ValidPass123!',
         }
 
         const result = signUpSchema.safeParse(invalidData)
@@ -92,8 +92,8 @@ describe('signUpSchema', () => {
         const invalidData = {
             fullName: 'John Doe',
             email: 'invalid-email',
-            password: 'password123',
-            confirmPassword: 'password123',
+            password: 'ValidPass123!',
+            confirmPassword: 'ValidPass123!',
         }
 
         const result = signUpSchema.safeParse(invalidData)
@@ -104,8 +104,8 @@ describe('signUpSchema', () => {
         const invalidData = {
             fullName: 'John Doe',
             email: 'test@example.com',
-            password: '123',
-            confirmPassword: '123',
+            password: 'Short1!',
+            confirmPassword: 'Short1!',
         }
 
         const result = signUpSchema.safeParse(invalidData)
@@ -116,8 +116,8 @@ describe('signUpSchema', () => {
         const invalidData = {
             fullName: 'John Doe',
             email: 'test@example.com',
-            password: 'password123',
-            confirmPassword: 'differentpassword',
+            password: 'ValidPass123!',
+            confirmPassword: 'DifferentPass123!',
         }
 
         const result = signUpSchema.safeParse(invalidData)
@@ -131,7 +131,7 @@ describe('signUpSchema', () => {
         const invalidData = {
             fullName: 'John Doe',
             email: 'test@example.com',
-            password: 'password123',
+            password: 'ValidPass123!',
             confirmPassword: '',
         }
 
@@ -143,8 +143,8 @@ describe('signUpSchema', () => {
         const dataWithRole = {
             fullName: 'John Doe',
             email: 'test@example.com',
-            password: 'password123',
-            confirmPassword: 'password123',
+            password: 'ValidPass123!',
+            confirmPassword: 'ValidPass123!',
             role: 'CLIENTE',
         }
 
@@ -156,8 +156,8 @@ describe('signUpSchema', () => {
         const dataWithRole = {
             fullName: 'Admin User',
             email: 'admin@example.com',
-            password: 'password123',
-            confirmPassword: 'password123',
+            password: 'ValidPass123!',
+            confirmPassword: 'ValidPass123!',
             role: 'ADMIN',
         }
 

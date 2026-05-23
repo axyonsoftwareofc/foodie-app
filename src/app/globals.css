@@ -139,6 +139,19 @@ body {
   animation: scale-in 0.2s ease-out forwards;
 }
 
+/* ============================================ */
+/* ACESSIBILIDADE — prefers-reduced-motion      */
+/* ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* Esconder scrollbar */
 .scrollbar-hide {
   -ms-overflow-style: none;

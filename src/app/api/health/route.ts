@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getRedis } from '@/lib/redis'
+import { logger } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,8 +29,9 @@ export async function GET() {
         const dbStart = Date.now()
         await prisma.$queryRaw`SELECT 1`
         checks.database = { status: 'up', latencyMs: Date.now() - dbStart }
-    } catch {
+    } catch (error) {
         checks.database = { status: 'down', latencyMs: Date.now() - start }
+        logger.error('Health check database failed', error instanceof Error ? error : new Error(String(error)))
     }
 
     // Redis check
@@ -41,9 +43,11 @@ export async function GET() {
             checks.cache = { status: 'up', latencyMs: Date.now() - cacheStart }
         } else {
             checks.cache = { status: 'down', latencyMs: 0 }
+            logger.warn('Health check Redis unavailable')
         }
-    } catch {
+    } catch (error) {
         checks.cache = { status: 'down', latencyMs: Date.now() - start }
+        logger.error('Health check Redis failed', error instanceof Error ? error : new Error(String(error)))
     }
 
     const overallStatus: HealthStatus['status'] =

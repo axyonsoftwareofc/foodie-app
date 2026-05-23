@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/authz';
 import { getOrderPaymentContext } from '@/lib/payments/order-payment';
 import { checkRateLimit, getClientIp, RateLimitConfig, buildRateLimitResponse } from '@/lib/rate-limit';
+import { logger } from '@/lib/logger';
+import { captureException } from '@/lib/sentry';
 
 const FEATURE_ENABLED = process.env.ENABLE_STRIPE_PAYMENTS === 'true';
 
@@ -82,7 +84,12 @@ export async function POST(request: NextRequest) {
             gateway: 'STRIPE',
         });
     } catch (error) {
-        console.error('Error creating payment intent:', error);
+        logger.error('Error creating payment intent', error instanceof Error ? error : new Error(String(error)), {
+            route: '/api/payments/intent',
+            userId: user.id,
+            orderId: body?.orderId,
+        });
+        captureException(error instanceof Error ? error : new Error(String(error)));
         return NextResponse.json(
             { error: 'Failed to create payment intent' },
             { status: 500 }

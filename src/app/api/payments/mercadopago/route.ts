@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/authz';
 import { getOrderPaymentContext } from '@/lib/payments/order-payment';
 import { checkRateLimit, getClientIp, RateLimitConfig, buildRateLimitResponse } from '@/lib/rate-limit';
+import { logger } from '@/lib/logger';
+import { captureException } from '@/lib/sentry';
 
 const FEATURE_ENABLED = process.env.ENABLE_MERCADOPAGO_PAYMENTS === 'true'; // ✅ FEATURE FLAG
 
@@ -182,7 +184,10 @@ export async function POST(request: NextRequest) {
             boleto: boletoData,
         });
     } catch (error) {
-        console.error('Mercado Pago error:', error);
+        logger.error('Mercado Pago error', error instanceof Error ? error : new Error(String(error)), {
+            route: '/api/payments/mercadopago',
+        });
+        captureException(error instanceof Error ? error : new Error(String(error)));
         return NextResponse.json(
             { error: 'Failed to process payment' },
             { status: 500 }
@@ -253,7 +258,10 @@ export async function GET(request: NextRequest) {
             dateApproved: paymentResult.date_approved,
         });
     } catch (error) {
-        console.error('Mercado Pago error:', error);
+        logger.error('Mercado Pago get payment error', error instanceof Error ? error : new Error(String(error)), {
+            route: '/api/payments/mercadopago',
+        });
+        captureException(error instanceof Error ? error : new Error(String(error)));
         return NextResponse.json(
             { error: 'Failed to get payment status' },
             { status: 500 }

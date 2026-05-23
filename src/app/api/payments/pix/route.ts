@@ -4,6 +4,8 @@ import { getCurrentUser } from '@/lib/authz';
 import { getOrderPaymentContext } from '@/lib/payments/order-payment';
 import { checkRateLimit, getClientIp, RateLimitConfig, buildRateLimitResponse } from '@/lib/rate-limit';
 import { isDuplicateRequest } from '@/lib/idempotency';
+import { logger } from '@/lib/logger';
+import { captureException } from '@/lib/sentry';
 
 const PIX_KEY = process.env.PIX_KEY || 'foodie@email.com';
 const PIX_KEY_TYPE = process.env.PIX_KEY_TYPE || 'email';
@@ -142,7 +144,7 @@ export async function POST(request: NextRequest) {
                     idempotencyKey: `stripe-pix-${orderId}`,
                 });
             } catch {
-                console.log('Stripe Pix not configured, using fallback');
+                logger.info('Stripe Pix not configured, using fallback');
             }
         }
 
@@ -161,7 +163,11 @@ export async function POST(request: NextRequest) {
             ],
         });
     } catch (error) {
-        console.error('Error generating Pix payment:', error);
+        logger.error('Error generating Pix payment', error instanceof Error ? error : new Error(String(error)), {
+            route: '/api/payments/pix',
+            orderId: body?.orderId,
+        });
+        captureException(error instanceof Error ? error : new Error(String(error)));
         return NextResponse.json(
             { error: 'Failed to generate Pix payment' },
             { status: 500 }

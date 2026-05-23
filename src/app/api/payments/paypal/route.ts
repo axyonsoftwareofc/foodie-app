@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/authz';
 import { getOrderPaymentContext } from '@/lib/payments/order-payment';
 import { checkRateLimit, getClientIp, RateLimitConfig, buildRateLimitResponse } from '@/lib/rate-limit';
+import { logger } from '@/lib/logger';
+import { captureException } from '@/lib/sentry';
 
 const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID || '';
 const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET || '';
@@ -119,7 +121,10 @@ export async function POST(request: NextRequest) {
             links: orderResult.links,
         });
     } catch (error) {
-        console.error('PayPal create order error:', error);
+        logger.error('PayPal create order error', error instanceof Error ? error : new Error(String(error)), {
+            route: '/api/payments/paypal',
+        });
+        captureException(error instanceof Error ? error : new Error(String(error)));
         return NextResponse.json(
             { error: 'Failed to create PayPal order' },
             { status: 500 }
@@ -192,7 +197,10 @@ export async function PUT(request: NextRequest) {
             updateTime: captureResult.update_time,
         });
     } catch (error) {
-        console.error('PayPal capture error:', error);
+        logger.error('PayPal capture error', error instanceof Error ? error : new Error(String(error)), {
+            route: '/api/payments/paypal',
+        });
+        captureException(error instanceof Error ? error : new Error(String(error)));
         return NextResponse.json(
             { error: 'Failed to capture PayPal payment' },
             { status: 500 }
@@ -257,7 +265,10 @@ export async function GET(request: NextRequest) {
             purchaseUnits: orderResult.purchase_units,
         });
     } catch (error) {
-        console.error('PayPal get order error:', error);
+        logger.error('PayPal get order error', error instanceof Error ? error : new Error(String(error)), {
+            route: '/api/payments/paypal',
+        });
+        captureException(error instanceof Error ? error : new Error(String(error)));
         return NextResponse.json(
             { error: 'Failed to get PayPal order' },
             { status: 500 }

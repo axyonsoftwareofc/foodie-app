@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/authz';
 import { getOrderPaymentContext } from '@/lib/payments/order-payment';
 import { checkRateLimit, getClientIp, RateLimitConfig, buildRateLimitResponse } from '@/lib/rate-limit';
+import { logger } from '@/lib/logger';
+import { captureException } from '@/lib/sentry';
 
 interface BoletoRequest {
     amount: number;
@@ -164,7 +166,10 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json(boletoData);
     } catch (error) {
-        console.error('Boleto generation error:', error);
+        logger.error('Boleto generation error', error instanceof Error ? error : new Error(String(error)), {
+            route: '/api/payments/boleto',
+        });
+        captureException(error instanceof Error ? error : new Error(String(error)));
         return NextResponse.json(
             { error: 'Failed to generate boleto' },
             { status: 500 }

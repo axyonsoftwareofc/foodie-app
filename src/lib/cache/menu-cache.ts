@@ -1,12 +1,12 @@
 import { redisGet, redisSet, redisDel, cacheKey } from '@/lib/redis'
-import type { Restaurant } from '@/types'
+import type { Restaurant, MenuCategory } from '@/types'
 
 const DOMAIN = 'menu'
 const TTL = 300 // 5 minutos
 
 interface CachedMenu {
     restaurant: Restaurant
-    categories: unknown[]
+    categories: MenuCategory[]
     cachedAt: number
 }
 
@@ -22,7 +22,7 @@ export async function getCachedMenu(slug: string): Promise<CachedMenu | null> {
     return redisGet<CachedMenu>(keyBySlug(slug))
 }
 
-export async function setCachedMenu(slug: string, restaurant: Restaurant, categories: unknown[]): Promise<void> {
+export async function setCachedMenu(slug: string, restaurant: Restaurant, categories: MenuCategory[]): Promise<void> {
     await redisSet(keyBySlug(slug), { restaurant, categories, cachedAt: Date.now() }, TTL)
 }
 
