@@ -228,26 +228,38 @@ export async function createOrder(orderData: {
             return { error: pricedOrder.error || 'Erro ao calcular pedido' }
         }
 
-        const order = await prisma.order.create({
-            data: {
-                customer_id: user.id,
-                customer_name: user.email || 'Cliente',
-                customer_phone: null,
-                order_type: 'DELIVERY',
-                delivery_address: JSON.stringify(orderData.address),
-                status: OrderStatus.PENDING,
-                items: pricedOrder.data.items as unknown as Prisma.InputJsonValue,
-                total: pricedOrder.data.total,
-                restaurant_id: pricedOrder.data.restaurantId,
-                estimated_preparation_time: estimatedMinutes,
-                payment_method: orderData.paymentMethod,
-                change_for: orderData.changeFor ?? null,
-                subtotal: pricedOrder.data.subtotal,
-                delivery_fee: pricedOrder.data.deliveryFee,
-                discount: pricedOrder.data.discount,
-                coupon_code: orderData.couponCode ?? null,
-                estimated_delivery: estimatedDelivery,
-            },
+        // Transaction: ensures order creation is atomic with restaurant validation
+        const order = await prisma.$transaction(async (tx) => {
+            // Re-validate restaurant is still active inside the transaction
+            const restaurant = await tx.restaurant.findFirst({
+                where: { id: pricedOrder.data!.restaurantId, is_active: true },
+                select: { id: true },
+            })
+            if (!restaurant) {
+                throw new Error('Restaurante nao encontrado ou inativo')
+            }
+
+            return tx.order.create({
+                data: {
+                    customer_id: user.id,
+                    customer_name: user.email || 'Cliente',
+                    customer_phone: null,
+                    order_type: 'DELIVERY',
+                    delivery_address: JSON.stringify(orderData.address),
+                    status: OrderStatus.PENDING,
+                    items: pricedOrder.data!.items as unknown as Prisma.InputJsonValue,
+                    total: pricedOrder.data!.total,
+                    restaurant_id: pricedOrder.data!.restaurantId,
+                    estimated_preparation_time: estimatedMinutes,
+                    payment_method: orderData.paymentMethod,
+                    change_for: orderData.changeFor ?? null,
+                    subtotal: pricedOrder.data!.subtotal,
+                    delivery_fee: pricedOrder.data!.deliveryFee,
+                    discount: pricedOrder.data!.discount,
+                    coupon_code: orderData.couponCode ?? null,
+                    estimated_delivery: estimatedDelivery,
+                },
+            })
         })
 
         void sendEmail({
@@ -294,6 +306,9 @@ export async function createOrder(orderData: {
         }
     } catch (error) {
         console.error('Erro ao criar pedido:', error)
+        if (error instanceof Error && error.message.includes('Restaurante nao encontrado')) {
+            return { error: 'Restaurante nao encontrado ou inativo. Tente novamente.' }
+        }
         return { error: 'Erro ao criar pedido. Tente novamente.' }
     }
 }

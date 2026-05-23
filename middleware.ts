@@ -4,6 +4,30 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 const RESERVED_SUBDOMAINS = ['www', 'app', 'admin', 'api', 'mail', 'foodie']
 
+/** Roles ordenados por permissão (maior → menor). */
+const ROLE_HIERARCHY = ['ADMIN', 'GERENCIADOR', 'EQUIPE', 'CLIENTE'] as const
+type UserRole = typeof ROLE_HIERARCHY[number]
+
+/** Retorna true se userRole tiver permissão mínima necessária. */
+function hasMinimumRole(userRole: string | null | undefined, minimumRole: UserRole): boolean {
+    if (!userRole) return false
+    const userIndex = ROLE_HIERARCHY.indexOf(userRole as UserRole)
+    const minIndex = ROLE_HIERARCHY.indexOf(minimumRole)
+    return userIndex !== -1 && userIndex <= minIndex
+}
+
+/** Busca o role do usuário na tabela profiles via Supabase. */
+async function fetchUserRole(supabase: ReturnType<typeof createServerClient>): Promise<string | null> {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return null
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+    return profile?.role ?? null
+}
+
 function extractSubdomain(hostname: string, request: NextRequest): string | null {
     const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || 'foodie.app'
 
@@ -68,15 +92,57 @@ export async function middleware(request: NextRequest) {
 
     const { pathname } = request.nextUrl
 
-    const isDashboardRoute =
-        pathname.startsWith('/dashboard') ||
-        pathname.startsWith('/admin')
+    const isAdminRoute = pathname.startsWith('/admin')
+    const isDashboardRoute = pathname.startsWith('/dashboard')
+    const isDriverRoute = pathname.startsWith('/driver')
 
-    if (isDashboardRoute && !user) {
-        const url = request.nextUrl.clone()
-        url.pathname = '/sign-in'
-        url.searchParams.set('redirectTo', pathname)
-        return NextResponse.redirect(url)
+    // Admin routes: require ADMIN or GERENCIADOR
+    if (isAdminRoute) {
+        if (!user) {
+            const url = request.nextUrl.clone()
+            url.pathname = '/sign-in'
+            url.searchParams.set('redirectTo', pathname)
+            return NextResponse.redirect(url)
+        }
+        const role = await fetchUserRole(supabase)
+        if (!hasMinimumRole(role, 'GERENCIADOR')) {
+            const url = request.nextUrl.clone()
+            url.pathname = '/'
+            return NextResponse.redirect(url)
+        }
+    }
+
+    // Dashboard routes: require ADMIN, GERENCIADOR or EQUIPE
+    if (isDashboardRoute) {
+        if (!user) {
+            const url = request.nextUrl.clone()
+            url.pathname = '/sign-in'
+            url.searchParams.set('redirectTo', pathname)
+            return NextResponse.redirect(url)
+        }
+        const role = await fetchUserRole(supabase)
+        if (!hasMinimumRole(role, 'EQUIPE')) {
+            const url = request.nextUrl.clone()
+            url.pathname = '/'
+            return NextResponse.redirect(url)
+        }
+    }
+
+    // Driver routes: require at least CLIENTE (authenticated)
+    if (isDriverRoute) {
+        if (!user) {
+            const url = request.nextUrl.clone()
+            url.pathname = '/sign-in'
+            url.searchParams.set('redirectTo', pathname)
+            return NextResponse.redirect(url)
+        }
+        // Optional: restrict driver routes to EQUIPE+ roles
+        const role = await fetchUserRole(supabase)
+        if (!hasMinimumRole(role, 'EQUIPE')) {
+            const url = request.nextUrl.clone()
+            url.pathname = '/'
+            return NextResponse.redirect(url)
+        }
     }
 
     const protectedRoutes = [

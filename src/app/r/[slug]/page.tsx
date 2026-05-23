@@ -23,6 +23,18 @@ interface Props {
     params: Promise<{ slug: string }>
 }
 
+// ISR: revalida a cada 60 segundos
+export const revalidate = 60
+
+export async function generateStaticParams() {
+    const restaurants = await prisma.restaurant.findMany({
+        where: { is_active: true },
+        select: { subdomain: true },
+        take: 100,
+    })
+    return restaurants.map((r) => ({ slug: r.subdomain }))
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const { slug } = await params
 
