@@ -11,6 +11,7 @@ import {
     getUserRestaurant,
     userOwnsRestaurant,
 } from '@/lib/authz'
+import { revalidatePublicMenu } from '@/lib/cache/revalidate-public-menu'
 
 const categorySchema = z.object({
     restaurantId: z.string().optional(),
@@ -102,6 +103,7 @@ export async function createCategory(formData: FormData) {
 
         revalidatePath('/dashboard/menu')
         void redisDel(cacheKey('restaurants', 'public-list'))
+        void revalidatePublicMenu(restaurantId)
         return { category, success: true }
     } catch (error) {
         console.error('Error creating category:', error)
@@ -140,6 +142,7 @@ export async function updateCategory(categoryId: string, formData: FormData) {
 
         revalidatePath('/dashboard/menu')
         void redisDel(cacheKey('restaurants', 'public-list'))
+        void revalidatePublicMenu(categoryOwner.restaurant_id)
         return { category, success: true }
     } catch (error) {
         console.error('Error updating category:', error)
@@ -180,6 +183,7 @@ export async function reorderCategories(restaurantId: string, categoryIds: strin
 
         revalidatePath('/dashboard/menu')
         void redisDel(cacheKey('restaurants', 'public-list'))
+        void revalidatePublicMenu(restaurantId)
         return { success: true }
     } catch (error) {
         console.error('Error reordering categories:', error)
@@ -223,6 +227,7 @@ export async function deleteCategory(categoryId: string) {
 
         revalidatePath('/dashboard/menu')
         void redisDel(cacheKey('restaurants', 'public-list'))
+        void revalidatePublicMenu(categoryOwner.restaurant_id)
         return { success: true }
     } catch (error) {
         console.error('Error deleting category:', error)

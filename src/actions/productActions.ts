@@ -12,6 +12,7 @@ import {
     getOwnedProduct,
     userOwnsRestaurant,
 } from '@/lib/authz'
+import { revalidatePublicMenu } from '@/lib/cache/revalidate-public-menu'
 
 const productBadgeSchema = z.enum(['vegetarian', 'vegan', 'gluten_free', 'spicy', 'popular', 'new', 'discount'])
 
@@ -192,6 +193,7 @@ export async function createProduct(formData: FormData) {
 
         revalidatePath('/dashboard/menu')
         void redisDel(cacheKey('restaurants', 'public-list'))
+        void revalidatePublicMenu(restaurantId)
         return { product, success: true }
     } catch (error) {
         console.error('Error creating product:', error)
@@ -244,6 +246,7 @@ export async function updateProduct(productId: string, formData: FormData) {
 
         revalidatePath('/dashboard/menu')
         void redisDel(cacheKey('restaurants', 'public-list'))
+        void revalidatePublicMenu(productOwner.restaurant_id)
         return { product, success: true }
     } catch (error) {
         console.error('Error updating product:', error)
@@ -274,6 +277,7 @@ export async function toggleProductAvailability(productId: string, isAvailable: 
 
         revalidatePath('/dashboard/menu')
         void redisDel(cacheKey('restaurants', 'public-list'))
+        void revalidatePublicMenu(productOwner.restaurant_id)
         return { success: true }
     } catch (error) {
         console.error('Error toggling availability:', error)
@@ -304,6 +308,7 @@ export async function deleteProduct(productId: string) {
 
         revalidatePath('/dashboard/menu')
         void redisDel(cacheKey('restaurants', 'public-list'))
+        void revalidatePublicMenu(productOwner.restaurant_id)
         return { success: true }
     } catch (error) {
         console.error('Error deleting product:', error)

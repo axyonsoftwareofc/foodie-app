@@ -8,6 +8,10 @@ const RESERVED_SUBDOMAINS = ['www', 'app', 'admin', 'api', 'mail', 'foodie']
 const ROLE_HIERARCHY = ['ADMIN', 'GERENCIADOR', 'EQUIPE', 'CLIENTE'] as const
 type UserRole = typeof ROLE_HIERARCHY[number]
 
+/** Nome do cookie que cacheia a role do usuario (evita query ao banco em todo request). */
+const ROLE_COOKIE_NAME = 'foodie-role'
+const ROLE_COOKIE_MAX_AGE = 60 * 60 * 24 * 7 // 7 dias
+
 /** Retorna true se userRole tiver permissão mínima necessária. */
 function hasMinimumRole(userRole: string | null | undefined, minimumRole: UserRole): boolean {
     if (!userRole) return false
@@ -16,16 +20,66 @@ function hasMinimumRole(userRole: string | null | undefined, minimumRole: UserRo
     return userIndex !== -1 && userIndex <= minIndex
 }
 
-/** Busca o role do usuário na tabela profiles via Supabase. */
-async function fetchUserRole(supabase: ReturnType<typeof createServerClient>): Promise<string | null> {
+/** Le a role do cookie de cache. */
+function getCachedRole(request: NextRequest): string | null {
+    const cookie = request.cookies.get(ROLE_COOKIE_NAME)
+    return cookie?.value ?? null
+}
+
+/** Limpa o cookie de role no response. */
+function clearRoleCookie(response: NextResponse): void {
+    response.cookies.set(ROLE_COOKIE_NAME, '', {
+        maxAge: 0,
+        path: '/',
+    })
+}
+
+/** Busca o role do usuario na tabela profiles via Supabase e cacheia em cookie. */
+async function fetchUserRole(
+    supabase: ReturnType<typeof createServerClient>,
+    response: NextResponse
+): Promise<string | null> {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return null
+    if (!user) {
+        clearRoleCookie(response)
+        return null
+    }
+
     const { data: profile } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', user.id)
         .single()
-    return profile?.role ?? null
+
+    const role = profile?.role ?? null
+
+    if (role) {
+        // Cacheia a role em cookie para evitar query futura
+        response.cookies.set(ROLE_COOKIE_NAME, role, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: ROLE_COOKIE_MAX_AGE,
+            path: '/',
+        })
+    } else {
+        clearRoleCookie(response)
+    }
+
+    return role
+}
+
+/** Obtem o role do usuario, priorizando cookie cacheado. */
+async function getUserRole(
+    request: NextRequest,
+    supabase: ReturnType<typeof createServerClient>,
+    response: NextResponse
+): Promise<string | null> {
+    const cachedRole = getCachedRole(request)
+    if (cachedRole && ROLE_HIERARCHY.includes(cachedRole as UserRole)) {
+        return cachedRole
+    }
+    return fetchUserRole(supabase, response)
 }
 
 function extractSubdomain(hostname: string, request: NextRequest): string | null {
@@ -104,7 +158,7 @@ export async function middleware(request: NextRequest) {
             url.searchParams.set('redirectTo', pathname)
             return NextResponse.redirect(url)
         }
-        const role = await fetchUserRole(supabase)
+        const role = await getUserRole(request, supabase, supabaseResponse)
         if (!hasMinimumRole(role, 'GERENCIADOR')) {
             const url = request.nextUrl.clone()
             url.pathname = '/'
@@ -120,7 +174,7 @@ export async function middleware(request: NextRequest) {
             url.searchParams.set('redirectTo', pathname)
             return NextResponse.redirect(url)
         }
-        const role = await fetchUserRole(supabase)
+        const role = await getUserRole(request, supabase, supabaseResponse)
         if (!hasMinimumRole(role, 'EQUIPE')) {
             const url = request.nextUrl.clone()
             url.pathname = '/'
@@ -136,13 +190,17 @@ export async function middleware(request: NextRequest) {
             url.searchParams.set('redirectTo', pathname)
             return NextResponse.redirect(url)
         }
-        // Optional: restrict driver routes to EQUIPE+ roles
-        const role = await fetchUserRole(supabase)
+        const role = await getUserRole(request, supabase, supabaseResponse)
         if (!hasMinimumRole(role, 'EQUIPE')) {
             const url = request.nextUrl.clone()
             url.pathname = '/'
             return NextResponse.redirect(url)
         }
+    }
+
+    // Se o usuario nao esta logado mas o cookie de role existe, limpa-o
+    if (!user && getCachedRole(request)) {
+        clearRoleCookie(supabaseResponse)
     }
 
     const protectedRoutes = [
