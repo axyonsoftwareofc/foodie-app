@@ -27,6 +27,11 @@ interface Props {
 export const revalidate = 60
 
 export async function generateStaticParams() {
+    // Skip DB query during CI builds when DATABASE_URL is not available
+    if (!process.env.DATABASE_URL) {
+        return []
+    }
+
     const restaurants = await prisma.restaurant.findMany({
         where: { is_active: true },
         select: { subdomain: true },
