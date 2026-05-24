@@ -53,7 +53,8 @@ export default function PaymentMethodsPage() {
         toast.success('Método de pagamento removido');
     };
 
-    const getCardIcon = () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const getCardIcon = (_brand?: string) => {
         return <CreditCard size={20} />;
     };
 

@@ -89,9 +89,12 @@ export async function POST(request: NextRequest) {
         );
     }
 
+    let body: { orderId?: string; customerEmail?: string } | null = null;
+
     try {
-        const body = await request.json();
-        const { orderId, customerEmail } = body;
+        const requestBody = await request.json();
+        body = requestBody;
+        const { orderId, customerEmail } = requestBody;
 
         const duplicate = await isDuplicateRequest(`pix:${orderId}`, 60);
         if (duplicate) {

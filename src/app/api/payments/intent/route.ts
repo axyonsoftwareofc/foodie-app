@@ -39,6 +39,8 @@ export async function POST(request: NextRequest) {
         );
     }
 
+    let body: { orderId?: string; email?: string; currency?: string; metadata?: Record<string, string> } | null = null;
+
     try {
         const Stripe = (await import('stripe')).default;
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
@@ -46,8 +48,9 @@ export async function POST(request: NextRequest) {
             apiVersion: (process.env.STRIPE_API_VERSION as any) || '2024-12-18.acacia',
         });
 
-        const body = await request.json();
-        const { orderId, email, currency = 'brl', metadata = {} } = body;
+        const requestBody = await request.json();
+        body = requestBody;
+        const { orderId, email, currency = 'brl', metadata = {} } = requestBody;
 
         const paymentContext = await getOrderPaymentContext(user.id, orderId);
         if (paymentContext.error || !paymentContext.data) {

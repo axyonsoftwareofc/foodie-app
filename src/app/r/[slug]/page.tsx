@@ -32,7 +32,9 @@ export async function generateStaticParams() {
         select: { subdomain: true },
         take: 100,
     })
-    return restaurants.map((r) => ({ slug: r.subdomain }))
+    return restaurants
+        .filter((r): r is typeof r & { subdomain: string } => !!r.subdomain)
+        .map((r) => ({ slug: r.subdomain }))
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

@@ -309,7 +309,6 @@ TOTAL: R$ ${order.total.toFixed(2).replace('.', ',')}
                         <KanbanColumn
                             key={col.id}
                             title={col.title}
-                            status={col.id}
                             orders={adaptedOrders}
                             color={col.color}
                             count={columnOrders.length}
