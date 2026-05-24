@@ -32,7 +32,6 @@ function DeliveryCard({ delivery, onAction }: {
 }) {
     const isAssigned = delivery.status === 'ASSIGNED'
     const isPickedUp = delivery.status === 'PICKED_UP'
-    const isDelivering = delivery.status === 'DELIVERING'
 
     return (
         <div className="bg-white rounded-2xl border border-gray-200 p-4 space-y-3 shadow-sm">
@@ -113,7 +112,7 @@ const MOCK_DELIVERIES: DriverDelivery[] = []
 export default function DriverPage() {
     const [status, setStatus] = useState<DriverStatus>('OFFLINE')
     const [isToggling, setIsToggling] = useState(false)
-    const [deliveries, setDeliveries] = useState<DriverDelivery[]>(MOCK_DELIVERIES)
+    const [deliveries] = useState<DriverDelivery[]>(MOCK_DELIVERIES)
     const [activeDelivery, setActiveDelivery] = useState<DriverDelivery | null>(null)
     const [todayEarnings, setTodayEarnings] = useState(0)
     const [todayDeliveries, setTodayDeliveries] = useState(0)

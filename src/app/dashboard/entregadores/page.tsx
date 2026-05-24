@@ -2,7 +2,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { UserPlus, Trash2, Truck, Loader2, Phone } from 'lucide-react'
+import { UserPlus, Truck, Loader2, Phone } from 'lucide-react'
 import { toast } from 'sonner'
 import { createDriver, getDrivers } from '@/actions/delivery-actions'
 import type { DeliveryDriver } from '@/types/delivery.types'

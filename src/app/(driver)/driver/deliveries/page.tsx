@@ -1,17 +1,18 @@
 // src/app/(driver)/driver/deliveries/page.tsx
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { 
-    MapPin, Phone, Camera, CheckCircle, Navigation, Clock, 
-    Truck, Package, ChevronRight, X, Upload, Loader2,
-    User, MessageCircle
+    MapPin, Phone, Camera, CheckCircle, Navigation,
+    Truck, Package, X, Upload, Loader2,
+    MessageCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { getDeliveryByOrder, updateDeliveryStatus, updateDriverLocation, submitDeliveryProof } from '@/actions/delivery-actions';
+import { updateDeliveryStatus, updateDriverLocation, submitDeliveryProof } from '@/actions/delivery-actions';
 import { Delivery, DeliveryStatus, GeoPoint } from '@/types/delivery.types';
-import { formatPrice } from '@/lib/utils/format.utils';
+
 
 interface DeliveryProofForm {
     photoUrl: string;
@@ -20,9 +21,8 @@ interface DeliveryProofForm {
 }
 
 export default function DriverDeliveriesPage() {
-    const [deliveries, setDeliveries] = useState<Delivery[]>([]);
     const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading] = useState(true);
     const [showProofModal, setShowProofModal] = useState(false);
     const [proofForm, setProofForm] = useState<DeliveryProofForm>({ photoUrl: '', notes: '', signedBy: '' });
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -264,7 +264,7 @@ export default function DriverDeliveriesPage() {
                                     </label>
                                     <div className="h-40 rounded-xl border-2 border-dashed flex items-center justify-center cursor-pointer" style={{ borderColor: 'var(--color-border)' }}>
                                         {proofForm.photoUrl ? (
-                                            <img src={proofForm.photoUrl} alt="Proof" className="w-full h-full object-cover rounded-xl" />
+                                            <Image src={proofForm.photoUrl} alt="Proof" fill className="object-cover rounded-xl" sizes="(max-width: 768px) 100vw, 400px" />
                                         ) : (
                                             <Upload size={32} style={{ color: 'var(--color-text-tertiary)' }} />
                                         )}

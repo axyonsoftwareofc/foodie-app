@@ -1,10 +1,8 @@
 // src/tests/unit/types/product.types.test.ts
 import { describe, it, expect } from 'vitest'
-import type { 
-    Product, 
-    ProductFormData, 
+import type {
+    Product,
     Category,
-    CategoryFormData,
     ProductBadge,
     ProductVariation,
     ProductExtra,

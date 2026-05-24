@@ -3,10 +3,9 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
-import { 
-    Receipt, Download, Mail, Printer, Share2, 
-    ChevronLeft, CheckCircle, Clock, CreditCard, 
+import {
+    Receipt, Download, Mail, Printer,
+    ChevronLeft, CheckCircle, Clock, CreditCard,
     Banknote, Smartphone
 } from 'lucide-react';
 import { toast } from 'sonner';

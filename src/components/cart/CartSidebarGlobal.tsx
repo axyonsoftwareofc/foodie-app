@@ -2,6 +2,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, ShoppingBag, Trash2, Plus, Minus } from 'lucide-react'
 import { useCart } from '@/hooks/useCart'
@@ -127,10 +128,12 @@ export function CartSidebarGlobal() {
                                         }}
                                     >
                                         {/* Item Image */}
-                                        <img
+                                        <Image
                                             src={item.menuItem.image || '/placeholder.png'}
                                             alt={item.menuItem.name}
-                                            className="h-16 w-16 rounded-lg object-cover"
+                                            width={64}
+                                            height={64}
+                                            className="rounded-lg object-cover"
                                         />
 
                                         {/* Item Info */}

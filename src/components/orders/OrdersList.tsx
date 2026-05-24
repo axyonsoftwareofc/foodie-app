@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Loader2, ShoppingBag, ClipboardList, Search, X, Calendar } from 'lucide-react'
+import { Loader2, ShoppingBag, ClipboardList, Search, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { getOrders, type OrderData } from '@/actions/orders'
 import {

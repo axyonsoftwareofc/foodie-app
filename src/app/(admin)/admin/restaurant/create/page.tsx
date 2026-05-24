@@ -3,9 +3,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
-import { Store, MapPin, Phone, Mail, Clock, DollarSign, Image, ChevronLeft, Loader2, Upload, X } from 'lucide-react';
+import { Store, MapPin, Phone, Mail, DollarSign, ChevronLeft, Loader2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
+import Image from 'next/image';
 import { createRestaurant } from '@/actions/restaurantActions';
 
 const CATEGORIES = [
@@ -64,8 +64,8 @@ export default function CreateRestaurantPage() {
     const [operatingHours, setOperatingHours] = useState<OperatingHour[]>(
         DAYS.map((_, i) => ({ dayOfWeek: i, open: '09:00', close: '22:00', isClosed: i === 0 }))
     );
-    const [logo, setLogo] = useState<string | null>(null);
-    const [banner, setBanner] = useState<string | null>(null);
+    const [logo] = useState<string | null>(null);
+    const [banner] = useState<string | null>(null);
 
     const handleChange = (field: keyof FormData, value: string) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -153,7 +153,7 @@ export default function CreateRestaurantPage() {
                                 style={{ borderColor: logo ? 'transparent' : 'var(--color-border)' }}
                             >
                                 {logo ? (
-                                    <img src={logo} alt="Logo" className="w-full h-full object-cover" />
+                                    <Image src={logo} alt="Logo" fill className="object-cover" sizes="200px" />
                                 ) : (
                                     <>
                                         <Upload size={24} style={{ color: 'var(--color-text-tertiary)' }} />
@@ -171,7 +171,7 @@ export default function CreateRestaurantPage() {
                                 style={{ borderColor: banner ? 'transparent' : 'var(--color-border)' }}
                             >
                                 {banner ? (
-                                    <img src={banner} alt="Banner" className="w-full h-full object-cover" />
+                                    <Image src={banner} alt="Banner" fill className="object-cover" sizes="200px" />
                                 ) : (
                                     <>
                                         <Upload size={24} style={{ color: 'var(--color-text-tertiary)' }} />

@@ -1,13 +1,12 @@
 'use client';
 
-import React, { ReactNode, useRef, useState, useCallback } from 'react';
+import React, { ReactNode, useRef, useCallback } from 'react';
 
 interface LiveRegionProps {
     children: ReactNode;
-    announce: (message: string, priority?: 'polite' | 'assertive') => void;
 }
 
-export function LiveRegion({ children, announce }: LiveRegionProps) {
+export function LiveRegion({ children }: LiveRegionProps) {
     return (
         <div
             role="status"

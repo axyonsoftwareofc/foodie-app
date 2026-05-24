@@ -7,6 +7,7 @@ import { Save, Loader2, User, Mail, Phone, ChevronLeft, Camera } from 'lucide-re
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { formatPhoneInput } from '@/lib/utils/format.utils';
+import Image from 'next/image';
 import { getUserProfile, updateUserProfile } from '@/actions/profileActions';
 
 type ProfileRow = {
@@ -102,10 +103,12 @@ export default function EditProfilePage() {
                 <div className="flex flex-col items-center py-6">
                     <div className="relative">
                         {profile?.avatar_url ? (
-                            <img
+                            <Image
                                 src={profile.avatar_url}
                                 alt={profile.full_name || 'User'}
-                                className="w-24 h-24 rounded-full object-cover"
+                                width={96}
+                                height={96}
+                                className="rounded-full object-cover"
                             />
                         ) : (
                             <div className="w-24 h-24 rounded-full bg-[#00A082] flex items-center justify-center text-white text-3xl font-bold">

@@ -5,7 +5,7 @@ import {
     calculateTotalItems,
     calculateCartSummary
 } from '@/lib/utils/cart.utils';
-import { mockCartItem, mockMenuItem } from '@/tests/utils/mock-data';
+import { mockMenuItem } from '@/tests/utils/mock-data';
 
 describe('cart.utils', () => {
     describe('calculateSubtotal', () => {

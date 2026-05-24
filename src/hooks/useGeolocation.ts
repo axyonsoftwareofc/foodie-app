@@ -71,7 +71,7 @@ export function useGeolocation() {
                 }
             )
         })
-    }, [])
+    }, [state])
 
     return {
         ...state,

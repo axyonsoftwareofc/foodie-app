@@ -30,7 +30,6 @@ export function useOrderSound(options: UseOrderSoundOptions = {}): UseOrderSound
     const [isEnabled, setIsEnabled] = useState(enabled)
     const [volume, setVolumeState] = useState(initialVolume)
     const audioRef = useRef<HTMLAudioElement | null>(null)
-    const hasPlayedRef = useRef(false)
 
     useEffect(() => {
         if (typeof window !== 'undefined') {

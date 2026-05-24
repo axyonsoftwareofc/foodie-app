@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Star, ChevronLeft, Send, ThumbsUp, MessageCircle, Filter } from 'lucide-react';
+import { Star, ChevronLeft, Send, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { getRestaurantReviews, respondToReview, getRestaurantProfile } from '@/actions/restaurantActions';

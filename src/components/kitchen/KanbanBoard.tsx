@@ -63,10 +63,10 @@ const COLUMNS = [
 ] as const
 
 export function KanbanBoard() {
-    const { orders, refresh, loading, filters, updateFilters, clearFilters } = useKitchenOrders()
+    const { orders, refresh, loading, filters, updateFilters } = useKitchenOrders()
     const { requestPermission, notifyNewOrder, notifyStatusChange, isSupported } = useOrderNotifications()
 
-    const [updating, setUpdating] = useState<string | null>(null)
+    const [, setUpdating] = useState<string | null>(null)
     const [selectedOrder, setSelectedOrder] = useState<KitchenOrder | null>(null)
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [newOrders, setNewOrders] = useState<KitchenOrder[]>([])
@@ -294,7 +294,6 @@ TOTAL: R$ ${order.total.toFixed(2).replace('.', ',')}
             {/* Kanban Columns */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 h-[65vh]">
                 {COLUMNS.map(col => {
-                    const Icon = col.icon
                     const columnOrders = grouped[col.id]
 
                     const adaptedOrders = columnOrders.map(order => ({

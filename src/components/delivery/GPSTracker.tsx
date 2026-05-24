@@ -2,9 +2,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import { MapPin, Navigation, Phone, Clock, Truck, RefreshCw } from 'lucide-react';
-import { Delivery, GeoPoint } from '@/types/delivery.types';
+import { MapPin, Navigation, Phone, Truck, RefreshCw } from 'lucide-react';
+import { Delivery } from '@/types/delivery.types';
 import { getDeliveryByOrder } from '@/actions/delivery-actions';
 
 interface GPSTrackerProps {

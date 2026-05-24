@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Table, CheckCircle, XCircle, Clock, Trash2, ChevronLeft, Users, QrCode } from 'lucide-react';
+import { Plus, Table, CheckCircle, Clock, Trash2, ChevronLeft, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { getTables, createTable, updateTableStatus, deleteTable } from '@/actions/restaurantActions';

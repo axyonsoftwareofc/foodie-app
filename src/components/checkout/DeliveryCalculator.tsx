@@ -32,7 +32,7 @@ export function DeliveryCalculator({
                                        restaurantConfig,
                                        onFeeCalculated,
                                    }: DeliveryCalculatorProps) {
-    const { latitude, longitude, loading, error, getCurrentPosition } = useGeolocation()
+    const { loading, error, getCurrentPosition } = useGeolocation()
     const [distance, setDistance] = useState<number | null>(null)
     const [deliveryFee, setDeliveryFee] = useState<number>(restaurantConfig.deliveryFee)
     const [estimatedTime, setEstimatedTime] = useState<string>(restaurantConfig.estimatedTime)
@@ -88,6 +88,7 @@ export function DeliveryCalculator({
                 true
             )
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     return (

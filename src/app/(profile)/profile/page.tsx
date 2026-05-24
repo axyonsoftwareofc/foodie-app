@@ -6,12 +6,13 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
-    User, Mail, Phone, Shield, Heart, MapPin, ShoppingBag,
-    Settings, LogOut, ChevronRight, Bell, Key, Eye, Check,
-    Clock, Star, CreditCard
+    User, Shield, Heart, MapPin, ShoppingBag,
+    Settings, LogOut, ChevronRight, Bell, Key, Eye,
+    Star, CreditCard
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import Image from 'next/image';
 import { formatDateBR } from '@/lib/utils/format.utils';
 import { getUserProfile, getUserPrivacySettings, updateUserPrivacySettings, getFavoriteRestaurants } from '@/actions/profileActions';
 import { UserPrivacySettings } from '@/types/user-profile.types';
@@ -166,10 +167,12 @@ export default function ProfilePage() {
             >
                 <div className="flex items-center gap-4">
                     {profile?.avatar_url ? (
-                        <img
+                        <Image
                             src={profile.avatar_url}
                             alt={profile.full_name || 'User'}
-                            className="w-16 h-16 rounded-full object-cover"
+                            width={64}
+                            height={64}
+                            className="rounded-full object-cover"
                         />
                     ) : (
                         <div className="w-16 h-16 rounded-full bg-[#00A082] flex items-center justify-center text-white text-xl font-bold">

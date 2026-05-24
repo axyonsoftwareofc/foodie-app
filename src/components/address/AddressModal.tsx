@@ -81,7 +81,7 @@ export function AddressModal({
         if (digits.length < 8) {
             setCepMessage('')
         }
-    }, [zipCode])
+    }, [zipCode, isEditing, editingAddress])
 
     const handleCepLookup = async (digits: string): Promise<void> => {
         setIsFetchingCep(true)

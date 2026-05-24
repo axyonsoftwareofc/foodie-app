@@ -5,12 +5,13 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { 
-    Store, Settings, DollarSign, Clock, MapPin, Phone, Mail, 
-    Image, Star, Plus, ChevronRight, Edit3, ToggleLeft, ToggleRight,
+    Store, Settings, DollarSign, Clock, MapPin, Phone, Mail,
+    Image as ImageIcon, Star, Edit3, ToggleLeft, ToggleRight,
     Utensils, Users, ShoppingBag, CreditCard
 } from 'lucide-react';
+import Image from 'next/image';
 import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
+
 import { getRestaurantProfile, updateRestaurantStatus } from '@/actions/restaurantActions';
 import { RestaurantProfile, RestaurantStatus } from '@/types/restaurant-management.types';
 
@@ -22,7 +23,6 @@ interface MenuItem {
 }
 
 export default function RestaurantProfilePage() {
-    const router = useRouter();
     const [restaurant, setRestaurant] = useState<RestaurantProfile | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
@@ -62,7 +62,7 @@ export default function RestaurantProfilePage() {
         { icon: <Users size={20} />, label: 'Mesas', href: '/admin/tables', description: 'Gerenciar mesas' },
         { icon: <Star size={20} />, label: 'Avaliações', href: '/admin/reviews', description: 'Ver avaliações' },
         { icon: <Clock size={20} />, label: 'Horário', href: '/admin/hours', description: 'Editar horários' },
-        { icon: <Image size={20} />, label: 'Galeria', href: '/admin/gallery', description: 'Fotos do restaurante' },
+        { icon: <ImageIcon size={20} />, label: 'Galeria', href: '/admin/gallery', description: 'Fotos do restaurante' },
         { icon: <CreditCard size={20} />, label: 'Pagamentos', href: '/admin/bank', description: 'Dados bancários' },
         { icon: <Settings size={20} />, label: 'Configurações', href: '/admin/settings', description: 'Editar perfil' },
     ];
@@ -111,7 +111,7 @@ export default function RestaurantProfilePage() {
                     <div className="flex items-end gap-4">
                         <div className="w-24 h-24 rounded-2xl overflow-hidden border-4" style={{ borderColor: 'var(--color-bg-card)', backgroundColor: 'var(--color-bg-card)' }}>
                             {restaurant.images?.logo ? (
-                                <img src={restaurant.images.logo} alt={restaurant.name} className="w-full h-full object-cover" />
+                                <Image src={restaurant.images.logo} alt={`Logo ${restaurant.name}`} fill className="object-cover" sizes="96px" />
                             ) : (
                                 <div className="w-full h-full bg-[#00A082] flex items-center justify-center">
                                     <Store size={32} className="text-white" />

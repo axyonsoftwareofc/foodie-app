@@ -5,12 +5,11 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { 
-    Store, ShoppingBag, Users, DollarSign, TrendingUp, 
-    Clock, CheckCircle, XCircle, ChefHat, UserCheck, Plus,
+    Store, ShoppingBag, Users, DollarSign,
+    Clock, CheckCircle, ChefHat, UserCheck,
     ArrowUpRight, ArrowDownRight, ChevronRight
 } from 'lucide-react';
-import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
+
 
 interface StatCard {
     label: string;
@@ -30,7 +29,6 @@ interface OrderItem {
 }
 
 export default function AdminDashboard() {
-    const router = useRouter();
     const [stats] = useState<StatCard[]>([
         { label: 'Pedidos Hoje', value: '24', change: '+12%', trend: 'up', icon: <ShoppingBag size={20} /> },
         { label: 'Receita Hoje', value: 'R$ 1.840', change: '+8%', trend: 'up', icon: <DollarSign size={20} /> },

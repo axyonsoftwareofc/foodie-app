@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Settings, Bell, Utensils, Check, ChevronRight } from 'lucide-react';
+import { Settings, Check, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { getUserPreferences, updateUserPreferences } from '@/actions/profileActions';
@@ -72,7 +72,6 @@ export default function PreferencesPage() {
     const router = useRouter();
     const [preferences, setPreferences] = useState<UserPreferences | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         const loadPreferences = async () => {
@@ -89,18 +88,14 @@ export default function PreferencesPage() {
         if (!preferences) return;
         
         const newValue = !preferences[key as keyof typeof preferences];
-        setIsSaving(true);
-
         const result = await updateUserPreferences({ [key]: newValue });
-        
+
         if (result.success) {
             setPreferences({ ...preferences, [key]: newValue });
             toast.success('Preferência atualizada');
         } else {
             toast.error(result.error || 'Erro ao salvar');
         }
-        
-        setIsSaving(false);
     };
 
     const handleCuisineToggle = async (cuisine: string) => {
@@ -110,14 +105,12 @@ export default function PreferencesPage() {
             ? preferences.favoriteCuisines.filter(c => c !== cuisine)
             : [...preferences.favoriteCuisines, cuisine];
 
-        setIsSaving(true);
         const result = await updateUserPreferences({ favoriteCuisines: newCuisines });
-        
+
         if (result.success) {
             setPreferences({ ...preferences, favoriteCuisines: newCuisines });
             toast.success('Cozinha favorita atualizada');
         }
-        setIsSaving(false);
     };
 
     const handleDietaryToggle = async (restriction: string) => {
@@ -127,14 +120,12 @@ export default function PreferencesPage() {
             ? preferences.dietaryRestrictions.filter(r => r !== restriction)
             : [...preferences.dietaryRestrictions, restriction];
 
-        setIsSaving(true);
         const result = await updateUserPreferences({ dietaryRestrictions: newRestrictions });
-        
+
         if (result.success) {
             setPreferences({ ...preferences, dietaryRestrictions: newRestrictions });
             toast.success('Restrição alimentar atualizada');
         }
-        setIsSaving(false);
     };
 
     if (isLoading || !preferences) {

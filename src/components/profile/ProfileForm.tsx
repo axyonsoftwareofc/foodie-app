@@ -2,6 +2,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Save, Loader2, User, Mail, Phone, Calendar, Shield } from 'lucide-react'
@@ -203,10 +204,12 @@ export function ProfileForm() {
                     }}
                 >
                     {profile.avatarUrl ? (
-                        <img
+                        <Image
                             src={profile.avatarUrl}
                             alt={profile.fullName}
-                            className="h-20 w-20 rounded-full object-cover ring-4 ring-[#00A082]/20"
+                            width={80}
+                            height={80}
+                            className="rounded-full object-cover ring-4 ring-[#00A082]/20"
                         />
                     ) : (
                         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#00A082] text-2xl font-bold text-white ring-4 ring-[#00A082]/20">

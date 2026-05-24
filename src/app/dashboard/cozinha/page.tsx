@@ -6,11 +6,11 @@ import { useOrderNotifications } from '@/hooks/useOrderNotifications'
 import { useTabTitle } from '@/hooks/useTabTitle'
 import type { KitchenOrder } from '@/types/kitchen.types'
 import { updateOrderStatus, cancelOrderByRestaurant } from '@/actions/orders'
-import { canTransitionStatus, getNextStatus } from '@/lib/utils/order-status.utils'
+import { getNextStatus } from '@/lib/utils/order-status.utils'
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Clock, ChefHat, Package, CheckCircle, Truck, AlertTriangle, ArrowLeft } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
-import { useRouter } from 'next/navigation'
+
 import type { OrderStatus } from '@prisma/client'
 import Link from 'next/link'
 
@@ -34,14 +34,6 @@ function getTimerColor(minutes: number, estimated: number): string {
     if (ratio < 0.5) return 'text-emerald-500'
     if (ratio < 0.8) return 'text-amber-500'
     return 'text-red-500 animate-pulse'
-}
-
-function getTimerBg(minutes: number, estimated: number): string {
-    if (estimated <= 0) return 'bg-gray-100'
-    const ratio = minutes / estimated
-    if (ratio < 0.5) return 'bg-emerald-100'
-    if (ratio < 0.8) return 'bg-amber-100'
-    return 'bg-red-100'
 }
 
 function KitchenOrderCard({ order, onAction, onCancel }: {
@@ -75,8 +67,6 @@ function KitchenOrderCard({ order, onAction, onCancel }: {
 
     const typeColor = order.orderType === 'DINE_IN' ? 'bg-purple-100 text-purple-700' :
         order.orderType === 'PICKUP' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'
-
-    const nextStatus = getNextStatus(order.status as OrderStatus)
 
     return (
         <div className={`rounded-xl border-2 p-4 flex flex-col gap-3 ${isNew ? 'animate-pulse border-amber-400 shadow-lg shadow-amber-200' : 'border-gray-200'} bg-white`}>
@@ -186,7 +176,6 @@ function KitchenOrderCard({ order, onAction, onCancel }: {
 }
 
 export default function CozinhaPage() {
-    const router = useRouter()
     const { orders, refresh, loading } = useKitchenOrders()
     const { requestPermission, notifyNewOrder, isSupported } = useOrderNotifications()
     const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())

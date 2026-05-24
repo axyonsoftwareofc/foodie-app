@@ -2,10 +2,11 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { ChevronRight, Star, Clock } from 'lucide-react'
 import { type OrderData } from '@/actions/orders'
-import { ORDER_STATUS_CONFIG, ORDER_MESSAGES, ACTIVE_STATUSES, CANCELLABLE_STATUSES } from '@/lib/constants/order.constants'
+import { ORDER_STATUS_CONFIG, ORDER_MESSAGES, ACTIVE_STATUSES } from '@/lib/constants/order.constants'
 import { formatPrice, formatDateBR } from '@/lib/utils/format.utils'
 
 interface OrderCardProps {
@@ -51,7 +52,6 @@ export function OrderCard({ order, index }: OrderCardProps) {
     }
 
     const remainingTime = getRemainingTime()
-    const isCancellable = CANCELLABLE_STATUSES.includes(order.status)
     const hasReview = order.review !== null && order.review !== undefined
 
     return (
@@ -114,11 +114,13 @@ export function OrderCard({ order, index }: OrderCardProps) {
             <div className="mb-3 flex items-center gap-3">
                 <div className="flex -space-x-2">
                     {order.items.slice(0, 3).map((item, i) => (
-                        <img
+                        <Image
                             key={i}
                             src={item.menuItemImage || '/placeholder.png'}
                             alt={item.menuItemName}
-                            className="h-10 w-10 rounded-full border-2 object-cover"
+                            width={40}
+                            height={40}
+                            className="rounded-full border-2 object-cover"
                             style={{ borderColor: 'var(--color-bg-card)' }}
                         />
                     ))}

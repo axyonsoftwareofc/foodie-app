@@ -5,7 +5,6 @@ import { OrderCard } from './OrderCard';
 
 export interface KanbanColumnProps {
   title: string;
-  status: string;
   orders: Order[];
   color: string;
   count: number;
@@ -15,7 +14,6 @@ export interface KanbanColumnProps {
 
 export function KanbanColumn({
   title,
-  status,
   orders,
   color,
   count,

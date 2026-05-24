@@ -1,6 +1,7 @@
 // src/components/checkout/OrderSummary.tsx
 'use client';
 
+import Image from 'next/image';
 import { useCart } from '@/hooks/useCart';
 import { formatPrice } from '@/lib/utils/format.utils';
 import { Truck, Clock, MapPin, Tag } from 'lucide-react';
@@ -67,10 +68,12 @@ export default function OrderSummary({
                     <div key={item.menuItem.id} className="flex gap-3">
                         {/* Imagem do produto */}
                         <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
-                            <img
+                            <Image
                                 src={item.menuItem.image || '/placeholder.svg'}
                                 alt={item.menuItem.name}
-                                className="w-full h-full object-cover"
+                                fill
+                                className="object-cover"
+                                sizes="48px"
                             />
                         </div>
 

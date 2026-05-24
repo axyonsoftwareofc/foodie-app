@@ -57,7 +57,6 @@ export default function PrivacyPage() {
     const router = useRouter();
     const [settings, setSettings] = useState<UserPrivacySettings | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         const loadSettings = async () => {
@@ -74,18 +73,14 @@ export default function PrivacyPage() {
         if (!settings) return;
         
         const newValue = !settings[key];
-        setIsSaving(true);
-
         const result = await updateUserPrivacySettings({ [key]: newValue });
-        
+
         if (result.success) {
             setSettings({ ...settings, [key]: newValue });
             toast.success('Configuração atualizada');
         } else {
             toast.error(result.error || 'Erro ao salvar');
         }
-        
-        setIsSaving(false);
     };
 
     if (isLoading || !settings) {

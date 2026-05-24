@@ -23,7 +23,7 @@ type Category = {
 }
 
 function SortableCategory({ category }: { category: Category }) {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: category.id })
+    const { setNodeRef, transform, transition, isDragging } = useSortable({ id: category.id })
 
     const style = {
         transform: CSS.Transform.toString(transform),

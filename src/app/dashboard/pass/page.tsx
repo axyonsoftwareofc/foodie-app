@@ -6,7 +6,7 @@ import { updateOrderStatus } from '@/actions/orders'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Truck, UtensilsCrossed, ShoppingBag, Clock, ArrowLeft, CheckCircle } from 'lucide-react'
 import { toast } from 'sonner'
-import { useRouter } from 'next/navigation'
+
 import type { OrderStatus } from '@prisma/client'
 import Link from 'next/link'
 import { AssignDriverModal } from '@/components/kitchen/AssignDriverModal'
@@ -59,11 +59,10 @@ const ORDER_TYPE_CONFIG = {
 type OrderType = keyof typeof ORDER_TYPE_CONFIG
 
 export default function PassPage() {
-    const router = useRouter()
     const { orders, refresh, loading } = useKitchenOrders()
     const [assignOrderId, setAssignOrderId] = useState<string | null>(null)
     const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
-    const [tick, setTick] = useState(0)
+    const [, setTick] = useState(0)
 
     // Relógio centralizado — 1 timer para todos
     useEffect(() => {
@@ -72,7 +71,7 @@ export default function PassPage() {
     }, [])
 
     const readyOrders = useMemo(() =>
-        orders.filter(o => o.status === 'READY'), [orders, tick]
+        orders.filter(o => o.status === 'READY'), [orders]
     )
 
     const grouped = useMemo(() => {

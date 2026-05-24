@@ -2,7 +2,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { DeliveryZone, DeliveryFeeResult, DeliveryDriver, Delivery, DeliveryProof, GeoPoint, CreateDeliveryZoneRequest, UpdateDriverLocationRequest, DeliveryStats } from '@/types/delivery.types';
+import { DeliveryZone, DeliveryFeeResult, DeliveryDriver, Delivery, DeliveryProof, GeoPoint, CreateDeliveryZoneRequest, DeliveryStats } from '@/types/delivery.types';
 
 function calculateDistance(point1: GeoPoint, point2: GeoPoint): number {
     const R = 6371;

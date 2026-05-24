@@ -7,10 +7,10 @@ import { toast } from 'sonner'
 interface WhatsAppShareProps {
     restaurantName: string
     menuUrl: string
-    phone?: string
+
 }
 
-export function WhatsAppShare({ restaurantName, menuUrl, phone }: WhatsAppShareProps) {
+export function WhatsAppShare({ restaurantName, menuUrl }: WhatsAppShareProps) {
     const [copied, setCopied] = useState(false)
 
     const shareText = `🍕 *${restaurantName}* — Cardapio Digital\n\nFaca seu pedido pelo link:\n${menuUrl}\n\nOu pelo WhatsApp!`

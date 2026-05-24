@@ -30,7 +30,8 @@ describe('checkout.validations', () => {
         });
 
         it('should allow optional complement', () => {
-            const { complement, ...addressWithoutComplement } = validAddress;
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { complement: _ignoredComplement, ...addressWithoutComplement } = validAddress;
             const result = addressSchema.safeParse(addressWithoutComplement);
             expect(result.success).toBe(true);
         });

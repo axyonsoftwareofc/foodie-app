@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
+import Image from 'next/image'
 import { Upload, Loader2, X, Image as ImageIcon } from 'lucide-react'
 
 interface ImageUploadProps {
@@ -71,10 +72,12 @@ export default function ImageUpload({ value, onChange, folder = 'foodie', label 
 
             {preview ? (
                 <div className="relative w-24 h-24 rounded-xl overflow-hidden border border-gray-200 group">
-                    <img
+                    <Image
                         src={preview}
                         alt={label}
-                        className="w-full h-full object-cover"
+                        fill
+                        className="object-cover"
+                        sizes="96px"
                     />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                         <button

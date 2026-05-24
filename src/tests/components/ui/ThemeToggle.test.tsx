@@ -1,9 +1,9 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 
-const renderWithTheme = (ui: React.ReactNode, initialTheme: 'light' | 'dark' = 'light') => {
+const renderWithTheme = (ui: React.ReactNode) => {
     return render(
         <ThemeProvider>{ui}</ThemeProvider>
     );

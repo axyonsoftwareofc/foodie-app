@@ -2,6 +2,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { User, LogOut, MapPin, ClipboardList, Heart, ChevronDown, Store, CreditCard } from 'lucide-react'
@@ -120,10 +121,12 @@ export function UserMenu({ userName, userEmail, userAvatar, isRestaurantOwner }:
             >
                 {/* Avatar */}
                 {userAvatar ? (
-                    <img
+                    <Image
                         src={userAvatar}
                         alt={displayName}
-                        className="h-9 w-9 rounded-full object-cover"
+                        width={36}
+                        height={36}
+                        className="rounded-full object-cover"
                     />
                 ) : (
                     <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#00A082] text-xs font-bold text-white">

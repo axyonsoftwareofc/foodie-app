@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+
 import { CreditCard, Building, Key, User, FileText, ChevronLeft, Loader2, Shield, CheckCircle, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';

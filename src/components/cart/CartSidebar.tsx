@@ -15,7 +15,6 @@ export default function CartSidebar() {
         restaurantId,
         updateQuantity,
         totalPrice,
-        isCartOpen,
         setIsCartOpen,
     } = useCart();
 

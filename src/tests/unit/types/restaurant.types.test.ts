@@ -1,11 +1,10 @@
 // src/tests/unit/types/restaurant.types.test.ts
 import { describe, it, expect } from 'vitest'
-import type { 
-    Restaurant, 
-    RestaurantFormData, 
-    OpeningHours, 
+import type {
+    Restaurant,
+    OpeningHours,
     DayOfWeek,
-    RestaurantSettings 
+    RestaurantSettings
 } from '@/types/restaurant.types'
 
 describe('Restaurant Types', () => {
