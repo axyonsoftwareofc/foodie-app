@@ -66,3 +66,39 @@ vi.mock('sonner', () => ({
     },
     Toaster: () => null,
 }));
+
+// Mock global de infraestrutura para testes de API
+vi.mock('@/lib/prisma', () => ({
+    prisma: {
+        $queryRaw: vi.fn(),
+        order: {
+            findUnique: vi.fn(),
+            update: vi.fn(),
+            create: vi.fn(),
+        },
+        restaurant: {
+            findUnique: vi.fn(),
+            findFirst: vi.fn(),
+        },
+    },
+}))
+
+vi.mock('@/lib/redis', () => ({
+    getRedis: vi.fn().mockReturnValue(null),
+}))
+
+vi.mock('@/lib/logger', () => ({
+    logger: {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+    },
+}))
+
+vi.mock('@/lib/sentry', () => ({
+    captureException: vi.fn(),
+}))
+
+// Deixamos @/lib/rate-limit usar a implementacao real (que faz graceful degradation quando Redis eh null)
+// para evitar problemas de hoisting de mock em testes de API routes

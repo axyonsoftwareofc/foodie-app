@@ -1,7 +1,7 @@
 // src/components/kitchen/OrderTimer.tsx
 'use client';
 
-import { useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { AlertTriangle, Clock } from 'lucide-react'
 import { useKitchenTimer } from '@/contexts/KitchenTimerContext'
 
@@ -11,15 +11,19 @@ export interface OrderTimerProps {
   onTimeout?: () => void;
 }
 
-export function OrderTimer({ startTime, showAlert = true, onTimeout }: OrderTimerProps) {
+export function OrderTimer({ startTime, showAlert = true }: OrderTimerProps) {
   const tick = useKitchenTimer()
+  const [now, setNow] = useState(() => Date.now())
 
-  const elapsedSeconds = useMemo(() => {
+  useEffect(() => {
+    setNow(Date.now())
+  }, [tick])
+
+  const elapsedSeconds = (() => {
     const start = new Date(startTime).getTime()
-    const now = Date.now()
     const diffMs = now - start
     return Math.floor(diffMs / 1000)
-  }, [startTime, tick])
+  })()
 
   const formatTime = (totalSeconds: number) => {
     const minutes = Math.floor(totalSeconds / 60);

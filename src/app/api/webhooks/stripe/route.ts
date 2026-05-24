@@ -1,16 +1,19 @@
 // src/app/api/webhooks/stripe/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIp, RateLimitConfig, buildRateLimitResponse } from '@/lib/rate-limit';
-
-const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+import { updateOrderStatusByPayment } from '@/lib/payments/webhook-order-update';
+import { logger } from '@/lib/logger';
+import { captureException } from '@/lib/sentry';
 
 export async function POST(request: NextRequest) {
+    const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+
     const ip = getClientIp(request);
     const rate = await checkRateLimit(`webhook:stripe:${ip}`, RateLimitConfig.moderate.limit, RateLimitConfig.moderate.windowSeconds);
     if (!rate.success) return buildRateLimitResponse(rate);
 
     if (!WEBHOOK_SECRET) {
-        console.error('[Stripe Webhook] STRIPE_WEBHOOK_SECRET not configured');
+        logger.error('[Stripe Webhook] STRIPE_WEBHOOK_SECRET not configured');
         return NextResponse.json({ error: 'Webhook not configured' }, { status: 500 });
     }
 
@@ -33,23 +36,53 @@ export async function POST(request: NextRequest) {
         switch (event.type) {
             case 'payment_intent.succeeded': {
                 const paymentIntent = event.data.object as { id: string; metadata?: Record<string, string> };
-                console.log('[Stripe Webhook] PaymentIntent succeeded:', paymentIntent.id);
-                // TODO: atualizar status do pedido no banco usando paymentIntent.metadata?.orderId
+                const orderId = paymentIntent.metadata?.orderId;
+
+                if (orderId) {
+                    const result = await updateOrderStatusByPayment({
+                        orderId,
+                        provider: 'STRIPE',
+                        paymentStatus: 'succeeded',
+                        paymentIntentId: paymentIntent.id,
+                        gatewayPaymentId: paymentIntent.id,
+                    });
+
+                    if (!result.success) {
+                        logger.warn('[Stripe Webhook] Failed to update order', { orderId, error: result.error });
+                    }
+                } else {
+                    logger.warn('[Stripe Webhook] PaymentIntent succeeded without orderId metadata', { paymentIntentId: paymentIntent.id });
+                }
                 break;
             }
             case 'payment_intent.payment_failed': {
                 const paymentIntent = event.data.object as { id: string; metadata?: Record<string, string> };
-                console.log('[Stripe Webhook] PaymentIntent failed:', paymentIntent.id);
-                // TODO: notificar cliente / atualizar pedido
+                const orderId = paymentIntent.metadata?.orderId;
+
+                if (orderId) {
+                    const result = await updateOrderStatusByPayment({
+                        orderId,
+                        provider: 'STRIPE',
+                        paymentStatus: 'failed',
+                        paymentIntentId: paymentIntent.id,
+                        gatewayPaymentId: paymentIntent.id,
+                    });
+
+                    if (!result.success) {
+                        logger.warn('[Stripe Webhook] Failed to update order on payment failure', { orderId, error: result.error });
+                    }
+                }
                 break;
             }
             default:
-                console.log(`[Stripe Webhook] Unhandled event type: ${event.type}`);
+                logger.info(`[Stripe Webhook] Unhandled event type: ${event.type}`);
         }
 
         return NextResponse.json({ received: true });
     } catch (error) {
-        console.error('[Stripe Webhook] Error verifying signature:', error);
+        const err = error instanceof Error ? error : new Error(String(error));
+        logger.error('[Stripe Webhook] Error verifying signature', err);
+        captureException(err);
         return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
     }
 }

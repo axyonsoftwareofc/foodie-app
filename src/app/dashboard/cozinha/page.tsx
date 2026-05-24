@@ -58,10 +58,10 @@ function KitchenOrderCard({ order, onAction, onCancel }: {
         return []
     }, [order])
 
-    const elapsed = useMemo(() => {
-        if (!order.createdAt) return 0
-        return Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 60000)
-    }, [order.createdAt])
+    const [now] = useState(() => Date.now())
+    const elapsed = order.createdAt
+        ? Math.floor((now - new Date(order.createdAt).getTime()) / 60000)
+        : 0
 
     const prepTime = (order as unknown as Record<string, unknown>).estimatedPreparationTime as number || 20
 

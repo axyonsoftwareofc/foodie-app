@@ -197,12 +197,15 @@ model Order {
   restaurant_id    String
 
   // Pagamento
-  payment_method String?
-  change_for     Float?
-  subtotal       Float?
-  delivery_fee   Float?
-  discount       Float?
-  coupon_code    String?
+  payment_method   String?
+  payment_provider String? // STRIPE, MERCADOPAGO, PIX, PAYPAL
+  payment_intent_id String?
+  payment_status   String? // succeeded, failed, pending, cancelled
+  change_for       Float?
+  subtotal         Float?
+  delivery_fee     Float?
+  discount         Float?
+  coupon_code      String?
 
   // Cancelamento
   cancelled_at  DateTime?
