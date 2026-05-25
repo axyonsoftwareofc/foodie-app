@@ -512,7 +512,7 @@ export async function cancelOrder({
         }
 
         await prisma.order.update({
-            where: { id: orderId },
+            where: { id: orderId, status: { in: ['PENDING', 'CONFIRMED'] } },
             data: {
                 status: OrderStatus.CANCELLED,
                 cancelled_at: new Date(),
@@ -556,7 +556,7 @@ export async function cancelOrderByRestaurant({
 
     try {
         await prisma.order.update({
-            where: { id: orderId, restaurant_id: restaurantId },
+            where: { id: orderId, restaurant_id: restaurantId, status: { notIn: ['DELIVERED', 'CANCELLED'] } },
             data: {
                 status: OrderStatus.CANCELLED,
                 cancelled_at: new Date(),

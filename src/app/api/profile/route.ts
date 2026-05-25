@@ -98,7 +98,7 @@ export async function PUT(request: Request) {
 
         if (error) {
             return NextResponse.json(
-                { error: error.message },
+                { error: 'Erro ao atualizar perfil' },
                 { status: 400 }
             )
         }

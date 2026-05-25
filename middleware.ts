@@ -1,6 +1,7 @@
 // src/middleware.ts
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { createHmac } from 'crypto'
 
 const RESERVED_SUBDOMAINS = ['www', 'app', 'admin', 'api', 'mail', 'foodie']
 
@@ -11,6 +12,23 @@ type UserRole = typeof ROLE_HIERARCHY[number]
 /** Nome do cookie que cacheia a role do usuario (evita query ao banco em todo request). */
 const ROLE_COOKIE_NAME = 'foodie-role'
 const ROLE_COOKIE_MAX_AGE = 60 * 60 * 24 * 7 // 7 dias
+
+const COOKIE_SECRET = process.env.COOKIE_SIGNING_SECRET || process.env.NEXTAUTH_SECRET || 'foodie-cookie-secret-dev'
+
+function signCookieValue(value: string): string {
+    const hmac = createHmac('sha256', COOKIE_SECRET)
+    hmac.update(value)
+    return `${value}.${hmac.digest('hex')}`
+}
+
+function verifyCookieValue(signed: string): string | null {
+    const dotIndex = signed.lastIndexOf('.')
+    if (dotIndex === -1) return null
+    const value = signed.substring(0, dotIndex)
+    const expected = signCookieValue(value)
+    if (signed !== expected) return null
+    return value
+}
 
 /** Retorna true se userRole tiver permissão mínima necessária. */
 function hasMinimumRole(userRole: string | null | undefined, minimumRole: UserRole): boolean {
@@ -23,7 +41,8 @@ function hasMinimumRole(userRole: string | null | undefined, minimumRole: UserRo
 /** Le a role do cookie de cache. */
 function getCachedRole(request: NextRequest): string | null {
     const cookie = request.cookies.get(ROLE_COOKIE_NAME)
-    return cookie?.value ?? null
+    if (!cookie?.value) return null
+    return verifyCookieValue(cookie.value)
 }
 
 /** Limpa o cookie de role no response. */
@@ -55,7 +74,7 @@ async function fetchUserRole(
 
     if (role) {
         // Cacheia a role em cookie para evitar query futura
-        response.cookies.set(ROLE_COOKIE_NAME, role, {
+        response.cookies.set(ROLE_COOKIE_NAME, signCookieValue(role), {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',

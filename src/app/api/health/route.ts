@@ -9,8 +9,6 @@ export const dynamic = 'force-dynamic'
 interface HealthStatus {
     status: 'healthy' | 'degraded' | 'unhealthy'
     timestamp: string
-    version: string
-    uptime: number
     checks: {
         database: { status: 'up' | 'down'; latencyMs: number }
         cache: { status: 'up' | 'down'; latencyMs: number }
@@ -18,13 +16,26 @@ interface HealthStatus {
 }
 
 export async function GET() {
+    const HEALTH_TOKEN = process.env.HEALTH_API_TOKEN
+    if (HEALTH_TOKEN) {
+        try {
+            const { headers } = await import('next/headers')
+            const h = await headers()
+            const auth = h.get('authorization')
+            if (!auth || auth !== `Bearer ${HEALTH_TOKEN}`) {
+                return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            }
+        } catch {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+    }
+
     const start = Date.now()
     const checks: HealthStatus['checks'] = {
         database: { status: 'down', latencyMs: 0 },
         cache: { status: 'down', latencyMs: 0 },
     }
 
-    // Database check
     try {
         const dbStart = Date.now()
         await prisma.$queryRaw`SELECT 1`
@@ -34,7 +45,6 @@ export async function GET() {
         logger.error('Health check database failed', error instanceof Error ? error : new Error(String(error)))
     }
 
-    // Redis check
     try {
         const cacheStart = Date.now()
         const redis = getRedis()
@@ -63,8 +73,6 @@ export async function GET() {
         {
             status: overallStatus,
             timestamp: new Date().toISOString(),
-            version: process.env.npm_package_version || '0.1.0',
-            uptime: process.uptime(),
             checks,
         } satisfies HealthStatus,
         { status: statusCode }

@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIp, RateLimitConfig, buildRateLimitResponse } from '@/lib/rate-limit';
 import { updateOrderStatusByPayment } from '@/lib/payments/webhook-order-update';
+import { isDuplicateRequest } from '@/lib/idempotency';
 import { logger } from '@/lib/logger';
 import { captureException } from '@/lib/sentry';
 
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
     // Mercado Pago pode enviar notificacoes com query params (secret) ou assinatura
     const { searchParams } = new URL(request.url);
     const querySecret = searchParams.get('secret');
-    if (querySecret && querySecret !== WEBHOOK_SECRET) {
+    if (!querySecret || querySecret !== WEBHOOK_SECRET) {
         return NextResponse.json({ error: 'Invalid secret' }, { status: 401 });
     }
 
@@ -46,6 +47,10 @@ export async function POST(request: NextRequest) {
         if (!mpResponse.ok) {
             logger.error('[MP Webhook] Failed to verify payment with MP API', new Error(`HTTP ${mpResponse.status}`), { paymentId });
             return NextResponse.json({ error: 'Failed to verify payment' }, { status: 502 });
+        }
+
+        if (await isDuplicateRequest(`mp-webhook:${paymentId}`, 86400)) {
+            return NextResponse.json({ received: true });
         }
 
         const payment = await mpResponse.json() as {

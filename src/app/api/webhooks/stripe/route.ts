@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIp, RateLimitConfig, buildRateLimitResponse } from '@/lib/rate-limit';
 import { updateOrderStatusByPayment } from '@/lib/payments/webhook-order-update';
+import { isDuplicateRequest } from '@/lib/idempotency';
 import { logger } from '@/lib/logger';
 import { captureException } from '@/lib/sentry';
 
@@ -32,6 +33,10 @@ export async function POST(request: NextRequest) {
         });
 
         const event = stripe.webhooks.constructEvent(payload, signature, WEBHOOK_SECRET);
+
+        if (await isDuplicateRequest(`stripe-event:${event.id}`, 86400)) {
+            return NextResponse.json({ received: true });
+        }
 
         switch (event.type) {
             case 'payment_intent.succeeded': {

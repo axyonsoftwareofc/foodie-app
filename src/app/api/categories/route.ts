@@ -30,7 +30,7 @@ export async function GET(request: Request) {
                 .single()
 
             if (error) {
-                return NextResponse.json({ error: error.message }, { status: 404 })
+                return NextResponse.json({ error: 'Categoria não encontrada' }, { status: 404 })
             }
 
             return NextResponse.json({ category: data })
@@ -48,7 +48,7 @@ export async function GET(request: Request) {
             .order('sort_order', { ascending: true })
 
         if (error) {
-            return NextResponse.json({ error: error.message }, { status: 500 })
+            return NextResponse.json({ error: 'Erro ao carregar categorias' }, { status: 500 })
         }
 
         return NextResponse.json({ categories: data || [] })
@@ -102,7 +102,7 @@ export async function POST(request: Request) {
             .single()
 
         if (error) {
-            return NextResponse.json({ error: error.message }, { status: 400 })
+            return NextResponse.json({ error: 'Erro ao criar categoria' }, { status: 400 })
         }
 
         return NextResponse.json({ category: data, success: true }, { status: 201 })
@@ -139,23 +139,31 @@ export async function PUT(request: Request) {
         if (!categoryOwner) {
             return NextResponse.json({ error: 'Não autorizado ou categoria não encontrada' }, { status: 403 })
         }
+
+        const updateResult = categorySchema.safeParse({ ...body, restaurantId: categoryOwner.restaurant_id })
+        if (!updateResult.success) {
+            return NextResponse.json(
+                { error: updateResult.error.issues[0].message },
+                { status: 400 }
+            )
+        }
         
         const { data, error } = await supabase
             .from('categories')
             .update({
-                name: body.name,
-                description: body.description,
-                icon: body.icon,
-                image: body.image,
-                sort_order: body.sortOrder,
-                is_active: body.isActive,
+                name: updateResult.data.name,
+                description: updateResult.data.description,
+                icon: updateResult.data.icon,
+                image: updateResult.data.image,
+                sort_order: updateResult.data.sortOrder,
+                is_active: updateResult.data.isActive,
             })
             .eq('id', categoryId)
             .select()
             .single()
 
         if (error) {
-            return NextResponse.json({ error: error.message }, { status: 400 })
+            return NextResponse.json({ error: 'Erro ao atualizar categoria' }, { status: 400 })
         }
 
         return NextResponse.json({ category: data, success: true })
@@ -197,7 +205,7 @@ export async function DELETE(request: Request) {
             .eq('id', categoryId)
 
         if (error) {
-            return NextResponse.json({ error: error.message }, { status: 400 })
+            return NextResponse.json({ error: 'Erro ao excluir categoria' }, { status: 400 })
         }
 
         return NextResponse.json({ success: true })

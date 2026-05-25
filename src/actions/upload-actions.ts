@@ -20,7 +20,8 @@ export async function uploadRestaurantImage(formData: FormData): Promise<UploadR
     }
 
     const file = formData.get('file') as File | null
-    const folder = (formData.get('folder') as string) || 'foodie'
+    const userFolder = (formData.get('folder') as string) || 'foodie'
+    const folder = `foodie/${userFolder.replace(/[^a-zA-Z0-9_-]/g, '_').replace(/\.\./g, '')}`
 
     if (!file || !(file instanceof File)) {
         return { error: 'Nenhum arquivo enviado' }

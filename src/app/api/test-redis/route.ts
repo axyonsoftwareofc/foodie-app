@@ -5,6 +5,10 @@ import { getRedis } from '@/lib/redis'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
+    if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json({ error: 'Not available in production' }, { status: 404 })
+    }
+
     const redis = getRedis()
 
     if (!redis) {
@@ -21,13 +25,8 @@ export async function GET() {
         const testKey = `test:redis:${Date.now()}`
         const testValue = { message: 'Redis funcionando!', timestamp: new Date().toISOString() }
 
-        // Testar SET
         await redis.set(testKey, JSON.stringify(testValue), { ex: 60 })
-
-        // Testar GET
-        const result = await redis.get(testKey)
-
-        // Testar DEL
+        await redis.get(testKey)
         await redis.del(testKey)
 
         return NextResponse.json({
@@ -37,11 +36,6 @@ export async function GET() {
                 set: true,
                 get: true,
                 del: true,
-            },
-            sampleData: result,
-            env: {
-                hasUrl: !!process.env.REDIS_URL,
-                hasToken: !!process.env.REDIS_TOKEN,
             },
         })
     } catch (error) {

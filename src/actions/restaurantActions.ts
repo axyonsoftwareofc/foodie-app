@@ -132,10 +132,12 @@ export async function getPublicRestaurants(): Promise<{ data?: import('@/types')
 export async function getRestaurant(restaurantId?: string) {
     const supabase = await createClient()
 
+    const publicSelect = 'id, name, slug, subdomain, description, logo, cover_image, category, cuisine, phone, street, number, complement, neighborhood, city, state, zip_code, latitude, longitude, delivery_fee, minimum_order, estimated_delivery_time, delivery_radius, status, is_active, operating_hours, theme, created_at, updated_at'
+
     if (restaurantId) {
         const { data, error } = await supabase
             .from('restaurants')
-            .select('*')
+            .select(publicSelect)
             .eq('id', restaurantId)
             .single()
 
@@ -147,7 +149,7 @@ export async function getRestaurant(restaurantId?: string) {
     } else {
         const { data, error } = await supabase
             .from('restaurants')
-            .select('*')
+            .select(publicSelect)
             .limit(1)
             .single()
 
@@ -291,6 +293,11 @@ export async function createRestaurant(data: CreateRestaurantForm): Promise<{ da
 
 export async function createRestaurantFromFormData(formData: FormData) {
     const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+        return { error: 'Usuário não autenticado' }
+    }
 
     const data = {
         name: formData.get('name'),
@@ -327,7 +334,10 @@ export async function createRestaurantFromFormData(formData: FormData) {
 
     const { data: restaurant, error } = await supabase
         .from('restaurants')
-        .insert(result.data)
+        .insert({
+            ...result.data,
+            user_id: user.id,
+        })
         .select()
         .single()
 

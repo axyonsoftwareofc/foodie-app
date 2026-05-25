@@ -1,4 +1,5 @@
 import { Redis } from '@upstash/redis'
+import { createHmac } from 'crypto'
 
 let redis: Redis | null = null
 
@@ -48,6 +49,18 @@ export async function redisSet(key: string, value: unknown, ttlSeconds = 300): P
     }
 }
 
+export async function redisSetNX(key: string, value: unknown, ttlSeconds = 300): Promise<boolean> {
+    const client = getRedis()
+    if (!client) return false
+
+    try {
+        const result = await client.set(key, JSON.stringify(value), { nx: true, ex: ttlSeconds })
+        return result === 'OK'
+    } catch {
+        return false
+    }
+}
+
 export async function redisDel(key: string): Promise<void> {
     const client = getRedis()
     if (!client) return
@@ -77,4 +90,21 @@ const CACHE_PREFIX = 'foodie'
 
 export function cacheKey(domain: string, ...parts: string[]): string {
     return [CACHE_PREFIX, domain, ...parts].join(':')
+}
+
+const COOKIE_SECRET = process.env.COOKIE_SIGNING_SECRET || process.env.NEXTAUTH_SECRET || 'foodie-cookie-secret-dev'
+
+export function signCookieValue(value: string): string {
+    const hmac = createHmac('sha256', COOKIE_SECRET)
+    hmac.update(value)
+    return `${value}.${hmac.digest('hex')}`
+}
+
+export function verifyCookieValue(signed: string): string | null {
+    const dotIndex = signed.lastIndexOf('.')
+    if (dotIndex === -1) return null
+    const value = signed.substring(0, dotIndex)
+    const expected = signCookieValue(value)
+    if (signed !== expected) return null
+    return value
 }

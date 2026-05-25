@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
     try {
         const requestBody = await request.json();
         body = requestBody;
-        const { orderId, customerEmail } = requestBody;
+        const { orderId } = requestBody;
 
         const duplicate = await isDuplicateRequest(`pix:${orderId}`, 60);
         if (duplicate) {
@@ -122,34 +122,6 @@ export async function POST(request: NextRequest) {
         };
 
         const qrCode = generatePixCode(pixPayload);
-
-        // ✅ SÓ IMPORTAR STRIPE SE REALMENTE FOR USAR
-        if (process.env.STRIPE_SECRET_KEY) {
-            try {
-                const Stripe = (await import('stripe')).default;
-                const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    apiVersion: (process.env.STRIPE_API_VERSION as any) || '2024-12-18.acacia',
-                });
-
-                await stripe.paymentIntents.create({
-                    amount: Math.round(paymentContext.data.amount * 100),
-                    currency: 'brl',
-                    payment_method_types: ['card'],
-                    receipt_email: customerEmail || user.email,
-                    metadata: {
-                        orderId: paymentContext.data.orderId,
-                        restaurantId: paymentContext.data.restaurantId,
-                        paymentType: 'pix',
-                    },
-                    description: paymentContext.data.description,
-                }, {
-                    idempotencyKey: `stripe-pix-${orderId}`,
-                });
-            } catch {
-                logger.info('Stripe Pix not configured, using fallback');
-            }
-        }
 
         return NextResponse.json({
             qrCode,

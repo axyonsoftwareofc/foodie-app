@@ -36,8 +36,6 @@ describe('GET /api/health', () => {
         expect(body.status).toBe('healthy')
         expect(body.checks.database.status).toBe('up')
         expect(body.checks.cache.status).toBe('up')
-        expect(body.version).toBeDefined()
-        expect(body.uptime).toBeGreaterThanOrEqual(0)
     })
 
     it('returns degraded when Redis is down but DB is up', async () => {

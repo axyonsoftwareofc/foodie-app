@@ -127,7 +127,7 @@ describe('updateOrderStatusByPayment', () => {
 
         expect(result.success).toBe(true)
         expect(prisma.order.update).toHaveBeenCalledWith({
-            where: { id: 'order-123' },
+            where: { id: 'order-123', status: { notIn: ['DELIVERED', 'CANCELLED'] } },
             data: expect.objectContaining({
                 status: OrderStatus.CONFIRMED,
                 payment_provider: 'STRIPE',
@@ -157,7 +157,7 @@ describe('updateOrderStatusByPayment', () => {
 
         expect(result.success).toBe(true)
         expect(prisma.order.update).toHaveBeenCalledWith({
-            where: { id: 'order-123' },
+            where: { id: 'order-123', status: { notIn: ['DELIVERED', 'CANCELLED'] } },
             data: expect.objectContaining({
                 status: OrderStatus.CANCELLED,
                 payment_provider: 'PIX',
@@ -187,7 +187,7 @@ describe('updateOrderStatusByPayment', () => {
 
         expect(result.success).toBe(true)
         expect(prisma.order.update).toHaveBeenCalledWith({
-            where: { id: 'order-123' },
+            where: { id: 'order-123', status: { notIn: ['DELIVERED', 'CANCELLED'] } },
             data: expect.objectContaining({
                 status: OrderStatus.CANCELLED,
                 cancel_reason: 'Pagamento cancelled via MERCADOPAGO',
@@ -214,7 +214,7 @@ describe('updateOrderStatusByPayment', () => {
 
         expect(result.success).toBe(true)
         expect(prisma.order.update).toHaveBeenCalledWith({
-            where: { id: 'order-123' },
+            where: { id: 'order-123', status: { notIn: ['DELIVERED', 'CANCELLED'] } },
             data: expect.objectContaining({
                 status: OrderStatus.PENDING,
                 payment_provider: 'PAYPAL',

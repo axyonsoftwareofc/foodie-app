@@ -15,7 +15,8 @@ import { AuthDivider } from '@/components/auth/AuthDivider'
 
 export function SignInForm() {
     const searchParams = useSearchParams()
-    const redirectTo = searchParams.get('redirectTo') || '/'
+    const rawRedirect = searchParams.get('redirectTo') || '/'
+    const redirectTo = rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : '/'
 
     const [email, setEmail] = useState<string>('')
     const [password, setPassword] = useState<string>('')

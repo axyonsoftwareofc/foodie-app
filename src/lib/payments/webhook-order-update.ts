@@ -43,7 +43,6 @@ export async function updateOrderStatusByPayment({
             return { success: false, error: 'Order not found' }
         }
 
-        // Evita regressao de status (ex: nao voltar para PENDING se ja esta CONFIRMED)
         const finalStatus = STATUS_MAP[paymentStatus]
         if (!finalStatus) {
             return { success: false, error: `Unknown payment status: ${paymentStatus}` }
@@ -78,7 +77,7 @@ export async function updateOrderStatusByPayment({
         }
 
         await prisma.order.update({
-            where: { id: orderId },
+            where: { id: orderId, status: { notIn: ['DELIVERED', 'CANCELLED'] } },
             data: updateData,
         })
 

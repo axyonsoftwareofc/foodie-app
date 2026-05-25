@@ -52,9 +52,9 @@ export async function GET(request: Request) {
                 .eq('id', restaurantId)
                 .single()
 
-            if (error) {
-                return NextResponse.json({ error: error.message }, { status: 404 })
-            }
+        if (error) {
+            return NextResponse.json({ error: 'Restaurante não encontrado' }, { status: 404 })
+        }
 
             return NextResponse.json({ restaurant: data })
         }
@@ -66,7 +66,7 @@ export async function GET(request: Request) {
             .order('name')
 
         if (error) {
-            return NextResponse.json({ error: error.message }, { status: 500 })
+            return NextResponse.json({ error: 'Erro ao carregar restaurantes' }, { status: 500 })
         }
 
         return NextResponse.json({ restaurants: data || [] })
@@ -111,7 +111,7 @@ export async function POST(request: Request) {
             .single()
 
         if (error) {
-            return NextResponse.json({ error: error.message }, { status: 400 })
+            return NextResponse.json({ error: 'Erro ao criar restaurante' }, { status: 400 })
         }
 
         return NextResponse.json({ restaurant: data, success: true }, { status: 201 })
@@ -147,16 +147,24 @@ export async function PUT(request: Request) {
         if (!(await userOwnsRestaurant(user.id, restaurantId))) {
             return NextResponse.json({ error: 'Não autorizado ou restaurante não encontrado' }, { status: 403 })
         }
+
+        const updateResult = restaurantSchema.safeParse(body)
+        if (!updateResult.success) {
+            return NextResponse.json(
+                { error: updateResult.error.issues[0].message },
+                { status: 400 }
+            )
+        }
         
         const { data, error } = await supabase
             .from('restaurants')
-            .update(body)
+            .update(updateResult.data)
             .eq('id', restaurantId)
             .select()
             .single()
 
         if (error) {
-            return NextResponse.json({ error: error.message }, { status: 400 })
+            return NextResponse.json({ error: 'Erro ao atualizar restaurante' }, { status: 400 })
         }
 
         return NextResponse.json({ restaurant: data, success: true })
@@ -197,7 +205,7 @@ export async function DELETE(request: Request) {
             .eq('id', restaurantId)
 
         if (error) {
-            return NextResponse.json({ error: error.message }, { status: 400 })
+            return NextResponse.json({ error: 'Erro ao excluir restaurante' }, { status: 400 })
         }
 
         return NextResponse.json({ success: true })

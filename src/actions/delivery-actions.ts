@@ -17,6 +17,57 @@ function isPointInCircle(point: GeoPoint, center: GeoPoint, radiusKm: number): b
     return calculateDistance(point, center) <= radiusKm;
 }
 
+async function getCallerRestaurantId(): Promise<string | null> {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+    const { data: restaurant } = await supabase
+        .from('restaurants')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+    return restaurant?.id ?? null;
+}
+
+async function verifyZoneOwnership(zoneId: string): Promise<boolean> {
+    const supabase = await createClient();
+    const restaurantId = await getCallerRestaurantId();
+    if (!restaurantId) return false;
+    const { data } = await supabase
+        .from('delivery_zones')
+        .select('id')
+        .eq('id', zoneId)
+        .eq('restaurant_id', restaurantId)
+        .single();
+    return Boolean(data);
+}
+
+async function verifyDriverOwnership(driverId: string): Promise<boolean> {
+    const supabase = await createClient();
+    const restaurantId = await getCallerRestaurantId();
+    if (!restaurantId) return false;
+    const { data } = await supabase
+        .from('delivery_drivers')
+        .select('id')
+        .eq('id', driverId)
+        .eq('restaurant_id', restaurantId)
+        .single();
+    return Boolean(data);
+}
+
+async function verifyDeliveryOwnership(deliveryId: string): Promise<boolean> {
+    const supabase = await createClient();
+    const restaurantId = await getCallerRestaurantId();
+    if (!restaurantId) return false;
+    const { data } = await supabase
+        .from('deliveries')
+        .select('id')
+        .eq('id', deliveryId)
+        .eq('restaurant_id', restaurantId)
+        .single();
+    return Boolean(data);
+}
+
 export async function createDeliveryZone(data: CreateDeliveryZoneRequest): Promise<{ data?: DeliveryZone; error?: string }> {
     try {
         const supabase = await createClient();
@@ -93,6 +144,9 @@ export async function getDeliveryZones(): Promise<{ data?: DeliveryZone[]; error
 
 export async function updateDeliveryZone(zoneId: string, data: Partial<CreateDeliveryZoneRequest>): Promise<{ success?: boolean; error?: string }> {
     try {
+        if (!(await verifyZoneOwnership(zoneId))) {
+            return { error: 'Zona não encontrada ou acesso negado' };
+        }
         const supabase = await createClient();
 
         const { error } = await supabase
@@ -122,6 +176,9 @@ export async function updateDeliveryZone(zoneId: string, data: Partial<CreateDel
 
 export async function toggleDeliveryZone(zoneId: string, isActive: boolean): Promise<{ success?: boolean; error?: string }> {
     try {
+        if (!(await verifyZoneOwnership(zoneId))) {
+            return { error: 'Zona não encontrada ou acesso negado' };
+        }
         const supabase = await createClient();
 
         const { error } = await supabase
@@ -139,6 +196,9 @@ export async function toggleDeliveryZone(zoneId: string, isActive: boolean): Pro
 
 export async function deleteDeliveryZone(zoneId: string): Promise<{ success?: boolean; error?: string }> {
     try {
+        if (!(await verifyZoneOwnership(zoneId))) {
+            return { error: 'Zona não encontrada ou acesso negado' };
+        }
         const supabase = await createClient();
 
         const { error } = await supabase
@@ -308,6 +368,9 @@ export async function createDriver(driver: Omit<DeliveryDriver, 'id'>): Promise<
 
 export async function updateDriverLocation(driverId: string, location: GeoPoint): Promise<{ success?: boolean; error?: string }> {
     try {
+        if (!(await verifyDriverOwnership(driverId))) {
+            return { error: 'Entregador não encontrado ou acesso negado' };
+        }
         const supabase = await createClient();
 
         const { error } = await supabase
@@ -328,7 +391,24 @@ export async function updateDriverLocation(driverId: string, location: GeoPoint)
 
 export async function assignDriver(orderId: string, driverId: string): Promise<{ success?: boolean; error?: string }> {
     try {
+        const restaurantId = await getCallerRestaurantId();
+        if (!restaurantId) return { error: 'Usuário não autenticado' };
+
+        if (!(await verifyDriverOwnership(driverId))) {
+            return { error: 'Entregador não encontrado ou acesso negado' };
+        }
+
         const supabase = await createClient();
+
+        const { data: delivery } = await supabase
+            .from('deliveries')
+            .select('id, restaurant_id')
+            .eq('order_id', orderId)
+            .single();
+
+        if (!delivery || delivery.restaurant_id !== restaurantId) {
+            return { error: 'Entrega não encontrada ou acesso negado' };
+        }
 
         const { error } = await supabase
             .from('deliveries')
@@ -361,6 +441,9 @@ export async function updateDeliveryStatus(
     note?: string
 ): Promise<{ success?: boolean; error?: string }> {
     try {
+        if (!(await verifyDeliveryOwnership(deliveryId))) {
+            return { error: 'Entrega não encontrada ou acesso negado' };
+        }
         const supabase = await createClient();
 
         const updateData: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
@@ -412,6 +495,9 @@ export async function submitDeliveryProof(
     proof: DeliveryProof
 ): Promise<{ success?: boolean; error?: string }> {
     try {
+        if (!(await verifyDeliveryOwnership(deliveryId))) {
+            return { error: 'Entrega não encontrada ou acesso negado' };
+        }
         const supabase = await createClient();
 
         const { error } = await supabase
@@ -435,12 +521,16 @@ export async function submitDeliveryProof(
 
 export async function getDeliveryByOrder(orderId: string): Promise<{ data?: Delivery; error?: string }> {
     try {
+        const restaurantId = await getCallerRestaurantId();
+        if (!restaurantId) return { error: 'Usuário não autenticado' };
+
         const supabase = await createClient();
 
         const { data, error } = await supabase
             .from('deliveries')
             .select('*, delivery_drivers(*)')
             .eq('order_id', orderId)
+            .eq('restaurant_id', restaurantId)
             .single();
 
         if (error) return { error: 'Entrega não encontrada' };

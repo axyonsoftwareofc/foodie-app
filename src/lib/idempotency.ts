@@ -1,5 +1,5 @@
 // src/lib/idempotency.ts
-import { redisGet, redisSet, redisDel } from './redis'
+import { redisSetNX, redisDel } from './redis'
 
 const DEFAULT_TTL_SECONDS = 300 // 5 minutos
 
@@ -20,12 +20,8 @@ export async function isDuplicateRequest(
     key: string,
     ttlSeconds = DEFAULT_TTL_SECONDS
 ): Promise<boolean> {
-    const existing = await redisGet<string>(`idempotency:${key}`)
-    if (existing) {
-        return true
-    }
-    await redisSet(`idempotency:${key}`, '1', ttlSeconds)
-    return false
+    const wasSet = await redisSetNX(`idempotency:${key}`, '1', ttlSeconds)
+    return !wasSet
 }
 
 /**

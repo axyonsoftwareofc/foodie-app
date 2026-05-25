@@ -39,7 +39,7 @@ export async function GET(request: Request) {
                 .single()
 
             if (error) {
-                return NextResponse.json({ error: error.message }, { status: 404 })
+                return NextResponse.json({ error: 'Produto não encontrado' }, { status: 404 })
             }
 
             return NextResponse.json({ product: data })
@@ -66,7 +66,7 @@ export async function GET(request: Request) {
         const { data, error } = await query.order('name')
 
         if (error) {
-            return NextResponse.json({ error: error.message }, { status: 500 })
+            return NextResponse.json({ error: 'Erro ao carregar produtos' }, { status: 500 })
         }
 
         return NextResponse.json({ products: data || [] })
@@ -130,7 +130,7 @@ export async function POST(request: Request) {
             .single()
 
         if (error) {
-            return NextResponse.json({ error: error.message }, { status: 400 })
+            return NextResponse.json({ error: 'Erro ao criar produto' }, { status: 400 })
         }
 
         return NextResponse.json({ product: data, success: true }, { status: 201 })
@@ -174,28 +174,40 @@ export async function PUT(request: Request) {
                 return NextResponse.json({ error: 'Categoria inválida para este restaurante' }, { status: 403 })
             }
         }
+
+        const updateResult = productSchema.safeParse({
+            ...body,
+            restaurantId: productOwner.restaurant_id,
+            categoryId: body.categoryId || productOwner.category_id,
+        })
+        if (!updateResult.success) {
+            return NextResponse.json(
+                { error: updateResult.error.issues[0].message },
+                { status: 400 }
+            )
+        }
         
         const { data, error } = await supabase
             .from('products')
             .update({
-                name: body.name,
-                description: body.description,
-                price: body.price,
-                image: body.image,
-                category_id: body.categoryId,
-                is_active: body.isActive,
-                is_available: body.isAvailable,
-                badges: body.badges || [],
-                options: body.options || [],
-                preparation_time: body.preparationTime,
-                calories: body.calories,
+                name: updateResult.data.name,
+                description: updateResult.data.description,
+                price: updateResult.data.price,
+                image: updateResult.data.image,
+                category_id: updateResult.data.categoryId,
+                is_active: updateResult.data.isActive,
+                is_available: updateResult.data.isAvailable,
+                badges: updateResult.data.badges || [],
+                options: updateResult.data.options || [],
+                preparation_time: updateResult.data.preparationTime,
+                calories: updateResult.data.calories,
             })
             .eq('id', productId)
             .select()
             .single()
 
         if (error) {
-            return NextResponse.json({ error: error.message }, { status: 400 })
+            return NextResponse.json({ error: 'Erro ao atualizar produto' }, { status: 400 })
         }
 
         return NextResponse.json({ product: data, success: true })
@@ -237,7 +249,7 @@ export async function DELETE(request: Request) {
             .eq('id', productId)
 
         if (error) {
-            return NextResponse.json({ error: error.message }, { status: 400 })
+            return NextResponse.json({ error: 'Erro ao excluir produto' }, { status: 400 })
         }
 
         return NextResponse.json({ success: true })

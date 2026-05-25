@@ -214,14 +214,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const updateProfile = async (data: Partial<UserProfile>) => {
         if (!state.user) return { error: 'Usuário não autenticado' }
 
+        const { role: _role, ...safeData } = data
+        void _role
+
         const supabase = createClient()
         const { error } = await supabase
             .from('profiles')
             .update({
-                full_name: data.fullName,
-                avatar_url: data.avatarUrl,
-                phone: data.phone,
-                role: data.role,
+                full_name: safeData.fullName,
+                avatar_url: safeData.avatarUrl,
+                phone: safeData.phone,
                 updated_at: new Date().toISOString(),
             })
             .eq('id', state.user.id)

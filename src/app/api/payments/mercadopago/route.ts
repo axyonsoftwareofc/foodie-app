@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${MERCADOPAGO_ACCESS_TOKEN}`,
-                'X-Idempotency-Key': `mp-payment-${orderId}-${Date.now()}`,
+                'X-Idempotency-Key': `mp-payment-${orderId}`,
             },
             body: JSON.stringify(paymentData),
         });
