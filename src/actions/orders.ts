@@ -252,10 +252,13 @@ export async function createOrder(orderData: {
       // Re-validate restaurant is still active inside the transaction
       const restaurant = await tx.restaurant.findFirst({
         where: { id: pricedOrder.data!.restaurantId, is_active: true },
-        select: { id: true },
+        select: { id: true, accepting_orders: true },
       });
       if (!restaurant) {
         throw new Error('Restaurante nao encontrado ou inativo');
+      }
+      if (!restaurant.accepting_orders) {
+        throw new Error('Restaurante nao esta aceitando pedidos no momento');
       }
 
       return tx.order.create({

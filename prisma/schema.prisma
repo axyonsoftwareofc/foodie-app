@@ -93,6 +93,9 @@ model Restaurant {
   // Horários
   operating_hours Json?
 
+  // Controle operacional
+  accepting_orders Boolean @default(true)
+
   // Informações bancárias
   bank_info Json?
 
