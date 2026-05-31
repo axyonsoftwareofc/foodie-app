@@ -77,7 +77,7 @@
     "eslint-config-next": "16.2.6",
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
-    "jsdom": "^28.1.0",
+    "jsdom": "^29.1.1",
     "lint-staged": "^17.0.7",
     "msw": "^2.12.10",
     "prettier": "^3.8.3",
