@@ -13,7 +13,14 @@ type UserRole = typeof ROLE_HIERARCHY[number]
 const ROLE_COOKIE_NAME = 'foodie-role'
 const ROLE_COOKIE_MAX_AGE = 60 * 60 * 24 * 7 // 7 dias
 
-const COOKIE_SECRET = process.env.COOKIE_SIGNING_SECRET || process.env.NEXTAUTH_SECRET || 'foodie-cookie-secret-dev'
+const COOKIE_SECRET = (() => {
+    const secret = process.env.COOKIE_SIGNING_SECRET
+    if (secret) return secret
+    if (process.env.NODE_ENV === 'production') {
+        throw new Error('COOKIE_SIGNING_SECRET environment variable is required in production')
+    }
+    return 'foodie-cookie-secret-dev'
+})()
 
 function signCookieValue(value: string): string {
     const hmac = createHmac('sha256', COOKIE_SECRET)

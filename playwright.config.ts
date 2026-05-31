@@ -1,5 +1,8 @@
-
 import { defineConfig, devices } from '@playwright/test';
+import dotenv from 'dotenv';
+import path from 'path';
+
+dotenv.config({ path: path.resolve(__dirname, '.env.test') });
 
 export default defineConfig({
     testDir: './src/tests/e2e',
@@ -27,12 +30,5 @@ export default defineConfig({
         command: 'npm run dev',
         url: 'http://localhost:3000',
         reuseExistingServer: !process.env.CI,
-        env: {
-            STRIPE_WEBHOOK_SECRET: 'whsec_test_secret_for_e2e_stripe',
-            STRIPE_SECRET_KEY: 'sk_test_000000000000000000000000000000000000000000000000',
-            STRIPE_API_VERSION: '2024-12-18.acacia',
-            MERCADOPAGO_WEBHOOK_SECRET: 'mp_test_secret_for_e2e_mp',
-            MERCADOPAGO_ACCESS_TOKEN: 'TEST-0000000000000000-000000',
-        },
     },
 });

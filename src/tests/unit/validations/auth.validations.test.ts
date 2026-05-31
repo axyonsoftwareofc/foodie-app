@@ -139,23 +139,10 @@ describe('signUpSchema', () => {
         expect(result.success).toBe(false)
     })
 
-    it('should accept valid CLIENTE role', () => {
+    it('should strip role field from sign up data (prevents privilege escalation)', () => {
         const dataWithRole = {
             fullName: 'John Doe',
             email: 'test@example.com',
-            password: 'ValidPass123!',
-            confirmPassword: 'ValidPass123!',
-            role: 'CLIENTE',
-        }
-
-        const result = signUpSchema.safeParse(dataWithRole)
-        expect(result.success).toBe(true)
-    })
-
-    it('should accept valid ADMIN role', () => {
-        const dataWithRole = {
-            fullName: 'Admin User',
-            email: 'admin@example.com',
             password: 'ValidPass123!',
             confirmPassword: 'ValidPass123!',
             role: 'ADMIN',
@@ -163,5 +150,27 @@ describe('signUpSchema', () => {
 
         const result = signUpSchema.safeParse(dataWithRole)
         expect(result.success).toBe(true)
+        if (result.success) {
+            expect(result.data).not.toHaveProperty('role')
+        }
+    })
+
+    it('should strip unknown fields from sign up data', () => {
+        const dataWithExtra = {
+            fullName: 'John Doe',
+            email: 'test@example.com',
+            password: 'ValidPass123!',
+            confirmPassword: 'ValidPass123!',
+            role: 'GERENCIADOR',
+            isAdmin: true,
+            __proto__: { role: 'ADMIN' },
+        }
+
+        const result = signUpSchema.safeParse(dataWithExtra)
+        expect(result.success).toBe(true)
+        if (result.success) {
+            expect(result.data).not.toHaveProperty('role')
+            expect(result.data).not.toHaveProperty('isAdmin')
+        }
     })
 })
