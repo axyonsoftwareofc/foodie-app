@@ -3,57 +3,52 @@
 import React, { ReactNode, useRef, useCallback } from 'react';
 
 interface LiveRegionProps {
-    children: ReactNode;
+  children: ReactNode;
 }
 
 export function LiveRegion({ children }: LiveRegionProps) {
-    return (
-        <div
-            role="status"
-            aria-live="polite"
-            aria-atomic="true"
-            className="sr-only"
-        >
-            {children}
-        </div>
-    );
+  return (
+    <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+      {children}
+    </div>
+  );
 }
 
 interface ScreenReaderAnnouncerResult {
-    announce: (message: string, priority?: 'polite' | 'assertive') => void;
+  announce: (message: string, priority?: 'polite' | 'assertive') => void;
 }
 
 export function useScreenReaderAnnouncer(): ScreenReaderAnnouncerResult {
-    const announcerRef = useRef<HTMLDivElement | null>(null);
+  const announcerRef = useRef<HTMLDivElement | null>(null);
 
-    const announce = useCallback((message: string, priority: 'polite' | 'assertive' = 'polite') => {
+  const announce = useCallback((message: string, priority: 'polite' | 'assertive' = 'polite') => {
+    if (announcerRef.current) {
+      announcerRef.current.setAttribute('aria-live', priority);
+      announcerRef.current.textContent = '';
+
+      setTimeout(() => {
         if (announcerRef.current) {
-            announcerRef.current.setAttribute('aria-live', priority);
-            announcerRef.current.textContent = '';
-
-            setTimeout(() => {
-                if (announcerRef.current) {
-                    announcerRef.current.textContent = message;
-                }
-            }, 100);
+          announcerRef.current.textContent = message;
         }
-    }, []);
+      }, 100);
+    }
+  }, []);
 
-    return { announce };
+  return { announce };
 }
 
 export function ScreenReaderAnnouncer() {
-    return (
-        <div
-            ref={(el) => {
-                if (el) announcerRef.current = el;
-            }}
-            role="status"
-            aria-live="polite"
-            aria-atomic="true"
-            className="sr-only"
-        />
-    );
+  return (
+    <div
+      ref={(el) => {
+        if (el) announcerRef.current = el;
+      }}
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+      className="sr-only"
+    />
+  );
 }
 
 const announcerRef = { current: null as HTMLDivElement | null };

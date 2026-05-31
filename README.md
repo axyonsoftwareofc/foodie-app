@@ -5,6 +5,7 @@ Plataforma de delivery de comida full-stack para o mercado brasileiro.
 ## Funcionalidades
 
 ### Para Clientes
+
 - Descoberta de restaurantes com busca e filtros (categoria, avaliação, frete)
 - Cardápio com categorias e produtos
 - Carrinho de compras com cupons de desconto
@@ -13,6 +14,7 @@ Plataforma de delivery de comida full-stack para o mercado brasileiro.
 - Favoritos, endereços salvos e perfil do usuário
 
 ### Para Donos de Restaurante
+
 - Painel administrativo (dashboard)
 - Gestão de cardápio (categorias e produtos)
 - Gestão de pedidos com Kanban da cozinha
@@ -20,6 +22,7 @@ Plataforma de delivery de comida full-stack para o mercado brasileiro.
 - Notificações sonoras de novos pedidos
 
 ### Pagamentos
+
 - Cartão de crédito/débito (Stripe)
 - Pix com QR Code
 - Mercado Pago
@@ -74,14 +77,14 @@ Acesse [http://localhost:3000](http://localhost:3000).
 
 ### Variáveis de ambiente
 
-| Variável | Descrição |
-|---|---|
-| `DATABASE_URL` | URL de conexão PostgreSQL (Supabase) |
-| `NEXT_PUBLIC_SUPABASE_URL` | URL do projeto Supabase |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Chave anônima do Supabase |
-| `STRIPE_SECRET_KEY` | Chave secreta do Stripe |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Chave pública do Stripe |
-| `NEXT_PUBLIC_APP_URL` | URL base da aplicação |
+| Variável                             | Descrição                            |
+| ------------------------------------ | ------------------------------------ |
+| `DATABASE_URL`                       | URL de conexão PostgreSQL (Supabase) |
+| `NEXT_PUBLIC_SUPABASE_URL`           | URL do projeto Supabase              |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY`      | Chave anônima do Supabase            |
+| `STRIPE_SECRET_KEY`                  | Chave secreta do Stripe              |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Chave pública do Stripe              |
+| `NEXT_PUBLIC_APP_URL`                | URL base da aplicação                |
 
 Veja `.env.example` para a lista completa.
 

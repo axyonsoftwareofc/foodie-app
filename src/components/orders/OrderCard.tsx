@@ -1,215 +1,202 @@
 // src/components/orders/OrderCard.tsx
-'use client'
+'use client';
 
-import { useRouter } from 'next/navigation'
-import Image from 'next/image'
-import { motion } from 'framer-motion'
-import { ChevronRight, Star, Clock } from 'lucide-react'
-import { type OrderData } from '@/actions/orders'
-import { ORDER_STATUS_CONFIG, ORDER_MESSAGES, ACTIVE_STATUSES } from '@/lib/constants/order.constants'
-import { formatPrice, formatDateBR } from '@/lib/utils/format.utils'
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import { motion } from 'framer-motion';
+import { ChevronRight, Star, Clock } from 'lucide-react';
+import { type OrderData } from '@/actions/orders';
+import {
+  ORDER_STATUS_CONFIG,
+  ORDER_MESSAGES,
+  ACTIVE_STATUSES,
+} from '@/lib/constants/order.constants';
+import { formatPrice, formatDateBR } from '@/lib/utils/format.utils';
 
 interface OrderCardProps {
-    order: OrderData
-    index: number
+  order: OrderData;
+  index: number;
 }
 
 export function OrderCard({ order, index }: OrderCardProps) {
-    const router = useRouter()
-    const statusConfig = ORDER_STATUS_CONFIG[order.status] || ORDER_STATUS_CONFIG.PENDING
-    const isActive = ACTIVE_STATUSES.includes(order.status)
-    const itemCount = order.items.reduce((sum, item) => sum + item.quantity, 0)
+  const router = useRouter();
+  const statusConfig = ORDER_STATUS_CONFIG[order.status] || ORDER_STATUS_CONFIG.PENDING;
+  const isActive = ACTIVE_STATUSES.includes(order.status);
+  const itemCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
 
-    const handleClick = (): void => {
-        router.push(`/orders/${order.id}`)
-    }
+  const handleClick = (): void => {
+    router.push(`/orders/${order.id}`);
+  };
 
-    const formatOrderDate = (dateString: string): string => {
-        const date = new Date(dateString)
-        const now = new Date()
-        const diffMs = now.getTime() - date.getTime()
-        const diffMinutes = Math.floor(diffMs / 60000)
-        const diffHours = Math.floor(diffMinutes / 60)
-        const diffDays = Math.floor(diffHours / 24)
+  const formatOrderDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMinutes = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
 
-        if (diffMinutes < 1) return 'Agora mesmo'
-        if (diffMinutes < 60) return `Há ${diffMinutes} min`
-        if (diffHours < 24) return `Há ${diffHours}h`
-        if (diffDays < 7) return `Há ${diffDays} ${diffDays === 1 ? 'dia' : 'dias'}`
-        return formatDateBR(dateString)
-    }
+    if (diffMinutes < 1) return 'Agora mesmo';
+    if (diffMinutes < 60) return `Há ${diffMinutes} min`;
+    if (diffHours < 24) return `Há ${diffHours}h`;
+    if (diffDays < 7) return `Há ${diffDays} ${diffDays === 1 ? 'dia' : 'dias'}`;
+    return formatDateBR(dateString);
+  };
 
-    const getRemainingTime = (): string | null => {
-        if (!order.estimatedDelivery || order.status === 'DELIVERED' || order.status === 'CANCELLED') return null
-        const now = new Date()
-        const estimated = new Date(order.estimatedDelivery)
-        const diffMinutes = Math.floor((estimated.getTime() - now.getTime()) / 60000)
-        if (diffMinutes <= 0) return 'A qualquer momento'
-        if (diffMinutes < 60) return `~${diffMinutes} min`
-        const hours = Math.floor(diffMinutes / 60)
-        const mins = diffMinutes % 60
-        return `~${hours}h${mins > 0 ? `${mins}min` : ''}`
-    }
+  const getRemainingTime = (): string | null => {
+    if (!order.estimatedDelivery || order.status === 'DELIVERED' || order.status === 'CANCELLED')
+      return null;
+    const now = new Date();
+    const estimated = new Date(order.estimatedDelivery);
+    const diffMinutes = Math.floor((estimated.getTime() - now.getTime()) / 60000);
+    if (diffMinutes <= 0) return 'A qualquer momento';
+    if (diffMinutes < 60) return `~${diffMinutes} min`;
+    const hours = Math.floor(diffMinutes / 60);
+    const mins = diffMinutes % 60;
+    return `~${hours}h${mins > 0 ? `${mins}min` : ''}`;
+  };
 
-    const remainingTime = getRemainingTime()
-    const hasReview = order.review !== null && order.review !== undefined
+  const remainingTime = getRemainingTime();
+  const hasReview = order.review !== null && order.review !== undefined;
 
-    return (
-        <motion.button
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.05 }}
-            onClick={handleClick}
-            className="w-full rounded-2xl p-5 text-left transition-colors"
+  return (
+    <motion.button
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.05 }}
+      onClick={handleClick}
+      className="w-full rounded-2xl p-5 text-left transition-colors"
+      style={{
+        backgroundColor: 'var(--color-bg-card)',
+        borderWidth: isActive ? '2px' : '1px',
+        borderStyle: 'solid',
+        borderColor: isActive ? statusConfig.color : 'var(--color-border)',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = 'var(--color-bg-card)';
+      }}
+    >
+      {/* Top row */}
+      <div className="mb-3 flex items-start justify-between">
+        <div>
+          <h3 className="text-base font-semibold" style={{ color: 'var(--color-text)' }}>
+            {order.restaurantName || 'Restaurante'}
+          </h3>
+          <p className="mt-0.5 text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+            {formatOrderDate(order.createdAt)}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span
+            className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
             style={{
-                backgroundColor: 'var(--color-bg-card)',
-                borderWidth: isActive ? '2px' : '1px',
-                borderStyle: 'solid',
-                borderColor: isActive ? statusConfig.color : 'var(--color-border)',
+              backgroundColor: statusConfig.bgColor,
+              color: statusConfig.color,
             }}
-            onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)'
-            }}
-            onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'var(--color-bg-card)'
-            }}
-        >
-            {/* Top row */}
-            <div className="mb-3 flex items-start justify-between">
-                <div>
-                    <h3
-                        className="text-base font-semibold"
-                        style={{ color: 'var(--color-text)' }}
-                    >
-                        {order.restaurantName || 'Restaurante'}
-                    </h3>
-                    <p
-                        className="mt-0.5 text-xs"
-                        style={{ color: 'var(--color-text-tertiary)' }}
-                    >
-                        {formatOrderDate(order.createdAt)}
-                    </p>
-                </div>
+          >
+            <span>{statusConfig.icon}</span>
+            {statusConfig.label}
+          </span>
 
-                <div className="flex items-center gap-2">
-                    <span
-                        className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
-                        style={{
-                            backgroundColor: statusConfig.bgColor,
-                            color: statusConfig.color,
-                        }}
-                    >
-                        <span>{statusConfig.icon}</span>
-                        {statusConfig.label}
-                    </span>
+          <ChevronRight size={18} style={{ color: 'var(--color-text-tertiary)' }} />
+        </div>
+      </div>
 
-                    <ChevronRight
-                        size={18}
-                        style={{ color: 'var(--color-text-tertiary)' }}
-                    />
-                </div>
-            </div>
-
-            {/* Items preview */}
-            <div className="mb-3 flex items-center gap-3">
-                <div className="flex -space-x-2">
-                    {order.items.slice(0, 3).map((item, i) => (
-                        <Image
-                            key={i}
-                            src={item.menuItemImage || '/placeholder.png'}
-                            alt={item.menuItemName}
-                            width={40}
-                            height={40}
-                            className="rounded-full border-2 object-cover"
-                            style={{ borderColor: 'var(--color-bg-card)' }}
-                        />
-                    ))}
-                    {order.items.length > 3 && (
-                        <div
-                            className="flex h-10 w-10 items-center justify-center rounded-full border-2 text-xs font-medium"
-                            style={{
-                                backgroundColor: 'var(--color-bg-secondary)',
-                                borderColor: 'var(--color-bg-card)',
-                                color: 'var(--color-text-secondary)',
-                            }}
-                        >
-                            +{order.items.length - 3}
-                        </div>
-                    )}
-                </div>
-
-                <p
-                    className="flex-1 truncate text-sm"
-                    style={{ color: 'var(--color-text-secondary)' }}
-                >
-                    {order.items.map((item) => item.menuItemName).join(', ')}
-                </p>
-            </div>
-
-            {/* Bottom row */}
+      {/* Items preview */}
+      <div className="mb-3 flex items-center gap-3">
+        <div className="flex -space-x-2">
+          {order.items.slice(0, 3).map((item, i) => (
+            <Image
+              key={i}
+              src={item.menuItemImage || '/placeholder.png'}
+              alt={item.menuItemName}
+              width={40}
+              height={40}
+              className="rounded-full border-2 object-cover"
+              style={{ borderColor: 'var(--color-bg-card)' }}
+            />
+          ))}
+          {order.items.length > 3 && (
             <div
-                className="flex items-center justify-between pt-3"
-                style={{
-                    borderTopWidth: '1px',
-                    borderTopStyle: 'solid',
-                    borderTopColor: 'var(--color-border)',
-                }}
+              className="flex h-10 w-10 items-center justify-center rounded-full border-2 text-xs font-medium"
+              style={{
+                backgroundColor: 'var(--color-bg-secondary)',
+                borderColor: 'var(--color-bg-card)',
+                color: 'var(--color-text-secondary)',
+              }}
             >
-                <div className="flex items-center gap-3">
-                    <span
-                        className="text-xs"
-                        style={{ color: 'var(--color-text-secondary)' }}
-                    >
-                        {ORDER_MESSAGES.ITEMS_COUNT(itemCount)}
-                    </span>
-
-                    {/* Remaining time for active orders */}
-                    {remainingTime && (
-                        <span className="flex items-center gap-1 text-xs text-[#00A082]">
-                            <Clock size={12} />
-                            {remainingTime}
-                        </span>
-                    )}
-
-                    {/* Review indicator for delivered orders */}
-                    {order.status === 'DELIVERED' && hasReview && (
-                        <span className="flex items-center gap-1 text-xs text-[#FFAA00]">
-                            <Star size={12} fill="#FFAA00" />
-                            {order.review!.rating}
-                        </span>
-                    )}
-                </div>
-
-                <span
-                    className="text-sm font-bold"
-                    style={{ color: 'var(--color-text)' }}
-                >
-                    {formatPrice(order.total)}
-                </span>
+              +{order.items.length - 3}
             </div>
+          )}
+        </div>
 
-            {/* Active indicator */}
-            {isActive && (
-                <div className="mt-3 flex items-center gap-2">
-                    <div
-                        className="h-2 w-2 animate-pulse rounded-full"
-                        style={{ backgroundColor: statusConfig.color }}
-                    />
-                    <span
-                        className="text-xs font-medium"
-                        style={{ color: statusConfig.color }}
-                    >
-                        {ORDER_MESSAGES.TRACK_ORDER}
-                    </span>
-                </div>
-            )}
+        <p className="flex-1 truncate text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+          {order.items.map((item) => item.menuItemName).join(', ')}
+        </p>
+      </div>
 
-            {/* Cancelled reason */}
-            {order.status === 'CANCELLED' && order.cancelReason && (
-                <div className="mt-3 rounded-lg px-3 py-2 text-xs" style={{ backgroundColor: 'rgba(255, 68, 68, 0.08)', color: '#FF4444' }}>
-                    Motivo: {order.cancelReason}
-                </div>
-            )}
-        </motion.button>
-    )
+      {/* Bottom row */}
+      <div
+        className="flex items-center justify-between pt-3"
+        style={{
+          borderTopWidth: '1px',
+          borderTopStyle: 'solid',
+          borderTopColor: 'var(--color-border)',
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+            {ORDER_MESSAGES.ITEMS_COUNT(itemCount)}
+          </span>
+
+          {/* Remaining time for active orders */}
+          {remainingTime && (
+            <span className="flex items-center gap-1 text-xs text-[#00A082]">
+              <Clock size={12} />
+              {remainingTime}
+            </span>
+          )}
+
+          {/* Review indicator for delivered orders */}
+          {order.status === 'DELIVERED' && hasReview && (
+            <span className="flex items-center gap-1 text-xs text-[#FFAA00]">
+              <Star size={12} fill="#FFAA00" />
+              {order.review!.rating}
+            </span>
+          )}
+        </div>
+
+        <span className="text-sm font-bold" style={{ color: 'var(--color-text)' }}>
+          {formatPrice(order.total)}
+        </span>
+      </div>
+
+      {/* Active indicator */}
+      {isActive && (
+        <div className="mt-3 flex items-center gap-2">
+          <div
+            className="h-2 w-2 animate-pulse rounded-full"
+            style={{ backgroundColor: statusConfig.color }}
+          />
+          <span className="text-xs font-medium" style={{ color: statusConfig.color }}>
+            {ORDER_MESSAGES.TRACK_ORDER}
+          </span>
+        </div>
+      )}
+
+      {/* Cancelled reason */}
+      {order.status === 'CANCELLED' && order.cancelReason && (
+        <div
+          className="mt-3 rounded-lg px-3 py-2 text-xs"
+          style={{ backgroundColor: 'rgba(255, 68, 68, 0.08)', color: '#FF4444' }}
+        >
+          Motivo: {order.cancelReason}
+        </div>
+      )}
+    </motion.button>
+  );
 }

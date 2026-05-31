@@ -1,6 +1,7 @@
 # Project Kickoff — Foodie App
 
 ## Product
+
 - **Name:** Foodie App
 - **Type:** Plataforma SaaS de delivery de comida (B2B2C)
 - **Goal:** Permitir que restaurantes criem sua loja online com cardápio, pedidos e entregas em minutos, oferecendo aos clientes finais uma experiência de pedido fluida e omnichannel.
@@ -16,11 +17,13 @@
   - Logística própria de entrega (integração futura com serviços terceiros)
 
 ## Priorities
+
 - **Primary:** Multi-tenant self-service, experiência de checkout omnichannel (Delivery + Mesa + Retirada), performance do cardápio público
 - **Secondary:** App do entregador com geolocalização, pagamentos online reais, white-label com domínio próprio
 - **Tradeoffs:** Velocidade de lançamento > perfeição. Funcional > customizável. Monólito modular > microserviços.
 
 ## Stack
+
 - **Frontend:** Next.js 16 (App Router) + React 19 + TypeScript + Tailwind CSS 4
 - **Backend:** Next.js Server Actions + API Routes
 - **Database:** PostgreSQL (Supabase) + Prisma ORM
@@ -32,6 +35,7 @@
 - **Tooling:** ESLint, TypeScript strict, Zod validação
 
 ## Architecture
+
 - **Style:** Monólito modular com App Router (route groups como bounded contexts leves)
 - **DDD level:** ddd-light — linguagem do domínio clara, mas sem camadas formais de application/domain/infrastructure
 - **Main modules/domains:**
@@ -45,17 +49,20 @@
 - **Data ownership:** Cada restaurante é dono dos seus dados. Soft-delete, nunca hard-delete sem confirmação.
 
 ## Design
+
 - **DESIGN.md:** A ser criado quando houver design system formalizado
 - **Aesthetic direction:** Clean, moderno, cores vibrantes (emerald/verde como primária), foco em imagens de comida
 - **Accessibility baseline:** WCAG 2.1 AA, suporte a leitores de tela, navegação por teclado, alto contraste
 
 ## Security And Privacy
+
 - **Sensitive data:** Dados de pagamento (terceirizados via Stripe/MercadoPago), endereços, telefones
 - **Auth/authz needs:** RBAC (ADMIN, GERENCIADOR, EQUIPE, CLIENTE), isolamento multi-tenant
 - **External inputs:** Upload de imagens (logo, capa), formulários públicos com validação Zod
 - **Uploads/webhooks/payments:** Stripe webhooks para confirmação de pagamento, upload de imagens para Supabase Storage
 
 ## NFRs
+
 - **Performance:** Cardápio público < 2s LCP, ISR/SSG para páginas de cardápio, Redis cache para dados quentes
 - **Availability:** 99.9% para cardápio público. Degradar funcionalidades não-críticas se necessário.
 - **Cost:** Otimizar com cache agressivo, evitar chamadas desnecessárias ao banco, usar Vercel Edge para conteúdo estático
@@ -64,6 +71,7 @@
 - **Compliance/Privacy:** LGPD — consentimento para marketing, exportação/deleção de dados do usuário
 
 ## Decisions
+
 - **[2026-05-19]** Monólito modular com App Router:
   - Why: O time é pequeno, e a complexidade de microserviços não se justifica no estágio atual. Route groups do Next.js permitem isolamento lógico sem custo operacional.
   - Tradeoff: Menor flexibilidade de escala independente por módulo. Aceitável até 10k pedidos/dia.
@@ -75,6 +83,7 @@
   - Tradeoff: Mais verboso que markdown simples. Compensado pela clareza estrutural.
 
 ## Assumptions
+
 - **Assumption:** O volume inicial de pedidos será < 1000/dia
   - Why safe for now: O monólito modular no Vercel escala bem até esse volume com otimizações básicas.
   - Revisit when: Volume ultrapassar 5000 pedidos/dia ou latência do banco > 100ms P95.
@@ -83,10 +92,12 @@
   - Revisit when: 10+ restaurantes solicitarem domínio próprio ou white-label.
 
 ## Open Questions
+
 - **Question:** Integração com marketplaces de entrega (iFood, Rappi) ou manter como plataforma independente?
 - **Question:** Modelo de cobrança: freemium, comissão por pedido, ou assinatura mensal?
 
 ## Next Steps
+
 - Criar Architecture Packet completo (architecture.md, ADRs, plano de implementação)
 - Feature-doc para multi-tenant onboarding
 - Feature-doc para app do entregador com geolocalização

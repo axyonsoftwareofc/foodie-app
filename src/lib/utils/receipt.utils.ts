@@ -2,11 +2,11 @@
 import { ReceiptData } from '@/types/payment.types';
 
 export function formatReceiptForPrint(receipt: ReceiptData): string {
-    const itemsList = receipt.items
-        .map(item => `${item.quantity}x ${item.name}\nR$ ${item.totalPrice.toFixed(2)}`)
-        .join('\n');
+  const itemsList = receipt.items
+    .map((item) => `${item.quantity}x ${item.name}\nR$ ${item.totalPrice.toFixed(2)}`)
+    .join('\n');
 
-    return `
+  return `
 ========================================
          ${receipt.restaurantName}
 ========================================

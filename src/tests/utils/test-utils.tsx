@@ -5,25 +5,18 @@ import userEvent from '@testing-library/user-event';
 import { CartProvider } from '../../contexts/CartContext';
 
 interface ProvidersProps {
-    children: ReactNode;
+  children: ReactNode;
 }
 
 function AllProviders({ children }: ProvidersProps): React.JSX.Element {
-    return (
-        <CartProvider>
-            {children}
-        </CartProvider>
-    );
+  return <CartProvider>{children}</CartProvider>;
 }
 
-function customRender(
-    ui: ReactElement,
-    options?: Omit<RenderOptions, 'wrapper'>
-) {
-    return {
-        user: userEvent.setup(),
-        ...render(ui, { wrapper: AllProviders, ...options }),
-    };
+function customRender(ui: ReactElement, options?: Omit<RenderOptions, 'wrapper'>) {
+  return {
+    user: userEvent.setup(),
+    ...render(ui, { wrapper: AllProviders, ...options }),
+  };
 }
 
 export * from '@testing-library/react';

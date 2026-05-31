@@ -75,10 +75,7 @@ export function OrderDetailsModal({ order, isOpen, onClose }: OrderDetailsModalP
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/50 transition-opacity"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 bg-black/50 transition-opacity" onClick={onClose} />
 
       {/* Modal */}
       <div className="flex min-h-full items-center justify-center p-4">
@@ -153,7 +150,9 @@ export function OrderDetailsModal({ order, isOpen, onClose }: OrderDetailsModalP
                           {item.quantity || 1}
                         </span>
                         <div>
-                          <p className="font-medium text-gray-800">{item.name || item.productName || item.menuItemName || 'Item'}</p>
+                          <p className="font-medium text-gray-800">
+                            {item.name || item.productName || item.menuItemName || 'Item'}
+                          </p>
                           {item.observation && (
                             <p className="text-xs text-gray-500">{item.observation}</p>
                           )}
@@ -181,7 +180,9 @@ export function OrderDetailsModal({ order, isOpen, onClose }: OrderDetailsModalP
             <div className="border-t border-gray-200 pt-4">
               <div className="flex items-center justify-between">
                 <span className="text-lg font-semibold text-gray-800">Total</span>
-                <span className="text-2xl font-bold text-gray-900">{formatCurrency(order.total)}</span>
+                <span className="text-2xl font-bold text-gray-900">
+                  {formatCurrency(order.total)}
+                </span>
               </div>
             </div>
           </div>

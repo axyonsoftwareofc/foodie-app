@@ -23,12 +23,12 @@ export function KanbanColumn({
   return (
     <div className="flex flex-col h-full min-w-[320px] max-w-[380px]">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-white rounded-t-lg border-b-2 shadow-sm" style={{ borderBottomColor: color }}>
+      <div
+        className="flex items-center justify-between px-4 py-3 bg-white rounded-t-lg border-b-2 shadow-sm"
+        style={{ borderBottomColor: color }}
+      >
         <div className="flex items-center gap-2">
-          <div
-            className="w-3 h-3 rounded-full"
-            style={{ backgroundColor: color }}
-          />
+          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
           <h3 className="font-semibold text-gray-800">{title}</h3>
         </div>
         <span
@@ -43,12 +43,7 @@ export function KanbanColumn({
       <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-50 rounded-b-lg">
         {orders.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-gray-400">
-            <svg
-              className="w-12 h-12 mb-2"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
+            <svg className="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"

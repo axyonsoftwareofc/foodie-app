@@ -1,43 +1,43 @@
 /* src/app/globals.css */
-@import "tailwindcss";
+@import 'tailwindcss';
 
 /* ============================================ */
 /* TEMA CLARO (padrão)                          */
 /* ============================================ */
 :root {
   /* Backgrounds */
-  --color-bg: #FFFFFF;
-  --color-bg-secondary: #F6F6F6;
-  --color-bg-tertiary: #E8E8E8;
-  --color-bg-card: #FFFFFF;
-  --color-bg-input: #FFFFFF;
-  --color-bg-hover: #F0F0F0;
+  --color-bg: #ffffff;
+  --color-bg-secondary: #f6f6f6;
+  --color-bg-tertiary: #e8e8e8;
+  --color-bg-card: #ffffff;
+  --color-bg-input: #ffffff;
+  --color-bg-hover: #f0f0f0;
   --color-bg-modal-overlay: rgba(0, 0, 0, 0.5);
 
   /* Textos */
-  --color-text: #1A1A1A;
-  --color-text-secondary: #6B6B6B;
-  --color-text-tertiary: #9B9B9B;
-  --color-text-inverse: #FFFFFF;
+  --color-text: #1a1a1a;
+  --color-text-secondary: #6b6b6b;
+  --color-text-tertiary: #9b9b9b;
+  --color-text-inverse: #ffffff;
 
   /* Bordas */
-  --color-border: #E8E8E8;
-  --color-border-secondary: #F0F0F0;
-  --color-border-focus: #00A082;
+  --color-border: #e8e8e8;
+  --color-border-secondary: #f0f0f0;
+  --color-border-focus: #00a082;
 
   /* Brand (não mudam entre temas) */
-  --color-primary: #00A082;
-  --color-primary-hover: #008F74;
-  --color-primary-active: #007D66;
-  --color-primary-light: #E6F7F4;
+  --color-primary: #00a082;
+  --color-primary-hover: #008f74;
+  --color-primary-active: #007d66;
+  --color-primary-light: #e6f7f4;
 
   /* Feedback (não mudam entre temas) */
-  --color-success: #00A082;
-  --color-warning: #FFAA00;
-  --color-error: #FF4444;
-  --color-error-light: #FFF0F0;
-  --color-error-border: #FFCCCC;
-  --color-rating: #FACC15;
+  --color-success: #00a082;
+  --color-warning: #ffaa00;
+  --color-error: #ff4444;
+  --color-error-light: #fff0f0;
+  --color-error-border: #ffcccc;
+  --color-rating: #facc15;
 
   /* Sombras */
   --color-shadow: rgba(0, 0, 0, 0.1);
@@ -51,29 +51,29 @@
 /* ============================================ */
 .dark {
   /* Backgrounds */
-  --color-bg: #0F0F0F;
-  --color-bg-secondary: #1A1A1A;
-  --color-bg-tertiary: #2D2D2D;
-  --color-bg-card: #1A1A1A;
-  --color-bg-input: #2D2D2D;
-  --color-bg-hover: #2D2D2D;
+  --color-bg: #0f0f0f;
+  --color-bg-secondary: #1a1a1a;
+  --color-bg-tertiary: #2d2d2d;
+  --color-bg-card: #1a1a1a;
+  --color-bg-input: #2d2d2d;
+  --color-bg-hover: #2d2d2d;
   --color-bg-modal-overlay: rgba(0, 0, 0, 0.7);
 
   /* Textos */
-  --color-text: #F5F5F5;
-  --color-text-secondary: #A0A0A0;
-  --color-text-tertiary: #6B6B6B;
-  --color-text-inverse: #1A1A1A;
+  --color-text: #f5f5f5;
+  --color-text-secondary: #a0a0a0;
+  --color-text-tertiary: #6b6b6b;
+  --color-text-inverse: #1a1a1a;
 
   /* Bordas */
-  --color-border: #2D2D2D;
-  --color-border-secondary: #3D3D3D;
-  --color-border-focus: #00A082;
+  --color-border: #2d2d2d;
+  --color-border-secondary: #3d3d3d;
+  --color-border-focus: #00a082;
 
   /* Brand - Primary fica levemente mais vibrante no dark */
-  --color-primary: #00A082;
-  --color-primary-hover: #00B894;
-  --color-primary-active: #00D4A8;
+  --color-primary: #00a082;
+  --color-primary-hover: #00b894;
+  --color-primary-active: #00d4a8;
   --color-primary-light: rgba(0, 160, 130, 0.15);
 
   /* Feedback - Ajustados para dark */
@@ -90,7 +90,9 @@
 body {
   background-color: var(--color-bg);
   color: var(--color-text);
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
 }
 
 /* ============================================ */

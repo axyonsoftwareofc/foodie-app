@@ -3,149 +3,149 @@ import { renderHook, act } from '@testing-library/react';
 import { AccessibilityProvider, useAccessibility } from '../../contexts/AccessibilityContext';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
-    <AccessibilityProvider>{children}</AccessibilityProvider>
+  <AccessibilityProvider>{children}</AccessibilityProvider>
 );
 
 describe('useAccessibility', () => {
-    beforeEach(() => {
-        localStorage.clear();
-        vi.clearAllMocks();
+  beforeEach(() => {
+    localStorage.clear();
+    vi.clearAllMocks();
+  });
+
+  it('should start with default settings', () => {
+    const { result } = renderHook(() => useAccessibility(), { wrapper });
+
+    expect(result.current.settings.highContrast).toBe(false);
+    expect(result.current.settings.largeText).toBe(false);
+    expect(result.current.settings.reducedMotion).toBe(false);
+    expect(result.current.settings.keyboardNavigation).toBe(true);
+  });
+
+  it('should update individual setting', () => {
+    const { result } = renderHook(() => useAccessibility(), { wrapper });
+
+    act(() => {
+      result.current.updateSetting('highContrast', true);
     });
 
-    it('should start with default settings', () => {
-        const { result } = renderHook(() => useAccessibility(), { wrapper });
+    expect(result.current.settings.highContrast).toBe(true);
+  });
 
-        expect(result.current.settings.highContrast).toBe(false);
-        expect(result.current.settings.largeText).toBe(false);
-        expect(result.current.settings.reducedMotion).toBe(false);
-        expect(result.current.settings.keyboardNavigation).toBe(true);
+  it('should apply blind preset', () => {
+    const { result } = renderHook(() => useAccessibility(), { wrapper });
+
+    act(() => {
+      result.current.applyPreset('blind');
     });
 
-    it('should update individual setting', () => {
-        const { result } = renderHook(() => useAccessibility(), { wrapper });
+    expect(result.current.settings.highContrast).toBe(true);
+    expect(result.current.settings.largeText).toBe(true);
+    expect(result.current.settings.reducedMotion).toBe(true);
+    expect(result.current.settings.keyboardNavigation).toBe(true);
+  });
 
-        act(() => {
-            result.current.updateSetting('highContrast', true);
-        });
+  it('should apply lowVision preset', () => {
+    const { result } = renderHook(() => useAccessibility(), { wrapper });
 
-        expect(result.current.settings.highContrast).toBe(true);
+    act(() => {
+      result.current.applyPreset('lowVision');
     });
 
-    it('should apply blind preset', () => {
-        const { result } = renderHook(() => useAccessibility(), { wrapper });
+    expect(result.current.settings.highContrast).toBe(true);
+    expect(result.current.settings.largeText).toBe(true);
+    expect(result.current.settings.dyslexiaFriendly).toBe(true);
+  });
 
-        act(() => {
-            result.current.applyPreset('blind');
-        });
+  it('should apply motor preset', () => {
+    const { result } = renderHook(() => useAccessibility(), { wrapper });
 
-        expect(result.current.settings.highContrast).toBe(true);
-        expect(result.current.settings.largeText).toBe(true);
-        expect(result.current.settings.reducedMotion).toBe(true);
-        expect(result.current.settings.keyboardNavigation).toBe(true);
+    act(() => {
+      result.current.applyPreset('motor');
     });
 
-    it('should apply lowVision preset', () => {
-        const { result } = renderHook(() => useAccessibility(), { wrapper });
+    expect(result.current.settings.largeText).toBe(true);
+    expect(result.current.settings.largeClickTargets).toBe(true);
+    expect(result.current.settings.extendedTimeout).toBe(true);
+  });
 
-        act(() => {
-            result.current.applyPreset('lowVision');
-        });
+  it('should apply hearing preset', () => {
+    const { result } = renderHook(() => useAccessibility(), { wrapper });
 
-        expect(result.current.settings.highContrast).toBe(true);
-        expect(result.current.settings.largeText).toBe(true);
-        expect(result.current.settings.dyslexiaFriendly).toBe(true);
+    act(() => {
+      result.current.applyPreset('hearing');
     });
 
-    it('should apply motor preset', () => {
-        const { result } = renderHook(() => useAccessibility(), { wrapper });
+    expect(result.current.settings.visualAlerts).toBe(true);
+  });
 
-        act(() => {
-            result.current.applyPreset('motor');
-        });
+  it('should apply cognitive preset', () => {
+    const { result } = renderHook(() => useAccessibility(), { wrapper });
 
-        expect(result.current.settings.largeText).toBe(true);
-        expect(result.current.settings.largeClickTargets).toBe(true);
-        expect(result.current.settings.extendedTimeout).toBe(true);
+    act(() => {
+      result.current.applyPreset('cognitive');
     });
 
-    it('should apply hearing preset', () => {
-        const { result } = renderHook(() => useAccessibility(), { wrapper });
+    expect(result.current.settings.simplifiedInterface).toBe(true);
+    expect(result.current.settings.dyslexiaFriendly).toBe(true);
+    expect(result.current.settings.readingGuide).toBe(true);
+    expect(result.current.settings.reducedDistractions).toBe(true);
+  });
 
-        act(() => {
-            result.current.applyPreset('hearing');
-        });
+  it('should reset to default settings', () => {
+    const { result } = renderHook(() => useAccessibility(), { wrapper });
 
-        expect(result.current.settings.visualAlerts).toBe(true);
+    act(() => {
+      result.current.updateSetting('highContrast', true);
+      result.current.updateSetting('largeText', true);
     });
 
-    it('should apply cognitive preset', () => {
-        const { result } = renderHook(() => useAccessibility(), { wrapper });
+    expect(result.current.settings.highContrast).toBe(true);
 
-        act(() => {
-            result.current.applyPreset('cognitive');
-        });
-
-        expect(result.current.settings.simplifiedInterface).toBe(true);
-        expect(result.current.settings.dyslexiaFriendly).toBe(true);
-        expect(result.current.settings.readingGuide).toBe(true);
-        expect(result.current.settings.reducedDistractions).toBe(true);
+    act(() => {
+      result.current.resetSettings();
     });
 
-    it('should reset to default settings', () => {
-        const { result } = renderHook(() => useAccessibility(), { wrapper });
+    expect(result.current.settings.highContrast).toBe(false);
+    expect(result.current.settings.largeText).toBe(false);
+  });
 
-        act(() => {
-            result.current.updateSetting('highContrast', true);
-            result.current.updateSetting('largeText', true);
-        });
+  it('should control panel open state', () => {
+    const { result } = renderHook(() => useAccessibility(), { wrapper });
 
-        expect(result.current.settings.highContrast).toBe(true);
+    expect(result.current.isPanelOpen).toBe(false);
 
-        act(() => {
-            result.current.resetSettings();
-        });
-
-        expect(result.current.settings.highContrast).toBe(false);
-        expect(result.current.settings.largeText).toBe(false);
+    act(() => {
+      result.current.setIsPanelOpen(true);
     });
 
-    it('should control panel open state', () => {
-        const { result } = renderHook(() => useAccessibility(), { wrapper });
+    expect(result.current.isPanelOpen).toBe(true);
+  });
 
-        expect(result.current.isPanelOpen).toBe(false);
+  it('should announce messages', () => {
+    const { result } = renderHook(() => useAccessibility(), { wrapper });
 
-        act(() => {
-            result.current.setIsPanelOpen(true);
-        });
+    expect(() => {
+      result.current.announce('Test message');
+    }).not.toThrow();
+  });
 
-        expect(result.current.isPanelOpen).toBe(true);
+  it('should persist settings to localStorage', () => {
+    const { result } = renderHook(() => useAccessibility(), { wrapper });
+
+    act(() => {
+      result.current.updateSetting('highContrast', true);
     });
 
-    it('should announce messages', () => {
-        const { result } = renderHook(() => useAccessibility(), { wrapper });
+    expect(localStorage.setItem).toHaveBeenCalled();
+  });
 
-        expect(() => {
-            result.current.announce('Test message');
-        }).not.toThrow();
-    });
+  it('should load settings from localStorage', () => {
+    (localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue(
+      JSON.stringify({ highContrast: true, largeText: true })
+    );
 
-    it('should persist settings to localStorage', () => {
-        const { result } = renderHook(() => useAccessibility(), { wrapper });
+    const { result } = renderHook(() => useAccessibility(), { wrapper });
 
-        act(() => {
-            result.current.updateSetting('highContrast', true);
-        });
-
-        expect(localStorage.setItem).toHaveBeenCalled();
-    });
-
-    it('should load settings from localStorage', () => {
-        (localStorage.getItem as ReturnType<typeof vi.fn>).mockReturnValue(
-            JSON.stringify({ highContrast: true, largeText: true })
-        );
-
-        const { result } = renderHook(() => useAccessibility(), { wrapper });
-
-        expect(result.current.settings.highContrast).toBe(true);
-    });
+    expect(result.current.settings.highContrast).toBe(true);
+  });
 });

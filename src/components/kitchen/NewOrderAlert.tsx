@@ -41,11 +41,7 @@ export function NewOrderAlert({ order, onDismiss }: NewOrderAlertProps) {
         <div className="px-4 py-3 bg-black/10 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="relative">
-              <svg
-                className="w-5 h-5 animate-bounce"
-                fill="currentColor"
-                viewBox="0 0 24 24"
-              >
+              <svg className="w-5 h-5 animate-bounce" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z" />
               </svg>
               <span className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
@@ -81,12 +77,8 @@ export function NewOrderAlert({ order, onDismiss }: NewOrderAlertProps) {
               </svg>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-white truncate">
-                {order.customerName}
-              </p>
-              <p className="text-sm text-white/80">
-                {getOrderTypeLabel(order.orderType)}
-              </p>
+              <p className="font-semibold text-white truncate">{order.customerName}</p>
+              <p className="text-sm text-white/80">{getOrderTypeLabel(order.orderType)}</p>
             </div>
           </div>
 
@@ -94,9 +86,7 @@ export function NewOrderAlert({ order, onDismiss }: NewOrderAlertProps) {
           <div className="mt-3 pt-3 border-t border-white/20">
             <p className="text-xs text-white/70 uppercase tracking-wide mb-1">Itens:</p>
             <p className="text-sm text-white font-medium truncate">
-              {itemsList.length > 0
-                ? itemsList.join(', ')
-                : 'Pedido sem itens especificados'}
+              {itemsList.length > 0 ? itemsList.join(', ') : 'Pedido sem itens especificados'}
             </p>
           </div>
 

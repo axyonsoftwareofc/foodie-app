@@ -23,6 +23,7 @@ Fase 1 (Atual)  Fase 2 (Mês 1)   Fase 3 (Mês 2)    Fase 4 (Mês 3)
 **Goal:** Pipeline de checkout funcional, cardápio real (Prisma), base multi-tenant preparada.
 
 ### Features concluídas
+
 - [x] Schema Prisma completo (11 models + relations)
 - [x] Cardápio público via Prisma (`/r/[slug]`)
 - [x] Homepage migrada de mock para Prisma com fallback
@@ -35,6 +36,7 @@ Fase 1 (Atual)  Fase 2 (Mês 1)   Fase 3 (Mês 2)    Fase 4 (Mês 3)
 - [x] 240 testes passando, 0 erros de lint
 
 ### Pendências da Fase 1
+
 - [ ] Ativar Redis cache para cardápios públicos
 - [ ] Ativar pagamentos reais (Stripe/Pix) — remover feature flags
 - [ ] Finalizar migração de todas as queries de Supabase para Prisma
@@ -49,6 +51,7 @@ Fase 1 (Atual)  Fase 2 (Mês 1)   Fase 3 (Mês 2)    Fase 4 (Mês 3)
 ### Features
 
 #### 2.1 Onboarding Wizard
+
 - **Descrição:** Fluxo guiado de 3 passos para criar restaurante
   1. Dados básicos (nome, categoria, CNPJ, telefone)
   2. Escolher subdomínio (restaurante.foodie.app)
@@ -63,6 +66,7 @@ Fase 1 (Atual)  Fase 2 (Mês 1)   Fase 3 (Mês 2)    Fase 4 (Mês 3)
 - **Validações:** Subdomínio único, CNPJ válido, imagem < 5MB
 
 #### 2.2 Subdomínio Automático
+
 - **Descrição:** Cada restaurante acessível via `{slug}.foodie.app`
 - **Arquivos modificados:**
   - `middleware.ts` — detectar subdomínio, redirecionar para `/r/[slug]`
@@ -70,6 +74,7 @@ Fase 1 (Atual)  Fase 2 (Mês 1)   Fase 3 (Mês 2)    Fase 4 (Mês 3)
 - **Infra:** Configurar DNS wildcard `*.foodie.app` → Vercel
 
 #### 2.3 Redis Cache
+
 - **Descrição:** Cache de cardápios e dados de restaurante para performance
 - **Arquivos novos:**
   - `src/lib/redis.ts` — singleton Redis client
@@ -81,6 +86,7 @@ Fase 1 (Atual)  Fase 2 (Mês 1)   Fase 3 (Mês 2)    Fase 4 (Mês 3)
   - Fallback: se Redis offline, ir direto no banco
 
 #### 2.4 Settings Page — Completa
+
 - **Descrição:** Expandir `/dashboard/settings` atual com:
   - CNPJ (via Prisma)
   - Logo e capa (upload para Supabase Storage)
@@ -90,6 +96,7 @@ Fase 1 (Atual)  Fase 2 (Mês 1)   Fase 3 (Mês 2)    Fase 4 (Mês 3)
   - `src/app/dashboard/settings/page.tsx`
 
 ### Testes da Fase 2
+
 - Teste de onboarding wizard (3 passos)
 - Teste de conflito de subdomínio
 - Teste de cache hit/miss/invalidação
@@ -104,6 +111,7 @@ Fase 1 (Atual)  Fase 2 (Mês 1)   Fase 3 (Mês 2)    Fase 4 (Mês 3)
 ### Features
 
 #### 3.1 Painel do Entregador
+
 - **Descrição:** Lista de entregas disponíveis, em andamento e histórico
 - **Arquivos novos:**
   - `src/app/(driver)/driver/page.tsx` — dashboard do entregador
@@ -113,6 +121,7 @@ Fase 1 (Atual)  Fase 2 (Mês 1)   Fase 3 (Mês 2)    Fase 4 (Mês 3)
 - **Status do entregador:** ONLINE, OFFLINE, BUSY
 
 #### 3.2 GPS Tracking em Tempo Real
+
 - **Descrição:** Cliente vê entregador no mapa durante a entrega
 - **Arquivos novos:**
   - `src/components/delivery/LiveTracker.tsx` — mapa com posição em tempo real
@@ -127,6 +136,7 @@ Fase 1 (Atual)  Fase 2 (Mês 1)   Fase 3 (Mês 2)    Fase 4 (Mês 3)
 - **Battery-aware:** Só envia tracking se pedido estiver em status DELIVERING
 
 #### 3.3 Atribuição de Entregas
+
 - **Descrição:** Restaurante atribui pedido pronto a um entregador disponível
 - **Arquivos novos:**
   - `src/components/kitchen/AssignDriverModal.tsx`
@@ -138,6 +148,7 @@ Fase 1 (Atual)  Fase 2 (Mês 1)   Fase 3 (Mês 2)    Fase 4 (Mês 3)
   - Notificação push/email para o cliente
 
 #### 3.4 Notificações em Tempo Real
+
 - **Descrição:** Cliente recebe updates de status sem recarregar a página
 - **Arquivos modificados:**
   - `src/app/orders/[id]/page.tsx` — adicionar subscription Redis
@@ -145,6 +156,7 @@ Fase 1 (Atual)  Fase 2 (Mês 1)   Fase 3 (Mês 2)    Fase 4 (Mês 3)
 - **Eventos:** ORDER_CONFIRMED, PREPARING, READY, OUT_FOR_DELIVERY, DELIVERED
 
 ### Testes da Fase 3
+
 - Teste de tracking com coordenadas mockadas
 - Teste de atribuição de entrega (entregador disponível/indisponível)
 - Teste de notificação em tempo real
@@ -159,6 +171,7 @@ Fase 1 (Atual)  Fase 2 (Mês 1)   Fase 3 (Mês 2)    Fase 4 (Mês 3)
 ### Features
 
 #### 4.1 Domínio Próprio
+
 - **Descrição:** Restaurante conecta seu próprio domínio (ex: pizzariadoze.com.br)
 - **Arquivos novos:**
   - `src/app/dashboard/domain/page.tsx` — página de configuração de domínio
@@ -171,6 +184,7 @@ Fase 1 (Atual)  Fase 2 (Mês 1)   Fase 3 (Mês 2)    Fase 4 (Mês 3)
   5. Redirecionamento 301 do subdomínio antigo para o novo
 
 #### 4.2 Temas Customizáveis
+
 - **Descrição:** Cores, fontes e layout customizáveis por restaurante
 - **Arquivos novos:**
   - `src/app/dashboard/theme/page.tsx` — editor de tema
@@ -183,6 +197,7 @@ Fase 1 (Atual)  Fase 2 (Mês 1)   Fase 3 (Mês 2)    Fase 4 (Mês 3)
   - Banner da homepage
 
 #### 4.3 Billing (Assinaturas)
+
 - **Descrição:** Planos de assinatura para restaurantes
 - **Arquivos novos:**
   - `src/app/dashboard/billing/page.tsx`
@@ -193,6 +208,7 @@ Fase 1 (Atual)  Fase 2 (Mês 1)   Fase 3 (Mês 2)    Fase 4 (Mês 3)
   - **Enterprise (R$ 297/mês):** White-label completo, API, suporte prioritário
 
 #### 4.4 Launch Checklist
+
 - [ ] Deploy Vercel com domínio `foodie.app`
 - [ ] Configurar Redis em produção (Upstash)
 - [ ] Ativar Stripe em produção (chaves live)
@@ -203,6 +219,7 @@ Fase 1 (Atual)  Fase 2 (Mês 1)   Fase 3 (Mês 2)    Fase 4 (Mês 3)
 - [ ] Backup automatizado do banco (Supabase)
 
 ### Testes da Fase 4
+
 - Teste de verificação de domínio (DNS)
 - Teste de aplicação de tema por restaurante
 - Teste de checkout com Stripe em produção
@@ -212,20 +229,20 @@ Fase 1 (Atual)  Fase 2 (Mês 1)   Fase 3 (Mês 2)    Fase 4 (Mês 3)
 
 ## Riscos e Dependências
 
-| Risco | Probabilidade | Impacto | Mitigação |
-|---|---|---|---|
-| Supabase indisponível | Baixa | Alto | Cache Redis reduz dependência de leitura |
-| Vercel cold start afetar checkout | Média | Médio | ISR + Edge Functions para páginas críticas |
-| Complexidade do white-label atrasar lançamento | Média | Médio | Fase 4 é opcional para MVP. Lançar sem white-label se necessário. |
-| Gateways de pagamento rejeitarem conta | Baixa | Alto | Começar com Pix manual (zero dependência externa) |
-| Custo de Redis/Upstash escalar inesperadamente | Baixa | Baixo | Monitorar uso. Cache apenas dados quentes. |
+| Risco                                          | Probabilidade | Impacto | Mitigação                                                         |
+| ---------------------------------------------- | ------------- | ------- | ----------------------------------------------------------------- |
+| Supabase indisponível                          | Baixa         | Alto    | Cache Redis reduz dependência de leitura                          |
+| Vercel cold start afetar checkout              | Média         | Médio   | ISR + Edge Functions para páginas críticas                        |
+| Complexidade do white-label atrasar lançamento | Média         | Médio   | Fase 4 é opcional para MVP. Lançar sem white-label se necessário. |
+| Gateways de pagamento rejeitarem conta         | Baixa         | Alto    | Começar com Pix manual (zero dependência externa)                 |
+| Custo de Redis/Upstash escalar inesperadamente | Baixa         | Baixo   | Monitorar uso. Cache apenas dados quentes.                        |
 
 ## Dependências Externas
 
-| Dependência | Status | Bloqueia |
-|---|---|---|
-| Supabase (banco + auth) | Ativo | Nada (já em uso) |
-| Vercel (deploy) | Ativo | Lançamento |
-| Redis/Upstash | Não contratado | Fase 2 (cache) |
-| Stripe live keys | Não ativado | Pagamentos reais |
-| Domínio foodie.app | Não registrado | Subdomínios |
+| Dependência             | Status         | Bloqueia         |
+| ----------------------- | -------------- | ---------------- |
+| Supabase (banco + auth) | Ativo          | Nada (já em uso) |
+| Vercel (deploy)         | Ativo          | Lançamento       |
+| Redis/Upstash           | Não contratado | Fase 2 (cache)   |
+| Stripe live keys        | Não ativado    | Pagamentos reais |
+| Domínio foodie.app      | Não registrado | Subdomínios      |

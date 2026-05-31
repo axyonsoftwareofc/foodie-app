@@ -3,20 +3,23 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 
 export async function getServerSession() {
-    const supabase = await createClient();
-    const { data: { user }, error } = await supabase.auth.getUser();
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
 
-    if (error || !user) {
-        return null;
-    }
+  if (error || !user) {
+    return null;
+  }
 
-    return { user };
+  return { user };
 }
 
 export async function requireAuth() {
-    const session = await getServerSession();
-    if (!session) {
-        redirect('/sign-in');
-    }
-    return session;
+  const session = await getServerSession();
+  if (!session) {
+    redirect('/sign-in');
+  }
+  return session;
 }

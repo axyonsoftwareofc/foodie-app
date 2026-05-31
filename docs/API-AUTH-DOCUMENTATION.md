@@ -29,10 +29,11 @@ Este documento descreve como a autenticação funciona no Foodie App. O projeto 
 
 ```typescript
 // Client-side (via AuthContext)
-const { error, success } = await signUp(email, password, fullName)
+const { error, success } = await signUp(email, password, fullName);
 ```
 
 **Server Action:** `signUpWithEmail()` em `src/actions/auth.ts`
+
 - Validação Zod do formulário (senha: 8+ chars, maiúscula, minúscula, número, símbolo)
 - Rate limiting por email (5 tentativas / 60s)
 - Supabase envia email de confirmação (configurável no dashboard)
@@ -51,10 +52,11 @@ POST (Server Action) signUpWithEmail({ email, password, fullName })
 
 ```typescript
 // Client-side (via AuthContext)
-const { error } = await signIn(email, password)
+const { error } = await signIn(email, password);
 ```
 
 **Server Action:** `signInWithEmail()` em `src/actions/auth.ts`
+
 - Rate limiting por email (5 tentativas / 60s)
 - Redireciona para `/` após sucesso
 
@@ -74,10 +76,11 @@ POST (Server Action) signInWithEmail({ email, password })
 
 ```typescript
 // Client-side (via GoogleButton)
-supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } })
+supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } });
 ```
 
 **Callback:** `src/app/auth/callback/route.ts`
+
 - Troca o `code` da URL por uma sessão via `supabase.auth.exchangeCodeForSession(code)`
 - Redireciona para `/?auth=success` para o `AuthContext` detectar e recarregar o perfil
 
@@ -93,10 +96,11 @@ GET /auth/callback?code=xxx
 
 ```typescript
 // Client-side (via AuthContext)
-await signOut()
+await signOut();
 ```
 
 **Server Action:** `signOut()` em `src/actions/auth.ts`
+
 - Chama `supabase.auth.signOut()` que invalida os cookies de sessão
 - Redireciona para `/sign-in`
 
@@ -112,10 +116,11 @@ POST (Server Action) signOut()
 
 ```typescript
 // Client-side
-const { success, error } = await resetPassword(email)
+const { success, error } = await resetPassword(email);
 ```
 
 **Server Action:** `resetPassword()` em `src/actions/auth.ts`
+
 - Rate limiting por email (5 tentativas / 60s)
 - Envia email com link mágico para `/reset-password`
 
@@ -132,10 +137,11 @@ POST (Server Action) resetPassword(email)
 
 ```typescript
 // Server Action
-const { success, error } = await updatePassword(newPassword)
+const { success, error } = await updatePassword(newPassword);
 ```
 
 **Server Action:** `updatePassword()` em `src/actions/auth.ts`
+
 - Requer sessão ativa (usuário veio do link de recuperação)
 
 ```
@@ -150,12 +156,12 @@ POST (Server Action) updatePassword(password)
 
 ### Roles
 
-| Role | Permissão |
-|------|-----------|
-| `ADMIN` | Acesso total ao sistema |
+| Role          | Permissão                                      |
+| ------------- | ---------------------------------------------- |
+| `ADMIN`       | Acesso total ao sistema                        |
 | `GERENCIADOR` | Gerencia restaurante próprio, dashboard, admin |
-| `EQUIPE` | Acesso ao dashboard do restaurante |
-| `CLIENTE` | Acesso básico (fazer pedidos, ver perfil) |
+| `EQUIPE`      | Acesso ao dashboard do restaurante             |
+| `CLIENTE`     | Acesso básico (fazer pedidos, ver perfil)      |
 
 ### Como funciona
 
@@ -181,13 +187,13 @@ ADMIN > GERENCIADOR > EQUIPE > CLIENTE
 
 O middleware (`middleware.ts`) protege automaticamente:
 
-| Rota | Requisito |
-|------|-----------|
-| `/admin/*` | Role ≥ `GERENCIADOR` |
-| `/dashboard/*` | Role ≥ `EQUIPE` |
-| `/driver/*` | Role ≥ `EQUIPE` |
-| `/profile`, `/orders`, `/addresses`, `/cart`, `/favorites`, `/checkout` | Autenticado |
-| `/sign-in`, `/sign-up` | Redireciona para `/` se já autenticado |
+| Rota                                                                    | Requisito                              |
+| ----------------------------------------------------------------------- | -------------------------------------- |
+| `/admin/*`                                                              | Role ≥ `GERENCIADOR`                   |
+| `/dashboard/*`                                                          | Role ≥ `EQUIPE`                        |
+| `/driver/*`                                                             | Role ≥ `EQUIPE`                        |
+| `/profile`, `/orders`, `/addresses`, `/cart`, `/favorites`, `/checkout` | Autenticado                            |
+| `/sign-in`, `/sign-up`                                                  | Redireciona para `/` se já autenticado |
 
 Rotas de API (`/api/*`) e o callback OAuth são excluídos do middleware e fazem sua própria verificação de autenticação.
 
@@ -195,18 +201,18 @@ Rotas de API (`/api/*`) e o callback OAuth são excluídos do middleware e fazem
 
 ## Arquivos Relevantes
 
-| Arquivo | Função |
-|---------|--------|
-| `src/actions/auth.ts` | Server Actions: signIn, signUp, signOut, resetPassword, updatePassword |
-| `src/contexts/AuthContext.tsx` | Contexto React: estado de auth, refresh, signIn, signUp, signOut |
-| `src/hooks/useAuth.ts` | Hook para componentes acessarem o contexto |
-| `src/lib/auth.ts` | `getServerSession()`, `requireAuth()` para Server Components |
-| `src/lib/authz.ts` | Verificações de ownership (restaurante, categoria, produto, etc.) |
-| `src/lib/supabase/server.ts` | Cliente Supabase server-side (cookies) |
-| `src/lib/supabase/client.ts` | Cliente Supabase browser-side |
-| `src/app/auth/callback/route.ts` | Callback OAuth (Google) |
-| `middleware.ts` | Proteção de rotas, RBAC, cache de role |
-| `src/lib/validations/auth.validations.ts` | Schemas Zod de validação |
+| Arquivo                                   | Função                                                                 |
+| ----------------------------------------- | ---------------------------------------------------------------------- |
+| `src/actions/auth.ts`                     | Server Actions: signIn, signUp, signOut, resetPassword, updatePassword |
+| `src/contexts/AuthContext.tsx`            | Contexto React: estado de auth, refresh, signIn, signUp, signOut       |
+| `src/hooks/useAuth.ts`                    | Hook para componentes acessarem o contexto                             |
+| `src/lib/auth.ts`                         | `getServerSession()`, `requireAuth()` para Server Components           |
+| `src/lib/authz.ts`                        | Verificações de ownership (restaurante, categoria, produto, etc.)      |
+| `src/lib/supabase/server.ts`              | Cliente Supabase server-side (cookies)                                 |
+| `src/lib/supabase/client.ts`              | Cliente Supabase browser-side                                          |
+| `src/app/auth/callback/route.ts`          | Callback OAuth (Google)                                                |
+| `middleware.ts`                           | Proteção de rotas, RBAC, cache de role                                 |
+| `src/lib/validations/auth.validations.ts` | Schemas Zod de validação                                               |
 
 ---
 
