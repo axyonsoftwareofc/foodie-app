@@ -1,6 +1,8 @@
 /* src/app/globals.css */
 @import 'tailwindcss';
 
+@variant dark (&:is(.dark *));
+
 /* ============================================ */
 /* TEMA CLARO (padrão)                          */
 /* ============================================ */

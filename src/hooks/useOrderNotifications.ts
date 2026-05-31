@@ -1,25 +1,25 @@
 // src/hooks/useOrderNotifications.ts
 'use client';
 
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import type { KitchenOrder } from '@/types/kitchen.types';
 
 export function useOrderNotifications() {
-  const permissionRef = useRef<NotificationPermission>('default');
+  const [permission, setPermission] = useState<NotificationPermission>('default');
 
   useEffect(() => {
     if ('Notification' in window) {
-      permissionRef.current = Notification.permission;
+      setPermission(Notification.permission);
     }
   }, []);
 
   const requestPermission = useCallback(async () => {
     if ('Notification' in window && Notification.permission === 'default') {
-      const permission = await Notification.requestPermission();
-      permissionRef.current = permission;
-      return permission === 'granted';
+      const perm = await Notification.requestPermission();
+      setPermission(perm);
+      return perm === 'granted';
     }
-    return permissionRef.current === 'granted';
+    return Notification.permission === 'granted';
   }, []);
 
   const notifyNewOrder = useCallback((order: KitchenOrder) => {
@@ -55,10 +55,8 @@ export function useOrderNotifications() {
       notification.onclick = () => {
         window.focus();
         notification.close();
-        // Opcional: navegar para o pedido específico
       };
 
-      // Auto-close após 10 segundos
       setTimeout(() => notification.close(), 10000);
     }
   }, []);
@@ -93,6 +91,6 @@ export function useOrderNotifications() {
     notifyNewOrder,
     notifyStatusChange,
     isSupported: 'Notification' in window,
-    permission: permissionRef.current,
+    permission,
   };
 }
