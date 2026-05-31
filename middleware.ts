@@ -1,7 +1,6 @@
 // src/middleware.ts
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
-import { createHmac } from 'crypto';
 
 const RESERVED_SUBDOMAINS = ['www', 'app', 'admin', 'api', 'mail', 'foodie'];
 
@@ -13,26 +12,45 @@ type UserRole = (typeof ROLE_HIERARCHY)[number];
 const ROLE_COOKIE_NAME = 'foodie-role';
 const ROLE_COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 7 dias
 
-const COOKIE_SECRET = (() => {
+function getCookieSecret(): string {
   const secret = process.env.COOKIE_SIGNING_SECRET;
   if (secret) return secret;
   if (process.env.NODE_ENV === 'production') {
     throw new Error('COOKIE_SIGNING_SECRET environment variable is required in production');
   }
   return 'foodie-cookie-secret-dev';
-})();
-
-function signCookieValue(value: string): string {
-  const hmac = createHmac('sha256', COOKIE_SECRET);
-  hmac.update(value);
-  return `${value}.${hmac.digest('hex')}`;
 }
 
-function verifyCookieValue(signed: string): string | null {
+async function getSigningKey(): Promise<CryptoKey> {
+  const encoder = new TextEncoder();
+  const secret = getCookieSecret();
+  return crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign', 'verify']
+  );
+}
+
+function bufferToHex(buffer: ArrayBuffer): string {
+  return Array.from(new Uint8Array(buffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+async function signCookieValue(value: string): Promise<string> {
+  const key = await getSigningKey();
+  const encoder = new TextEncoder();
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(value));
+  return `${value}.${bufferToHex(signature)}`;
+}
+
+async function verifyCookieValue(signed: string): Promise<string | null> {
   const dotIndex = signed.lastIndexOf('.');
   if (dotIndex === -1) return null;
   const value = signed.substring(0, dotIndex);
-  const expected = signCookieValue(value);
+  const expected = await signCookieValue(value);
   if (signed !== expected) return null;
   return value;
 }
@@ -46,7 +64,7 @@ function hasMinimumRole(userRole: string | null | undefined, minimumRole: UserRo
 }
 
 /** Le a role do cookie de cache. */
-function getCachedRole(request: NextRequest): string | null {
+async function getCachedRole(request: NextRequest): Promise<string | null> {
   const cookie = request.cookies.get(ROLE_COOKIE_NAME);
   if (!cookie?.value) return null;
   return verifyCookieValue(cookie.value);
@@ -83,7 +101,7 @@ async function fetchUserRole(
 
   if (role) {
     // Cacheia a role em cookie para evitar query futura
-    response.cookies.set(ROLE_COOKIE_NAME, signCookieValue(role), {
+    response.cookies.set(ROLE_COOKIE_NAME, await signCookieValue(role), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -103,7 +121,7 @@ async function getUserRole(
   supabase: ReturnType<typeof createServerClient>,
   response: NextResponse
 ): Promise<string | null> {
-  const cachedRole = getCachedRole(request);
+  const cachedRole = await getCachedRole(request);
   if (cachedRole && ROLE_HIERARCHY.includes(cachedRole as UserRole)) {
     return cachedRole;
   }
@@ -227,7 +245,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Se o usuario nao esta logado mas o cookie de role existe, limpa-o
-  if (!user && getCachedRole(request)) {
+  if (!user && (await getCachedRole(request))) {
     clearRoleCookie(supabaseResponse);
   }
 
