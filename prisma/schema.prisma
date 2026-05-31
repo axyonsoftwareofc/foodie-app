@@ -122,6 +122,7 @@ model RestaurantTable {
   updated_at    DateTime @updatedAt
 
   restaurant Restaurant @relation(fields: [restaurant_id], references: [id], onDelete: Cascade)
+  orders    Order[]
 
   @@map("restaurant_tables")
 }
@@ -188,24 +189,26 @@ model Order {
   customer_phone   String?
   order_type       String      @default("DINE_IN")
   table_number     String?
+  table_id         String?
   delivery_address String?
   status           OrderStatus @default(PENDING)
   items            Json
+  kitchen_notes    Json?
   total            Float
   created_at       DateTime    @default(now())
   updated_at       DateTime    @updatedAt
   restaurant_id    String
 
   // Pagamento
-  payment_method   String?
-  payment_provider String? // STRIPE, MERCADOPAGO, PIX, PAYPAL
+  payment_method    String?
+  payment_provider  String? // STRIPE, MERCADOPAGO, PIX, PAYPAL
   payment_intent_id String?
-  payment_status   String? // succeeded, failed, pending, cancelled
-  change_for       Float?
-  subtotal         Float?
-  delivery_fee     Float?
-  discount         Float?
-  coupon_code      String?
+  payment_status    String? // succeeded, failed, pending, cancelled
+  change_for        Float?
+  subtotal          Float?
+  delivery_fee      Float?
+  discount          Float?
+  coupon_code       String?
 
   // Cancelamento
   cancelled_at  DateTime?
@@ -213,20 +216,22 @@ model Order {
 
   // Prazos de preparo
   confirmed_at               DateTime?
-  estimated_preparation_time Int? // em minutos
+  estimated_preparation_time Int?
   estimated_delivery         String?
   preparation_started_at     DateTime?
   ready_at                   DateTime?
   delivering_at              DateTime?
   delivered_at               DateTime?
 
-  restaurant Restaurant @relation(fields: [restaurant_id], references: [id], onDelete: Cascade)
+  restaurant Restaurant      @relation(fields: [restaurant_id], references: [id], onDelete: Cascade)
+  table      RestaurantTable? @relation(fields: [table_id], references: [id], onDelete: SetNull)
   reviews    Review[]
 
   @@index([restaurant_id])
   @@index([status])
   @@index([created_at])
   @@index([customer_id])
+  @@index([table_id])
   @@index([restaurant_id, status])
   @@index([restaurant_id, created_at])
   @@map("orders")

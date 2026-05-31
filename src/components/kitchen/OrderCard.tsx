@@ -25,11 +25,11 @@ export function OrderCard({ order, onAction, onClick }: OrderCardProps) {
   const getOrderTypeLabel = (type: string) => {
     switch (type) {
       case 'DINE_IN':
-        return `Mesa ${order.tableNumber || ''}`;
+        return `🍽️ Mesa ${order.tableNumber || ''}`;
       case 'DELIVERY':
-        return 'Delivery';
+        return '🛵 Delivery';
       case 'PICKUP':
-        return 'Retirada';
+        return '📦 Retirada';
       default:
         return type;
     }

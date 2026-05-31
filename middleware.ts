@@ -251,6 +251,7 @@ export async function middleware(request: NextRequest) {
   const isAdminRoute = pathname.startsWith('/admin');
   const isDashboardRoute = pathname.startsWith('/dashboard');
   const isDriverRoute = pathname.startsWith('/driver');
+  const isWaiterRoute = pathname.startsWith('/waiter');
 
   // Admin routes: require ADMIN or GERENCIADOR
   if (isAdminRoute) {
@@ -300,12 +301,36 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Waiter routes: require at least EQUIPE
+  if (isWaiterRoute) {
+    if (!user) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/sign-in';
+      url.searchParams.set('redirectTo', pathname);
+      return NextResponse.redirect(url);
+    }
+    const role = await getUserRole(request, supabase, supabaseResponse);
+    if (!hasMinimumRole(role, 'EQUIPE')) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/';
+      return NextResponse.redirect(url);
+    }
+  }
+
   // Se o usuario nao esta logado mas o cookie de role existe, limpa-o
   if (!user && (await getCachedRole(request))) {
     clearRoleCookie(supabaseResponse);
   }
 
-  const protectedRoutes = ['/profile', '/orders', '/addresses', '/cart', '/favorites', '/checkout'];
+  const protectedRoutes = [
+    '/profile',
+    '/orders',
+    '/addresses',
+    '/cart',
+    '/favorites',
+    '/checkout',
+    '/waiter',
+  ];
   const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
 
   if (isProtectedRoute && !user) {
