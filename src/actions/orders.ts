@@ -3,6 +3,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { OrderStatus, Prisma } from '@prisma/client';
+import { canTransitionStatus } from '@/lib/utils/order-status.utils';
 import { sendEmail, orderConfirmationTemplate, orderStatusTemplate } from '@/lib/email';
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
@@ -418,7 +419,7 @@ export async function updateOrderStatus({
   restaurantId,
 }: {
   orderId: string;
-  newStatus: string;
+  newStatus: OrderStatus;
   restaurantId: string;
 }): Promise<{ success?: boolean; error?: string }> {
   if (!isValidOrderStatus(newStatus)) {
@@ -447,6 +448,21 @@ export async function updateOrderStatus({
   }
 
   try {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId, restaurant_id: restaurantId },
+      select: { status: true },
+    });
+
+    if (!order) {
+      return { error: 'Pedido não encontrado' };
+    }
+
+    if (!canTransitionStatus(order.status, newStatus)) {
+      return {
+        error: `Transição inválida: ${order.status} → ${newStatus}`,
+      };
+    }
+
     const updateData: Prisma.OrderUpdateInput = {
       status: newStatus,
       updated_at: new Date(),

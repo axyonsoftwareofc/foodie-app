@@ -300,7 +300,7 @@ export default function CozinhaPage() {
 
       const result = await updateOrderStatus({
         orderId: order.id,
-        newStatus: targetStatus,
+        newStatus: targetStatus as OrderStatus,
         restaurantId: order.restaurantId as string,
       });
 

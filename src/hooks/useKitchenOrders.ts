@@ -6,6 +6,7 @@ import { getOrdersForRestaurant } from '@/actions/orders';
 import type { KitchenOrder } from '@/types/kitchen.types';
 import type { OrderType } from '@/types';
 import { toast } from 'sonner';
+import { playOrderAlert } from '@/lib/audio';
 
 // EXPORTAR o tipo para uso em outros componentes
 export type { KitchenOrder as Order };
@@ -25,11 +26,6 @@ export function useKitchenOrders() {
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
   const previousOrderIdsRef = useRef<Set<string>>(new Set());
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  useEffect(() => {
-    audioRef.current = new Audio('/sounds/new-order.mp3');
-  }, []);
 
   const fetchOrders = useCallback(async () => {
     const result = await getOrdersForRestaurant({
@@ -50,10 +46,8 @@ export function useKitchenOrders() {
       // Detectar novos pedidos (apenas PENDING)
       for (const order of newOrders) {
         if (!previousIds.has(order.id) && order.status === 'PENDING') {
-          // Tocar som
-          audioRef.current?.play().catch(() => {});
+          playOrderAlert();
 
-          // Toast
           toast.success(`🔔 Novo pedido #${order.id.slice(-4)}!`, {
             description:
               order.orderType === 'DINE_IN' ? `Mesa ${order.tableNumber}` : order.orderType,

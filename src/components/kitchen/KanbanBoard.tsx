@@ -6,8 +6,9 @@ import { useOrderNotifications } from '@/hooks/useOrderNotifications';
 import type { KitchenOrder } from '@/types/kitchen.types';
 import { updateOrderStatus, cancelOrderByRestaurant } from '@/actions/orders';
 import { canTransitionStatus, getNextStatus } from '@/lib/utils/order-status.utils';
+import { initAudio, isAudioReady } from '@/lib/audio';
 import { useState, useEffect, useMemo } from 'react';
-import { Clock, ChefHat, Package, CheckCircle, Truck, Filter } from 'lucide-react';
+import { Clock, ChefHat, Package, CheckCircle, Truck, Filter, Volume2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { OrderStatus } from '@prisma/client';
 import { KanbanColumn } from './KanbanColumn';
@@ -72,6 +73,16 @@ export function KanbanBoard() {
   const [showFilters, setShowFilters] = useState(false);
   const [assignOrderId, setAssignOrderId] = useState<string | null>(null);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [audioReady, setAudioReady] = useState(false);
+
+  function handleInitTurno() {
+    const ok = initAudio();
+    setAudioReady(ok);
+  }
+
+  useEffect(() => {
+    setAudioReady(isAudioReady());
+  }, []);
 
   // Solicitar permissão para notificações ao montar
   useEffect(() => {
@@ -125,7 +136,7 @@ export function KanbanBoard() {
 
     const result = await updateOrderStatus({
       orderId: order.id,
-      newStatus: targetStatus,
+      newStatus: targetStatus as OrderStatus,
       restaurantId: order.restaurantId,
     });
 
@@ -257,7 +268,16 @@ TOTAL: R$ ${order.total.toFixed(2).replace('.', ',')}
       ))}
 
       {/* Filters Bar */}
-      <div className="mb-4">
+      <div className="mb-4 flex items-center gap-3">
+        {!audioReady && (
+          <button
+            onClick={handleInitTurno}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
+          >
+            <Volume2 className="w-4 h-4" />
+            Iniciar turno
+          </button>
+        )}
         <button
           onClick={() => setShowFilters(!showFilters)}
           className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
