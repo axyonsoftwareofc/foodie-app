@@ -1,6 +1,7 @@
 // src/middleware.ts
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { Redis } from '@upstash/redis';
 
 const RESERVED_SUBDOMAINS = ['www', 'app', 'admin', 'api', 'mail', 'foodie'];
 
@@ -11,6 +12,38 @@ type UserRole = (typeof ROLE_HIERARCHY)[number];
 /** Nome do cookie que cacheia a role do usuario (evita query ao banco em todo request). */
 const ROLE_COOKIE_NAME = 'foodie-role';
 const ROLE_COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 7 dias
+
+let redisForRateLimit: Redis | null = null;
+
+function getRedisClient(): Redis | null {
+  if (redisForRateLimit) return redisForRateLimit;
+  const url = process.env.REDIS_URL;
+  const token = process.env.REDIS_TOKEN;
+  if (!url || !token) return null;
+  try {
+    redisForRateLimit = new Redis({ url, token });
+    return redisForRateLimit;
+  } catch {
+    return null;
+  }
+}
+
+async function checkSentryTunnelRateLimit(request: NextRequest): Promise<boolean> {
+  const redis = getRedisClient();
+  if (!redis) return true;
+
+  const forwarded = request.headers.get('x-forwarded-for');
+  const ip = forwarded ? forwarded.split(',')[0].trim() : 'unknown';
+  const key = `ratelimit:sentry:${ip}:${Math.floor(Date.now() / 60000)}`;
+
+  try {
+    const current = await redis.incr(key);
+    if (current === 1) await redis.expire(key, 60);
+    return current <= 30;
+  } catch {
+    return true;
+  }
+}
 
 function getCookieSecret(): string {
   const secret = process.env.COOKIE_SIGNING_SECRET;
@@ -91,6 +124,22 @@ async function fetchUserRole(
     return null;
   }
 
+  // Prefer role from JWT app_metadata (set by Supabase custom_access_token_hook)
+  const jwtRole = (user.app_metadata as Record<string, unknown> | undefined)?.role as
+    | string
+    | undefined;
+  if (jwtRole && ROLE_HIERARCHY.includes(jwtRole as UserRole)) {
+    response.cookies.set(ROLE_COOKIE_NAME, await signCookieValue(jwtRole), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: ROLE_COOKIE_MAX_AGE,
+      path: '/',
+    });
+    return jwtRole;
+  }
+
+  // Fallback: query profiles table (for existing sessions before the hook was deployed)
   const { data: profile } = await supabase
     .from('profiles')
     .select('role')
@@ -153,6 +202,15 @@ function extractSubdomain(hostname: string, request: NextRequest): string | null
 }
 
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  if (pathname === '/monitoring') {
+    const allowed = await checkSentryTunnelRateLimit(request);
+    if (!allowed) {
+      return new NextResponse('Too Many Requests', { status: 429 });
+    }
+  }
+
   const hostname = request.headers.get('host') || '';
   const subdomain = extractSubdomain(hostname, request);
 
@@ -189,8 +247,6 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const { pathname } = request.nextUrl;
 
   const isAdminRoute = pathname.startsWith('/admin');
   const isDashboardRoute = pathname.startsWith('/dashboard');
