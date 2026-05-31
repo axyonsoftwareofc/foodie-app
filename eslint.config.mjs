@@ -12,8 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    "fix-snake-case.js",
-    "postman-tests.js",
+    // Documentation and utility scripts
+    "docs/**",
   ]),
   {
     rules: {
