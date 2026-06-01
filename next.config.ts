@@ -44,7 +44,7 @@ const nextConfig: NextConfig = {
             key: cspHeader,
             value: [
               "default-src 'self'",
-              "script-src 'self' js.stripe.com *.mercadopago.com browser.sentry-cdn.com *.unsplash.com",
+              "script-src 'self' 'unsafe-inline' js.stripe.com *.mercadopago.com browser.sentry-cdn.com *.unsplash.com",
               "frame-src 'self' js.stripe.com hooks.stripe.com www.paypal.com www.mercadopago.com.br",
               "connect-src 'self' *.supabase.co api.stripe.com api.mercadopago.com api-m.paypal.com *.ingest.sentry.io",
               "img-src 'self' data: res.cloudinary.com images.unsplash.com *.supabase.co",

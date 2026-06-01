@@ -219,3 +219,27 @@ export async function recordAuditLog(params: {
     console.error('[AuditLog] Failed to write audit entry', error);
   }
 }
+
+export async function canUserCreateRestaurant(
+  userId: string
+): Promise<{ allowed: boolean; error?: string }> {
+  const profile = await prisma.profile.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
+
+  if (!profile) {
+    return { allowed: true };
+  }
+
+  const existingActive = await prisma.restaurant.findFirst({
+    where: { user_id: userId, is_active: true },
+    select: { id: true },
+  });
+
+  if (existingActive) {
+    return { allowed: false, error: 'Voce ja possui um restaurante ativo' };
+  }
+
+  return { allowed: true };
+}

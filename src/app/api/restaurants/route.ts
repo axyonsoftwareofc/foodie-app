@@ -9,6 +9,7 @@ import {
   RateLimitConfig,
   buildRateLimitResponse,
 } from '@/lib/rate-limit';
+import { ensureUserCanCreateRestaurant } from '@/actions/restaurant-creation';
 
 const restaurantSchema = z.object({
   name: z.string().min(2),
@@ -97,16 +98,12 @@ export async function POST(request: Request) {
   if (!rate.success) return buildRateLimitResponse(rate);
 
   try {
-    const supabase = await createClient();
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    const check = await ensureUserCanCreateRestaurant();
+    if (check.error) {
+      return NextResponse.json({ error: check.error }, { status: 403 });
     }
+
+    const supabase = await createClient();
 
     const body = await request.json();
 
@@ -120,7 +117,7 @@ export async function POST(request: Request) {
       .from('restaurants')
       .insert({
         ...result.data,
-        user_id: user.id,
+        user_id: check.userId,
       })
       .select()
       .single();

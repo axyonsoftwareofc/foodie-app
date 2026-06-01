@@ -5,6 +5,11 @@ import { createClient } from '@/lib/supabase/server';
 import { redisDel, cacheKey } from '@/lib/redis';
 import { cookies } from 'next/headers';
 import { RESERVED_SUBDOMAINS } from '@/lib/validations/tenant.validations';
+import {
+  ensureUserCanCreateRestaurant,
+  upgradeUserToOwner,
+  applyMenuTemplate,
+} from '@/actions/restaurant-creation';
 
 export async function checkSubdomainAvailability(
   subdomain: string
@@ -53,24 +58,14 @@ interface CreateTenantInput {
 export async function createTenant(
   data: CreateTenantInput
 ): Promise<{ success?: boolean; error?: string; restaurantId?: string }> {
+  const check = await ensureUserCanCreateRestaurant();
+  if (check.error) return { error: check.error };
+
   const supabase = await createClient();
   const {
     data: { user },
-    error: authError,
   } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return { error: 'Voce precisa estar logado para criar um restaurante' };
-  }
-
-  const existingRestaurant = await prisma.restaurant.findFirst({
-    where: { user_id: user.id, is_active: true },
-    select: { id: true },
-  });
-
-  if (existingRestaurant) {
-    return { error: 'Voce ja possui um restaurante ativo' };
-  }
+  if (!user) return { error: 'Voce precisa estar logado para criar um restaurante' };
 
   const subdomainTaken = await prisma.restaurant.findUnique({
     where: { subdomain: data.subdomain },
@@ -143,20 +138,26 @@ export async function createTenant(
       },
     });
 
-    const defaultCategories = [
-      { name: 'Lanches', sort_order: 0 },
-      { name: 'Bebidas', sort_order: 1 },
-      { name: 'Sobremesas', sort_order: 2 },
-    ];
+    const templateId = (data as { templateId?: string }).templateId;
 
-    for (const cat of defaultCategories) {
-      await prisma.category.create({
-        data: {
-          restaurant_id: restaurant.id,
-          name: cat.name,
-          sort_order: cat.sort_order,
-        },
-      });
+    if (templateId) {
+      await applyMenuTemplate(restaurant.id, templateId);
+    } else {
+      const defaultCategories = [
+        { name: 'Lanches', sort_order: 0 },
+        { name: 'Bebidas', sort_order: 1 },
+        { name: 'Sobremesas', sort_order: 2 },
+      ];
+
+      for (const cat of defaultCategories) {
+        await prisma.category.create({
+          data: {
+            restaurant_id: restaurant.id,
+            name: cat.name,
+            sort_order: cat.sort_order,
+          },
+        });
+      }
     }
 
     const cookieStore = await cookies();

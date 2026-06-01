@@ -5,6 +5,11 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import {
+  ensureUserCanCreateRestaurant,
+  upgradeUserToOwner,
+  applyMenuTemplate,
+} from '@/actions/restaurant-creation';
 import { z } from 'zod';
 import {
   getCurrentUser,
@@ -269,14 +274,10 @@ export async function createRestaurant(
   data: CreateRestaurantForm
 ): Promise<{ data?: RestaurantProfile; error?: string }> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const check = await ensureUserCanCreateRestaurant();
+    if (check.error) return { error: check.error };
 
-    if (!user) {
-      return { error: 'Usuário não autenticado' };
-    }
+    const supabase = await createClient();
 
     const slug = data.name
       .toLowerCase()
@@ -286,7 +287,7 @@ export async function createRestaurant(
     const { data: restaurant, error } = await supabase
       .from('restaurants')
       .insert({
-        user_id: user.id,
+        user_id: check.userId,
         name: data.name,
         slug,
         description: data.description,
@@ -323,14 +324,10 @@ export async function createRestaurant(
 }
 
 export async function createRestaurantFromFormData(formData: FormData) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const check = await ensureUserCanCreateRestaurant();
+  if (check.error) return { error: check.error };
 
-  if (!user) {
-    return { error: 'Usuário não autenticado' };
-  }
+  const supabase = await createClient();
 
   const data = {
     name: formData.get('name'),
@@ -371,7 +368,7 @@ export async function createRestaurantFromFormData(formData: FormData) {
     .from('restaurants')
     .insert({
       ...result.data,
-      user_id: user.id,
+      user_id: check.userId,
     })
     .select()
     .single();
