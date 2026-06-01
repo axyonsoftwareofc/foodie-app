@@ -4,6 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { MapPin, Navigation, Phone, Truck, RefreshCw, Clock } from 'lucide-react';
 import { getDeliveryByOrder } from '@/actions/delivery-actions';
 import type { Delivery } from '@/types/delivery.types';
+import dynamic from 'next/dynamic';
+
+const DeliveryMap = dynamic(() => import('@/components/delivery/DeliveryMap'), { ssr: false });
 
 interface LiveTrackerProps {
   orderId: string;
@@ -133,24 +136,20 @@ export default function LiveTracker({ orderId }: LiveTrackerProps) {
         </div>
       )}
 
-      {/* Map */}
-      <div className="h-48 rounded-2xl bg-gradient-to-br from-blue-50 to-emerald-50 border border-gray-100 flex flex-col items-center justify-center relative overflow-hidden">
-        <div
-          className="absolute inset-0 opacity-20"
-          style={{
-            backgroundImage: 'radial-gradient(circle, #10B981 1px, transparent 1px)',
-            backgroundSize: '24px 24px',
-          }}
+      {/* Delivery Map */}
+      {delivery.pickupLocation && delivery.deliveryLocation && (
+        <DeliveryMap
+          driverLat={delivery.currentLocation?.latitude ?? null}
+          driverLng={delivery.currentLocation?.longitude ?? null}
+          driverName={delivery.driver?.name}
+          restaurantLat={delivery.pickupLocation.latitude}
+          restaurantLng={delivery.pickupLocation.longitude}
+          restaurantName={delivery.pickupAddress?.street}
+          deliveryLat={delivery.deliveryLocation.latitude}
+          deliveryLng={delivery.deliveryLocation.longitude}
+          deliveryAddress={`${delivery.deliveryAddress?.street}, ${delivery.deliveryAddress?.number}`}
         />
-        <MapPin className="w-8 h-8 text-emerald-600 mb-2 relative z-10" />
-        <p className="text-sm font-medium text-gray-700 relative z-10">
-          {delivery.currentLocation ? 'Localizacao em tempo real' : 'Rastreamento ativo'}
-        </p>
-        <p className="text-xs text-gray-400 mt-1 relative z-10">
-          Atualizado:{' '}
-          {lastUpdate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-        </p>
-      </div>
+      )}
 
       {/* Route */}
       <div className="p-4 rounded-2xl bg-white border border-gray-100">

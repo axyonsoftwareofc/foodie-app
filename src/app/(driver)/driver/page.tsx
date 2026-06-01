@@ -1,7 +1,7 @@
 // src/app/(driver)/driver/page.tsx — APP DO ENTREGADOR
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   MapPin,
   Phone,
@@ -13,9 +13,11 @@ import {
   DollarSign,
   Loader2,
   User,
+  Crosshair,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPrice } from '@/lib/utils/format.utils';
+import { updateDriverLocation } from '@/actions/delivery-actions';
 
 type DriverStatus = 'OFFLINE' | 'ONLINE' | 'BUSY';
 
@@ -151,10 +153,62 @@ export default function DriverPage() {
   const [activeDelivery, setActiveDelivery] = useState<DriverDelivery | null>(null);
   const [todayEarnings, setTodayEarnings] = useState(0);
   const [todayDeliveries, setTodayDeliveries] = useState(0);
+  const [gpsEnabled, setGpsEnabled] = useState(false);
+  const gpsWatchRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (gpsWatchRef.current != null) {
+        navigator.geolocation.clearWatch(gpsWatchRef.current);
+      }
+    };
+  }, []);
+
+  const startGpsTracking = () => {
+    if (!('geolocation' in navigator)) {
+      toast.error('GPS nao disponivel neste dispositivo');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      () => setGpsEnabled(true),
+      () => toast.error('Permita o acesso a localizacao para rastreamento'),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+
+    gpsWatchRef.current = navigator.geolocation.watchPosition(
+      async (pos) => {
+        setGpsEnabled(true);
+        const { latitude, longitude } = pos.coords;
+        try {
+          await updateDriverLocation('current', { latitude, longitude });
+        } catch {
+          // Silencioso — atualizacao de GPS nao deve poluir a UI
+        }
+      },
+      () => setGpsEnabled(false),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+    );
+  };
+
+  const stopGpsTracking = () => {
+    if (gpsWatchRef.current != null) {
+      navigator.geolocation.clearWatch(gpsWatchRef.current);
+      gpsWatchRef.current = null;
+    }
+    setGpsEnabled(false);
+  };
 
   const toggleStatus = async () => {
     setIsToggling(true);
     const newStatus: DriverStatus = status === 'OFFLINE' ? 'ONLINE' : 'OFFLINE';
+
+    if (newStatus === 'ONLINE') {
+      startGpsTracking();
+    } else {
+      stopGpsTracking();
+    }
+
     setStatus(newStatus);
     toast.success(
       newStatus === 'ONLINE' ? 'Voce esta online! Aguardando pedidos...' : 'Voce esta offline'

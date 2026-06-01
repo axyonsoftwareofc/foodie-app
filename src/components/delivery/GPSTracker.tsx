@@ -5,6 +5,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { MapPin, Navigation, Phone, Truck, RefreshCw } from 'lucide-react';
 import { Delivery } from '@/types/delivery.types';
 import { getDeliveryByOrder } from '@/actions/delivery-actions';
+import dynamic from 'next/dynamic';
+
+const DeliveryMap = dynamic(() => import('@/components/delivery/DeliveryMap'), { ssr: false });
 
 interface GPSTrackerProps {
   orderId: string;
@@ -139,21 +142,20 @@ export default function GPSTracker({ orderId }: GPSTrackerProps) {
         </div>
       )}
 
-      {/* Map Placeholder */}
-      <div
-        className="h-48 rounded-2xl flex flex-col items-center justify-center relative overflow-hidden"
-        style={{ backgroundColor: '#E5E7EB' }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-green-100 opacity-50" />
-        <MapPin size={32} className="text-[#00A082] mb-2 relative z-10" />
-        <p className="text-sm font-medium relative z-10" style={{ color: 'var(--color-text)' }}>
-          {delivery.currentLocation ? 'Localização atualizada' : 'Rastreamento em tempo real'}
-        </p>
-        <p className="text-xs relative z-10" style={{ color: 'var(--color-text-secondary)' }}>
-          Última atualização:{' '}
-          {lastUpdate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-        </p>
-      </div>
+      {/* Delivery Map */}
+      {delivery.pickupLocation && delivery.deliveryLocation && (
+        <DeliveryMap
+          driverLat={delivery.currentLocation?.latitude ?? null}
+          driverLng={delivery.currentLocation?.longitude ?? null}
+          driverName={delivery.driver?.name}
+          restaurantLat={delivery.pickupLocation.latitude}
+          restaurantLng={delivery.pickupLocation.longitude}
+          restaurantName={delivery.pickupAddress?.street}
+          deliveryLat={delivery.deliveryLocation.latitude}
+          deliveryLng={delivery.deliveryLocation.longitude}
+          deliveryAddress={`${delivery.deliveryAddress?.street}, ${delivery.deliveryAddress?.number}`}
+        />
+      )}
 
       {/* Route Info */}
       <div className="p-4 rounded-2xl" style={{ backgroundColor: 'var(--color-bg-card)' }}>
