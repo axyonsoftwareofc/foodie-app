@@ -25,6 +25,27 @@ enum UserRole {
   CLIENTE
 }
 
+enum RestaurantMemberRole {
+  OWNER
+  MANAGER
+  KITCHEN
+  WAITER
+  DRIVER
+}
+
+enum RestaurantMemberStatus {
+  INVITED
+  ACTIVE
+  DISABLED
+}
+
+enum RestaurantInvitationStatus {
+  PENDING
+  ACCEPTED
+  CANCELLED
+  EXPIRED
+}
+
 enum RestaurantStatus {
   OPEN
   CLOSED
@@ -110,6 +131,9 @@ model Restaurant {
   orders     Order[]
   reviews    Review[]
   tables     RestaurantTable[]
+  members    RestaurantMember[]
+  invitations RestaurantInvitation[]
+  auditLogs  AuditLog[]
 
   @@map("restaurants")
 }
@@ -193,6 +217,8 @@ model Order {
   order_type       String      @default("DINE_IN")
   table_number     String?
   table_id         String?
+  created_by_user_id   String?
+  created_by_member_id String?
   delivery_address String?
   status           OrderStatus @default(PENDING)
   items            Json
@@ -228,6 +254,7 @@ model Order {
 
   restaurant Restaurant      @relation(fields: [restaurant_id], references: [id], onDelete: Cascade)
   table      RestaurantTable? @relation(fields: [table_id], references: [id], onDelete: SetNull)
+  created_by_member RestaurantMember? @relation(fields: [created_by_member_id], references: [id], onDelete: SetNull)
   reviews    Review[]
 
   @@index([restaurant_id])
@@ -235,9 +262,92 @@ model Order {
   @@index([created_at])
   @@index([customer_id])
   @@index([table_id])
+  @@index([created_by_user_id])
+  @@index([created_by_member_id])
   @@index([restaurant_id, status])
   @@index([restaurant_id, created_at])
   @@map("orders")
+}
+
+// ============================================================================
+// RESTAURANT TEAM, INVITATIONS & AUDIT
+// ============================================================================
+
+model RestaurantMember {
+  id            String                 @id @default(cuid())
+  restaurant_id String
+  user_id       String?
+  email         String
+  full_name     String?
+  phone         String?
+  role          RestaurantMemberRole
+  status        RestaurantMemberStatus @default(INVITED)
+  invited_by    String?
+  joined_at     DateTime?
+  disabled_at   DateTime?
+  created_at    DateTime               @default(now())
+  updated_at    DateTime               @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurant_id], references: [id], onDelete: Cascade)
+  orders     Order[]
+
+  @@unique([restaurant_id, email])
+  @@unique([restaurant_id, user_id])
+  @@index([restaurant_id])
+  @@index([user_id])
+  @@index([role])
+  @@index([status])
+  @@map("restaurant_members")
+}
+
+model RestaurantInvitation {
+  id            String                     @id @default(cuid())
+  restaurant_id String
+  email         String
+  full_name     String?
+  phone         String?
+  role          RestaurantMemberRole
+  token_hash    String                     @unique
+  status        RestaurantInvitationStatus @default(PENDING)
+  invited_by    String
+  accepted_by   String?
+  expires_at    DateTime
+  accepted_at   DateTime?
+  cancelled_at  DateTime?
+  created_at    DateTime                   @default(now())
+  updated_at    DateTime                   @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurant_id], references: [id], onDelete: Cascade)
+
+  @@index([restaurant_id])
+  @@index([email])
+  @@index([status])
+  @@index([expires_at])
+  @@map("restaurant_invitations")
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  restaurant_id String
+  actor_user_id String?
+  actor_member_id String?
+  action        String
+  entity_type   String
+  entity_id     String?
+  metadata      Json?
+  ip_address    String?
+  user_agent    String?
+  created_at    DateTime @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurant_id], references: [id], onDelete: Cascade)
+
+  @@index([restaurant_id])
+  @@index([actor_user_id])
+  @@index([actor_member_id])
+  @@index([action])
+  @@index([entity_type, entity_id])
+  @@index([created_at])
+  @@map("audit_logs")
 }
 
 // ============================================================================

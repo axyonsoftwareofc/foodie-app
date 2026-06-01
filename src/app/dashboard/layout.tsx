@@ -18,6 +18,9 @@ import {
   Menu,
   X,
   Truck,
+  ClipboardList,
+  Bike,
+  Users,
 } from 'lucide-react';
 import { getRestaurantProfile } from '@/actions/restaurantActions';
 import type { RestaurantProfile } from '@/types/restaurant-management.types';
@@ -27,12 +30,15 @@ const NAV_ITEMS = [
   { href: '/dashboard/menu', label: 'Cardapio', icon: UtensilsCrossed },
   { href: '/dashboard/orders', label: 'Pedidos', icon: Receipt },
   { href: '/dashboard/cozinha', label: 'Cozinha', icon: ChefHat },
-  { href: '/dashboard/pass', label: 'Pass / Balcao', icon: Package },
+  { href: '/waiter', label: 'Garcom', icon: ClipboardList },
   { href: '/dashboard/entregadores', label: 'Entregadores', icon: Truck },
+  { href: '/driver', label: 'Entregas', icon: Bike },
+  { href: '/dashboard/pass', label: 'Pass / Balcao', icon: Package },
   { href: '/dashboard/settings', label: 'Configuracoes', icon: Settings },
 ] as const;
 
 const CUSTOM_ITEMS = [
+  { href: '/dashboard/equipe', label: 'Equipe', icon: Users },
   { href: '/dashboard/theme', label: 'Aprencia', icon: Palette },
   { href: '/dashboard/domain', label: 'Domio', icon: Globe },
   { href: '/dashboard/billing', label: 'Planos', icon: CreditCard },

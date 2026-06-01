@@ -12,6 +12,13 @@ import {
   CreateDeliveryZoneRequest,
   DeliveryStats,
 } from '@/types/delivery.types';
+import {
+  DRIVER_ROLES,
+  MANAGEMENT_ROLES,
+  RestaurantAccess,
+  getRestaurantAccess,
+  recordAuditLog,
+} from '@/lib/restaurant-access';
 
 function calculateDistance(point1: GeoPoint, point2: GeoPoint): number {
   const R = 6371;
@@ -30,57 +37,58 @@ function isPointInCircle(point: GeoPoint, center: GeoPoint, radiusKm: number): b
   return calculateDistance(point, center) <= radiusKm;
 }
 
-async function getCallerRestaurantId(): Promise<string | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
-  const { data: restaurant } = await supabase
-    .from('restaurants')
-    .select('id')
-    .eq('user_id', user.id)
-    .single();
-  return restaurant?.id ?? null;
+async function getDeliveryAccess(
+  allowedRoles = MANAGEMENT_ROLES
+): Promise<{ data?: RestaurantAccess; error?: string }> {
+  return getRestaurantAccess(allowedRoles);
 }
 
-async function verifyZoneOwnership(zoneId: string): Promise<boolean> {
+async function verifyZoneOwnership(zoneId: string, access: RestaurantAccess): Promise<boolean> {
   const supabase = await createClient();
-  const restaurantId = await getCallerRestaurantId();
-  if (!restaurantId) return false;
   const { data } = await supabase
     .from('delivery_zones')
     .select('id')
     .eq('id', zoneId)
-    .eq('restaurant_id', restaurantId)
+    .eq('restaurant_id', access.restaurant.id)
     .single();
   return Boolean(data);
 }
 
-async function verifyDriverOwnership(driverId: string): Promise<boolean> {
+async function verifyDriverOwnership(driverId: string, access: RestaurantAccess): Promise<boolean> {
   const supabase = await createClient();
-  const restaurantId = await getCallerRestaurantId();
-  if (!restaurantId) return false;
-  const { data } = await supabase
+  let query = supabase
     .from('delivery_drivers')
     .select('id')
     .eq('id', driverId)
-    .eq('restaurant_id', restaurantId)
-    .single();
+    .eq('restaurant_id', access.restaurant.id);
+
+  if (access.role === 'DRIVER') {
+    query = query.eq('user_id', access.user.id);
+  }
+
+  const { data } = await query.single();
   return Boolean(data);
 }
 
-async function verifyDeliveryOwnership(deliveryId: string): Promise<boolean> {
+async function verifyDeliveryAccess(
+  deliveryId: string,
+  access: RestaurantAccess
+): Promise<boolean> {
   const supabase = await createClient();
-  const restaurantId = await getCallerRestaurantId();
-  if (!restaurantId) return false;
   const { data } = await supabase
     .from('deliveries')
-    .select('id')
+    .select('id, restaurant_id, driver_id')
     .eq('id', deliveryId)
-    .eq('restaurant_id', restaurantId)
     .single();
-  return Boolean(data);
+
+  if (!data || data.restaurant_id !== access.restaurant.id) return false;
+
+  if (access.role === 'DRIVER') {
+    if (!data.driver_id) return false;
+    return verifyDriverOwnership(data.driver_id, access);
+  }
+
+  return true;
 }
 
 export async function createDeliveryZone(
@@ -168,8 +176,10 @@ export async function updateDeliveryZone(
   data: Partial<CreateDeliveryZoneRequest>
 ): Promise<{ success?: boolean; error?: string }> {
   try {
-    if (!(await verifyZoneOwnership(zoneId))) {
-      return { error: 'Zona não encontrada ou acesso negado' };
+    const access = await getDeliveryAccess();
+    if (!access.data) return { error: access.error || 'Nao autorizado' };
+    if (!(await verifyZoneOwnership(zoneId, access.data))) {
+      return { error: 'Zona nao encontrada ou acesso negado' };
     }
     const supabase = await createClient();
 
@@ -203,8 +213,10 @@ export async function toggleDeliveryZone(
   isActive: boolean
 ): Promise<{ success?: boolean; error?: string }> {
   try {
-    if (!(await verifyZoneOwnership(zoneId))) {
-      return { error: 'Zona não encontrada ou acesso negado' };
+    const access = await getDeliveryAccess();
+    if (!access.data) return { error: access.error || 'Nao autorizado' };
+    if (!(await verifyZoneOwnership(zoneId, access.data))) {
+      return { error: 'Zona nao encontrada ou acesso negado' };
     }
     const supabase = await createClient();
 
@@ -225,8 +237,10 @@ export async function deleteDeliveryZone(
   zoneId: string
 ): Promise<{ success?: boolean; error?: string }> {
   try {
-    if (!(await verifyZoneOwnership(zoneId))) {
-      return { error: 'Zona não encontrada ou acesso negado' };
+    const access = await getDeliveryAccess();
+    if (!access.data) return { error: access.error || 'Nao autorizado' };
+    if (!(await verifyZoneOwnership(zoneId, access.data))) {
+      return { error: 'Zona nao encontrada ou acesso negado' };
     }
     const supabase = await createClient();
 
@@ -432,8 +446,10 @@ export async function updateDriverLocation(
   location: GeoPoint
 ): Promise<{ success?: boolean; error?: string }> {
   try {
-    if (!(await verifyDriverOwnership(driverId))) {
-      return { error: 'Entregador não encontrado ou acesso negado' };
+    const access = await getDeliveryAccess();
+    if (!access.data) return { error: access.error || 'Nao autorizado' };
+    if (!(await verifyDriverOwnership(driverId, access.data))) {
+      return { error: 'Entregador nao encontrado ou acesso negado' };
     }
     const supabase = await createClient();
 
@@ -458,11 +474,11 @@ export async function assignDriver(
   driverId: string
 ): Promise<{ success?: boolean; error?: string }> {
   try {
-    const restaurantId = await getCallerRestaurantId();
-    if (!restaurantId) return { error: 'Usuário não autenticado' };
+    const access = await getDeliveryAccess();
+    if (!access.data) return { error: access.error || 'Nao autorizado' };
 
-    if (!(await verifyDriverOwnership(driverId))) {
-      return { error: 'Entregador não encontrado ou acesso negado' };
+    if (!(await verifyDriverOwnership(driverId, access.data))) {
+      return { error: 'Entregador nao encontrado ou acesso negado' };
     }
 
     const supabase = await createClient();
@@ -473,8 +489,8 @@ export async function assignDriver(
       .eq('order_id', orderId)
       .single();
 
-    if (!delivery || delivery.restaurant_id !== restaurantId) {
-      return { error: 'Entrega não encontrada ou acesso negado' };
+    if (!delivery || delivery.restaurant_id !== access.data.restaurant.id) {
+      return { error: 'Entrega nao encontrada ou acesso negado' };
     }
 
     const { error } = await supabase
@@ -508,8 +524,10 @@ export async function updateDeliveryStatus(
   note?: string
 ): Promise<{ success?: boolean; error?: string }> {
   try {
-    if (!(await verifyDeliveryOwnership(deliveryId))) {
-      return { error: 'Entrega não encontrada ou acesso negado' };
+    const access = await getDeliveryAccess();
+    if (!access.data) return { error: access.error || 'Nao autorizado' };
+    if (!(await verifyDeliveryAccess(deliveryId, access.data))) {
+      return { error: 'Entrega nao encontrada ou acesso negado' };
     }
     const supabase = await createClient();
 
@@ -559,8 +577,10 @@ export async function submitDeliveryProof(
   proof: DeliveryProof
 ): Promise<{ success?: boolean; error?: string }> {
   try {
-    if (!(await verifyDeliveryOwnership(deliveryId))) {
-      return { error: 'Entrega não encontrada ou acesso negado' };
+    const access = await getDeliveryAccess();
+    if (!access.data) return { error: access.error || 'Nao autorizado' };
+    if (!(await verifyDeliveryAccess(deliveryId, access.data))) {
+      return { error: 'Entrega nao encontrada ou acesso negado' };
     }
     const supabase = await createClient();
 
@@ -587,8 +607,8 @@ export async function getDeliveryByOrder(
   orderId: string
 ): Promise<{ data?: Delivery; error?: string }> {
   try {
-    const restaurantId = await getCallerRestaurantId();
-    if (!restaurantId) return { error: 'Usuário não autenticado' };
+    const access = await getDeliveryAccess();
+    if (!access.data) return { error: access.error || 'Nao autorizado' };
 
     const supabase = await createClient();
 
@@ -596,7 +616,7 @@ export async function getDeliveryByOrder(
       .from('deliveries')
       .select('*, delivery_drivers(*)')
       .eq('order_id', orderId)
-      .eq('restaurant_id', restaurantId)
+      .eq('restaurant_id', access.data.restaurant.id)
       .single();
 
     if (error) return { error: 'Entrega não encontrada' };
