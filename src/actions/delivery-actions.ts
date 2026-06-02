@@ -462,6 +462,21 @@ export async function updateDriverLocation(
       .eq('id', driverId);
 
     if (error) return { error: error.message };
+
+    const { data: activeDelivery } = await supabase
+      .from('deliveries')
+      .select('id')
+      .eq('driver_id', driverId)
+      .in('status', ['PICKED_UP', 'DELIVERING'])
+      .limit(1);
+
+    if (activeDelivery && activeDelivery.length > 0) {
+      await supabase
+        .from('deliveries')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', activeDelivery[0].id);
+    }
+
     return { success: true };
   } catch (error) {
     console.error('Error updating location:', error);

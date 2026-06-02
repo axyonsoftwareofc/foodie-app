@@ -1,10 +1,11 @@
 // src/components/delivery/GPSTracker.tsx
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { MapPin, Navigation, Phone, Truck, RefreshCw } from 'lucide-react';
 import { Delivery } from '@/types/delivery.types';
 import { getDeliveryByOrder } from '@/actions/delivery-actions';
+import { createClient } from '@/lib/supabase/client';
 import dynamic from 'next/dynamic';
 
 const DeliveryMap = dynamic(() => import('@/components/delivery/DeliveryMap'), { ssr: false });
@@ -17,6 +18,7 @@ export default function GPSTracker({ orderId }: GPSTrackerProps) {
   const [delivery, setDelivery] = useState<Delivery | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [isLoading, setIsLoading] = useState(true);
+  const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null);
 
   const loadDelivery = useCallback(async () => {
     const result = await getDeliveryByOrder(orderId);
@@ -29,9 +31,30 @@ export default function GPSTracker({ orderId }: GPSTrackerProps) {
 
   useEffect(() => {
     loadDelivery();
-    const interval = setInterval(loadDelivery, 15000);
-    return () => clearInterval(interval);
-  }, [loadDelivery]);
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`gps-delivery-${orderId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'deliveries',
+          filter: `order_id=eq.${orderId}`,
+        },
+        () => {
+          loadDelivery();
+        }
+      )
+      .subscribe();
+
+    channelRef.current = channel;
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [orderId, loadDelivery]);
 
   if (isLoading) {
     return (

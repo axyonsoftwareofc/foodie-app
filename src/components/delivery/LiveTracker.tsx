@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { MapPin, Navigation, Phone, Truck, RefreshCw, Clock } from 'lucide-react';
 import { getDeliveryByOrder } from '@/actions/delivery-actions';
 import type { Delivery } from '@/types/delivery.types';
+import { createClient } from '@/lib/supabase/client';
 import dynamic from 'next/dynamic';
 
 const DeliveryMap = dynamic(() => import('@/components/delivery/DeliveryMap'), { ssr: false });
@@ -44,9 +45,28 @@ export default function LiveTracker({ orderId }: LiveTrackerProps) {
 
   useEffect(() => {
     loadDelivery();
-    const interval = setInterval(loadDelivery, 15000);
-    return () => clearInterval(interval);
-  }, [loadDelivery]);
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`tracker-delivery-${orderId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'deliveries',
+          filter: `order_id=eq.${orderId}`,
+        },
+        () => {
+          loadDelivery();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [orderId, loadDelivery]);
 
   if (isLoading) {
     return (
