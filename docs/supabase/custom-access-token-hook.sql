@@ -1,10 +1,12 @@
 -- ============================================================================
--- Supabase Custom Access Token Hook
+-- Supabase Custom Access Token Hook (versão resiliente)
 -- Injeta app_metadata.role no JWT a partir da tabela profiles
--- Executar no SQL Editor do Supabase: https://supabase.com/dashboard/project/_/sql/new
 -- ============================================================================
 
--- Passo 1: Criar a funcao que sera chamada no evento de criacao de JWT
+-- Passo 1: Remover hook antigo se existir (vai no Dashboard → Authentication → Hooks e remove)
+-- Depois executar este SQL completo no SQL Editor
+
+-- Passo 2: Criar a função com proteção contra edge cases
 CREATE OR REPLACE FUNCTION public.custom_access_token_hook(event jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -17,8 +19,17 @@ DECLARE
     user_role text;
     user_id uuid;
 BEGIN
-    -- Extrai o user_id do evento
-    user_id := (event->>'user_id')::uuid;
+    -- Proteção: se não tem user_id no evento, retorna sem modificar
+    IF event->>'user_id' IS NULL THEN
+        RETURN event;
+    END IF;
+
+    BEGIN
+        user_id := (event->>'user_id')::uuid;
+    EXCEPTION WHEN OTHERS THEN
+        -- UUID inválido, retorna sem modificar
+        RETURN event;
+    END;
 
     -- Busca a role na tabela profiles
     SELECT role INTO user_role
@@ -39,23 +50,17 @@ BEGIN
 END;
 $$;
 
--- Passo 2: Conceder permissoes para o Supabase Auth
+-- Passo 3: Conceder permissões
 GRANT USAGE ON SCHEMA public TO supabase_auth_admin;
 GRANT EXECUTE ON FUNCTION public.custom_access_token_hook(jsonb) TO supabase_auth_admin;
-
--- Passo 3: Habilitar a funcao como hook de JWT
--- Va em Supabase Dashboard → Authentication → Hooks
--- Selecione "Custom Access Token" e aponte para:
---   Schema: public
---   Function name: custom_access_token_hook
---   Hook: auth.jwt()
+GRANT EXECUTE ON FUNCTION public.custom_access_token_hook(jsonb) TO supabase_auth_admin;
+GRANT SELECT ON public.profiles TO supabase_auth_admin;
 
 -- ============================================================================
--- Para invalidar sessoes quando um admin alterar a role de um usuario,
--- chame esta funcao via Server Action ou API Route:
---
---   await supabaseAdmin.auth.admin.signOut(userId)
---
--- Isso forca o usuario a fazer re-login, gerando um JWT novo com a role
--- atualizada.
+-- Passo 4: Configurar o Hook no Dashboard
+-- Vá em: Supabase Dashboard → Authentication → Hooks
+-- Clique "Add Hook"
+--   Schema: public
+--   Function name: custom_access_token_hook
+--   Hook: Custom Access Token
 -- ============================================================================
