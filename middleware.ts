@@ -6,7 +6,7 @@ import { Redis } from '@upstash/redis';
 const RESERVED_SUBDOMAINS = ['www', 'app', 'admin', 'api', 'mail', 'foodie'];
 
 /** Roles ordenados por permissão (maior → menor). */
-const ROLE_HIERARCHY = ['ADMIN', 'GERENCIADOR', 'EQUIPE', 'CLIENTE'] as const;
+const ROLE_HIERARCHY = ['SUPER_ADMIN', 'ADMIN', 'GERENCIADOR', 'EQUIPE', 'CLIENTE'] as const;
 type UserRole = (typeof ROLE_HIERARCHY)[number];
 
 /** Nome do cookie que cacheia a role do usuario (evita query ao banco em todo request). */
@@ -222,6 +222,7 @@ export async function middleware(request: NextRequest) {
   }
 
   const isAdminRoute = pathname.startsWith('/admin');
+  const isSuperAdminRoute = pathname.startsWith('/super-admin');
   const isDashboardRoute = pathname.startsWith('/dashboard');
   const isDriverRoute = pathname.startsWith('/driver');
   const isWaiterRoute = pathname.startsWith('/waiter');
@@ -231,6 +232,7 @@ export async function middleware(request: NextRequest) {
 
   const needsAuth =
     isAdminRoute ||
+    isSuperAdminRoute ||
     isDashboardRoute ||
     isDriverRoute ||
     isWaiterRoute ||
@@ -265,6 +267,22 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  // Super Admin routes: require SUPER_ADMIN
+  if (isSuperAdminRoute) {
+    if (!user) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/sign-in';
+      url.searchParams.set('redirectTo', pathname);
+      return NextResponse.redirect(url);
+    }
+    const role = await getUserRole(request, supabase, supabaseResponse);
+    if (!hasMinimumRole(role, 'SUPER_ADMIN')) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/';
+      return NextResponse.redirect(url);
+    }
+  }
 
   // Admin routes: require ADMIN or GERENCIADOR
   if (isAdminRoute) {

@@ -25,6 +25,7 @@ enum OrderType {
 }
 
 enum UserRole {
+  SUPER_ADMIN
   ADMIN
   GERENCIADOR
   EQUIPE
