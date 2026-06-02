@@ -8,7 +8,7 @@ export function KitchenTimerProvider({ children }: { children: ReactNode }) {
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => setTick((t) => t + 1), 10000);
+    const interval = setInterval(() => setTick((t) => t + 1), 3000);
     return () => clearInterval(interval);
   }, []);
 

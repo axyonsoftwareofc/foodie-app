@@ -126,7 +126,11 @@ model Restaurant {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  categories Category[]
+  // Ratings desnormalizados (atualizados via action de review)
+  avg_rating   Float   @default(0)
+  review_count Int     @default(0)
+
+  categories   Category[]
   products   Product[]
   orders     Order[]
   reviews    Review[]

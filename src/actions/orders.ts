@@ -4,6 +4,7 @@
 import { prisma } from '@/lib/prisma';
 import { OrderStatus, Prisma } from '@prisma/client';
 import { canTransitionStatus } from '@/lib/utils/order-status.utils';
+import { recalculateRestaurantRating } from '@/lib/review-utils';
 import { sendEmail, orderConfirmationTemplate, orderStatusTemplate } from '@/lib/email';
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
@@ -703,6 +704,8 @@ export async function createOrderReview({
         },
       });
     }
+
+    await recalculateRestaurantRating(restaurantId);
 
     revalidatePath('/orders');
     revalidatePath(`/order/${orderId}`);

@@ -86,19 +86,11 @@ export async function getPublicRestaurants(): Promise<{
 
     const restaurants = await prisma.restaurant.findMany({
       where: { is_active: true },
-      include: {
-        reviews: { select: { rating: true } },
-      },
       orderBy: { name: 'asc' },
     });
 
     const result: import('@/types').Restaurant[] = restaurants.map((r) => {
-      const reviewCount = r.reviews.length;
-      const avgRating =
-        reviewCount > 0
-          ? Math.round((r.reviews.reduce((sum, rev) => sum + rev.rating, 0) / reviewCount) * 10) /
-            10
-          : 0;
+      const avgRating = Math.round(r.avg_rating * 10) / 10;
 
       const time = r.estimated_delivery_time ?? 30;
 
@@ -107,7 +99,7 @@ export async function getPublicRestaurants(): Promise<{
         name: r.name,
         image: r.cover_image || r.logo || '/placeholder.png',
         rating: avgRating,
-        reviewCount,
+        reviewCount: r.review_count,
         deliveryTime: `${time}-${time + 10} min`,
         deliveryFee: r.delivery_fee ?? 0,
         category: r.category || r.cuisine || 'Restaurante',
@@ -319,6 +311,8 @@ export async function createRestaurant(
       return { error: error.message };
     }
 
+    void redisDel(cacheKey('restaurants', 'public-list'));
+
     return { data: restaurant };
   } catch (error) {
     console.error('Error creating restaurant:', error);
@@ -434,8 +428,6 @@ export async function updateRestaurantProfile(
     if (data.address?.zipCode !== undefined) updateData.zip_code = data.address.zipCode;
     if (data.location?.latitude !== undefined) updateData.latitude = data.location.latitude;
     if (data.location?.longitude !== undefined) updateData.longitude = data.location.longitude;
-    if (data.deliveryFee !== undefined) updateData.delivery_fee = data.deliveryFee;
-    if (data.minimumOrder !== undefined) updateData.minimum_order = data.minimumOrder;
     if (data.operatingHours !== undefined) updateData.operating_hours = data.operatingHours;
     if (data.bankInfo !== undefined) updateData.bank_info = data.bankInfo;
     if (data.theme !== undefined) updateData.theme = data.theme;
@@ -565,8 +557,17 @@ export async function updateOperatingHours(
       return { error: 'Usuário não autenticado' };
     }
 
-    await prisma.restaurant.updateMany({
-      where: { user_id: user.id },
+    const restaurant = await prisma.restaurant.findFirst({
+      where: { user_id: user.id, is_active: true },
+      select: { id: true },
+    });
+
+    if (!restaurant) {
+      return { error: 'Restaurante nao encontrado' };
+    }
+
+    await prisma.restaurant.update({
+      where: { id: restaurant.id },
       data: { operating_hours: hours as unknown as Prisma.InputJsonValue },
     });
 
@@ -590,8 +591,17 @@ export async function updateBankInfo(
       return { error: 'Usuário não autenticado' };
     }
 
-    await prisma.restaurant.updateMany({
-      where: { user_id: user.id },
+    const restaurant = await prisma.restaurant.findFirst({
+      where: { user_id: user.id, is_active: true },
+      select: { id: true },
+    });
+
+    if (!restaurant) {
+      return { error: 'Restaurante nao encontrado' };
+    }
+
+    await prisma.restaurant.update({
+      where: { id: restaurant.id },
       data: { bank_info: info as unknown as Prisma.InputJsonValue },
     });
 
@@ -937,7 +947,12 @@ export async function registerRestaurant(
     });
 
     if (restaurant) {
-      cookieStore.set('restaurantId', restaurant.id);
+      cookieStore.set('restaurantId', restaurant.id, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 30,
+      });
     }
 
     return { success: true };
