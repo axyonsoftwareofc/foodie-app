@@ -2,7 +2,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { OrderStatus, Prisma } from '@prisma/client';
+import { OrderStatus, OrderType, Prisma } from '@prisma/client';
 import { canTransitionStatus } from '@/lib/utils/order-status.utils';
 import { recalculateRestaurantRating } from '@/lib/review-utils';
 import { sendEmail, orderConfirmationTemplate, orderStatusTemplate } from '@/lib/email';
@@ -770,7 +770,7 @@ export async function getOrdersForRestaurant({
     }
 
     if (filters?.orderType && filters.orderType !== 'ALL') {
-      where.order_type = filters.orderType;
+      where.order_type = filters.orderType as OrderType;
     }
 
     const orders = await prisma.order.findMany({

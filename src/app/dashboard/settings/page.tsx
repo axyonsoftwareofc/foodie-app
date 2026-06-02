@@ -12,29 +12,40 @@ import type {
   RestaurantProfile,
   OperatingHours as MgmtOperatingHours,
 } from '@/types/restaurant-management.types';
+import type { DayOfWeek } from '@/types';
 
-const DAY_LABELS: Record<number, string> = {
-  0: 'Domingo',
-  1: 'Segunda',
-  2: 'Terca',
-  3: 'Quarta',
-  4: 'Quinta',
-  5: 'Sexta',
-  6: 'Sabado',
+const DAY_LABELS: Record<string, string> = {
+  sunday: 'Domingo',
+  monday: 'Segunda',
+  tuesday: 'Terca',
+  wednesday: 'Quarta',
+  thursday: 'Quinta',
+  friday: 'Sexta',
+  saturday: 'Sabado',
 };
 
+const DAY_ORDER: string[] = [
+  'sunday',
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+];
+
 interface HourEntry {
-  dayOfWeek: number;
-  isClosed: boolean;
-  open: string;
-  close: string;
+  day: string;
+  isOpen: boolean;
+  openTime: string;
+  closeTime: string;
 }
 
-const DEFAULT_HOURS: HourEntry[] = Array.from({ length: 7 }, (_, i) => ({
-  dayOfWeek: i,
-  isClosed: false,
-  open: '08:00',
-  close: '22:00',
+const DEFAULT_HOURS: HourEntry[] = DAY_ORDER.map((day) => ({
+  day,
+  isOpen: true,
+  openTime: '08:00',
+  closeTime: '22:00',
 }));
 
 export default function SettingsPage() {
@@ -69,15 +80,16 @@ export default function SettingsPage() {
         if (r.operatingHours && r.operatingHours.length > 0) {
           setHours(
             DEFAULT_HOURS.map((def) => {
-              const existing = r.operatingHours.find((h) => h.dayOfWeek === def.dayOfWeek);
-              return existing
-                ? {
-                    dayOfWeek: existing.dayOfWeek,
-                    isClosed: existing.isClosed,
-                    open: existing.open || '08:00',
-                    close: existing.close || '22:00',
-                  }
-                : def;
+              const existing = r.operatingHours.find((h) => h.day === def.day);
+              if (existing) {
+                return {
+                  day: existing.day,
+                  isOpen: existing.isOpen,
+                  openTime: existing.openTime || '08:00',
+                  closeTime: existing.closeTime || '22:00',
+                };
+              }
+              return def;
             })
           );
         }
@@ -87,10 +99,10 @@ export default function SettingsPage() {
   }, []);
 
   const handleHourToggle = (index: number) => {
-    setHours((prev) => prev.map((h, i) => (i === index ? { ...h, isClosed: !h.isClosed } : h)));
+    setHours((prev) => prev.map((h, i) => (i === index ? { ...h, isOpen: !h.isOpen } : h)));
   };
 
-  const handleHourChange = (index: number, field: 'open' | 'close', value: string) => {
+  const handleHourChange = (index: number, field: 'openTime' | 'closeTime', value: string) => {
     setHours((prev) => prev.map((h, i) => (i === index ? { ...h, [field]: value } : h)));
   };
 
@@ -120,10 +132,10 @@ export default function SettingsPage() {
       }
 
       const hoursData: MgmtOperatingHours[] = hours.map((h) => ({
-        dayOfWeek: h.dayOfWeek,
-        isClosed: h.isClosed,
-        open: h.open,
-        close: h.close,
+        day: h.day as DayOfWeek,
+        isOpen: h.isOpen,
+        openTime: h.openTime,
+        closeTime: h.closeTime,
       }));
       const hoursResult = await updateOperatingHours(hoursData);
 
@@ -256,40 +268,38 @@ export default function SettingsPage() {
           <div className="space-y-3">
             {hours.map((h, index) => (
               <div
-                key={h.dayOfWeek}
+                key={h.day}
                 className={`flex items-center gap-4 p-3 rounded-lg border transition-colors ${
-                  !h.isClosed ? 'border-gray-200 bg-white' : 'border-gray-100 bg-gray-50'
+                  h.isOpen ? 'border-gray-200 bg-white' : 'border-gray-100 bg-gray-50'
                 }`}
               >
                 <button
                   onClick={() => handleHourToggle(index)}
                   className="text-gray-500 hover:text-emerald-600 transition-colors"
-                  title={!h.isClosed ? 'Fechar este dia' : 'Abrir este dia'}
+                  title={h.isOpen ? 'Fechar este dia' : 'Abrir este dia'}
                 >
-                  {!h.isClosed ? (
+                  {h.isOpen ? (
                     <ToggleRight className="w-6 h-6 text-emerald-600" />
                   ) : (
                     <ToggleLeft className="w-6 h-6" />
                   )}
                 </button>
 
-                <span className="w-24 text-sm font-medium text-gray-700">
-                  {DAY_LABELS[h.dayOfWeek]}
-                </span>
+                <span className="w-24 text-sm font-medium text-gray-700">{DAY_LABELS[h.day]}</span>
 
-                {!h.isClosed ? (
+                {h.isOpen ? (
                   <div className="flex items-center gap-2 ml-auto">
                     <input
                       type="time"
-                      value={h.open}
-                      onChange={(e) => handleHourChange(index, 'open', e.target.value)}
+                      value={h.openTime}
+                      onChange={(e) => handleHourChange(index, 'openTime', e.target.value)}
                       className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-gray-900"
                     />
                     <span className="text-gray-400">ate</span>
                     <input
                       type="time"
-                      value={h.close}
-                      onChange={(e) => handleHourChange(index, 'close', e.target.value)}
+                      value={h.closeTime}
+                      onChange={(e) => handleHourChange(index, 'closeTime', e.target.value)}
                       className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-gray-900"
                     />
                   </div>

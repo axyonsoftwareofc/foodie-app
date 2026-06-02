@@ -95,7 +95,19 @@ export function OrderCard({ order, onAction, onClick }: OrderCardProps) {
               {order.customerName}
             </span>
           </div>
-          <OrderTimer startTime={order.createdAt} />
+          <OrderTimer
+            startTime={order.createdAt}
+            prepStartedAt={
+              (order as unknown as Record<string, unknown>).preparationStartedAt as
+                | string
+                | undefined
+            }
+            estimatedPrepTime={
+              (order as unknown as Record<string, unknown>).estimatedPreparationTime as
+                | number
+                | undefined
+            }
+          />
         </div>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

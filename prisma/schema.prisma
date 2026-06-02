@@ -18,6 +18,12 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum OrderType {
+  DINE_IN
+  DELIVERY
+  PICKUP
+}
+
 enum UserRole {
   ADMIN
   GERENCIADOR
@@ -218,7 +224,7 @@ model Order {
   customer_id      String?
   customer_name    String
   customer_phone   String?
-  order_type       String      @default("DINE_IN")
+  order_type       OrderType    @default(DINE_IN)
   table_number     String?
   table_id         String?
   created_by_user_id   String?

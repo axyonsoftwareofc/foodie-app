@@ -55,11 +55,13 @@ export interface GeoLocation {
   longitude: number;
 }
 
+import type { DayOfWeek } from './restaurant.types';
+
 export interface OperatingHours {
-  dayOfWeek: number;
-  open: string;
-  close: string;
-  isClosed: boolean;
+  day: DayOfWeek;
+  isOpen: boolean;
+  openTime?: string;
+  closeTime?: string;
 }
 
 export type RestaurantStatus = 'OPEN' | 'CLOSED' | 'TEMPORARILY_CLOSED' | 'MAINTENANCE';
