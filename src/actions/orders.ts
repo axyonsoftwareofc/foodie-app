@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { OrderStatus, OrderType, Prisma } from '@prisma/client';
 import { canTransitionStatus } from '@/lib/utils/order-status.utils';
 import { recalculateRestaurantRating } from '@/lib/review-utils';
+import { recalculateRestaurantCapacity } from '@/lib/capacity-checker';
 import { sendEmail, orderConfirmationTemplate, orderStatusTemplate } from '@/lib/email';
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
@@ -296,6 +297,8 @@ export async function createOrder(orderData: {
       ),
     });
 
+    void recalculateRestaurantCapacity(pricedOrder.data.restaurantId);
+
     return {
       data: {
         id: order.id,
@@ -529,6 +532,8 @@ export async function updateOrderStatus({
       // Email e otimizacao, nao bloqueia o fluxo
     }
 
+    void recalculateRestaurantCapacity(restaurantId);
+
     revalidatePath('/dashboard/orders');
     return { success: true };
   } catch (error) {
@@ -581,6 +586,8 @@ export async function cancelOrder({
       },
     });
 
+    void recalculateRestaurantCapacity(order.restaurant_id);
+
     revalidatePath('/orders');
     revalidatePath(`/order/${orderId}`);
     return { success: true };
@@ -631,6 +638,8 @@ export async function cancelOrderByRestaurant({
         updated_at: new Date(),
       },
     });
+
+    void recalculateRestaurantCapacity(restaurantId);
 
     revalidatePath('/dashboard/orders');
     revalidatePath('/orders');
