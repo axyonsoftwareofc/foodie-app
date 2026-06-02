@@ -111,6 +111,7 @@ export interface RestaurantStats {
 
 export interface CreateRestaurantForm {
   name: string;
+  subdomain?: string;
   description: string;
   category: string;
   cuisine: string[];

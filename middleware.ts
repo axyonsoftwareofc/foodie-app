@@ -221,9 +221,27 @@ export async function middleware(request: NextRequest) {
     return NextResponse.rewrite(url);
   }
 
-  let supabaseResponse = NextResponse.next({
-    request,
-  });
+  const isAdminRoute = pathname.startsWith('/admin');
+  const isDashboardRoute = pathname.startsWith('/dashboard');
+  const isDriverRoute = pathname.startsWith('/driver');
+  const isWaiterRoute = pathname.startsWith('/waiter');
+  const isAuthRoute = pathname.startsWith('/sign-in') || pathname.startsWith('/sign-up');
+  const protectedRoutes = ['/profile', '/orders', '/addresses', '/cart', '/favorites', '/checkout'];
+  const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
+
+  const needsAuth =
+    isAdminRoute ||
+    isDashboardRoute ||
+    isDriverRoute ||
+    isWaiterRoute ||
+    isProtectedRoute ||
+    isAuthRoute;
+
+  if (!needsAuth) {
+    return NextResponse.next();
+  }
+
+  let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -247,11 +265,6 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const isAdminRoute = pathname.startsWith('/admin');
-  const isDashboardRoute = pathname.startsWith('/dashboard');
-  const isDriverRoute = pathname.startsWith('/driver');
-  const isWaiterRoute = pathname.startsWith('/waiter');
 
   // Admin routes: require ADMIN or GERENCIADOR
   if (isAdminRoute) {
@@ -322,25 +335,12 @@ export async function middleware(request: NextRequest) {
     clearRoleCookie(supabaseResponse);
   }
 
-  const protectedRoutes = [
-    '/profile',
-    '/orders',
-    '/addresses',
-    '/cart',
-    '/favorites',
-    '/checkout',
-    '/waiter',
-  ];
-  const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
-
   if (isProtectedRoute && !user) {
     const url = request.nextUrl.clone();
     url.pathname = '/sign-in';
     url.searchParams.set('redirectTo', pathname);
     return NextResponse.redirect(url);
   }
-
-  const isAuthRoute = pathname.startsWith('/sign-in') || pathname.startsWith('/sign-up');
 
   if (isAuthRoute && user) {
     const url = request.nextUrl.clone();

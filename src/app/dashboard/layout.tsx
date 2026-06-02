@@ -30,6 +30,7 @@ const NAV_ITEMS = [
   { href: '/dashboard/menu', label: 'Cardapio', icon: UtensilsCrossed },
   { href: '/dashboard/orders', label: 'Pedidos', icon: Receipt },
   { href: '/dashboard/cozinha', label: 'Cozinha', icon: ChefHat },
+  { href: '/dashboard/mesas', label: 'Mesas', icon: Users },
   { href: '/waiter', label: 'Garcom', icon: ClipboardList },
   { href: '/dashboard/entregadores', label: 'Entregadores', icon: Truck },
   { href: '/driver', label: 'Entregas', icon: Bike },

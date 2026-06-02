@@ -284,12 +284,15 @@ export async function createRestaurant(
       .replace(/\s+/g, '-')
       .replace(/[^a-z0-9-]/g, '');
 
+    const subdomain = data.subdomain || slug.slice(0, 30);
+
     const { data: restaurant, error } = await supabase
       .from('restaurants')
       .insert({
         user_id: check.userId,
         name: data.name,
         slug,
+        subdomain,
         description: data.description,
         category: data.category,
         cuisine: data.cuisine,
