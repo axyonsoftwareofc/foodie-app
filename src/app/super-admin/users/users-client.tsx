@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { getAllUsers, setUserRole } from '@/actions/super-admin-actions';
-import { Shield, User } from 'lucide-react';
+import { Shield, User, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -13,7 +13,6 @@ const ROLE_LABELS: Record<string, string> = {
   EQUIPE: 'Equipe',
   CLIENTE: 'Cliente',
 };
-
 const ROLE_COLORS: Record<string, string> = {
   SUPER_ADMIN: 'bg-red-100 text-red-700',
   ADMIN: 'bg-purple-100 text-purple-700',
@@ -33,6 +32,7 @@ interface UserItem {
 export default function UsersClient({ initialUsers }: { initialUsers: UserItem[] }) {
   const [users, setUsers] = useState<UserItem[]>(initialUsers);
   const [roleFilter, setRoleFilter] = useState('ALL');
+  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleFilter = async (filter: string) => {
@@ -43,30 +43,68 @@ export default function UsersClient({ initialUsers }: { initialUsers: UserItem[]
     setLoading(false);
   };
 
+  const handleSearch = async () => {
+    setLoading(true);
+    const r = await getAllUsers(roleFilter === 'ALL' ? undefined : roleFilter);
+    if (r.data)
+      setUsers(
+        r.data.filter(
+          (u) =>
+            !search ||
+            u.email.toLowerCase().includes(search.toLowerCase()) ||
+            (u.fullName || '').toLowerCase().includes(search.toLowerCase())
+        )
+      );
+    setLoading(false);
+  };
+
   const handleSetRole = async (userId: string, role: string) => {
     const r = await setUserRole(userId, role);
     if (r.success) {
       toast.success(`Role alterado para ${ROLE_LABELS[role] || role}`);
       handleFilter(roleFilter);
-    } else {
-      toast.error(r.error || 'Erro');
-    }
+    } else toast.error(r.error || 'Erro');
   };
 
+  const roleCounts = users.reduce(
+    (acc, u) => {
+      acc[u.role] = (acc[u.role] || 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+          placeholder="Buscar por email ou nome..."
+          className="flex-1 min-w-[200px] rounded-lg border px-3 py-2 text-sm"
+          style={{ borderColor: 'var(--color-border)' }}
+        />
+        <button
+          onClick={handleSearch}
+          className="flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white"
+        >
+          <Search className="w-4 h-4" /> Buscar
+        </button>
+      </div>
+
       <div className="flex flex-wrap gap-2">
         {['ALL', 'SUPER_ADMIN', 'ADMIN', 'GERENCIADOR', 'EQUIPE', 'CLIENTE'].map((r) => (
           <button
             key={r}
             onClick={() => handleFilter(r)}
-            className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all ${
-              roleFilter === r
-                ? 'bg-emerald-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
+            className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all ${roleFilter === r ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
           >
-            {r === 'ALL' ? 'Todos' : ROLE_LABELS[r] || r}
+            {r === 'ALL' ? 'Todos' : ROLE_LABELS[r] || r}{' '}
+            {r !== 'ALL' && roleCounts[r] ? (
+              <span className="ml-1 opacity-70">({roleCounts[r]})</span>
+            ) : null}
           </button>
         ))}
       </div>

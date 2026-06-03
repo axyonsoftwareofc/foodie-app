@@ -14,10 +14,20 @@ export async function getSuperAdminMetrics(): Promise<{
   data?: {
     totalRestaurants: number;
     activeRestaurants: number;
+    openRestaurants: number;
+    busyRestaurants: number;
+    closedRestaurants: number;
     totalOrders: number;
     todayOrders: number;
     todayRevenue: number;
     totalUsers: number;
+    recentOrders: {
+      id: string;
+      restaurantName: string;
+      total: number;
+      status: string;
+      createdAt: string;
+    }[];
   };
   error?: string;
 }> {
@@ -26,28 +36,56 @@ export async function getSuperAdminMetrics(): Promise<{
       data: {
         totalRestaurants: 0,
         activeRestaurants: 0,
+        openRestaurants: 0,
+        busyRestaurants: 0,
+        closedRestaurants: 0,
         totalOrders: 0,
         todayOrders: 0,
         todayRevenue: 0,
         totalUsers: 0,
+        recentOrders: [],
       },
     };
   }
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const [totalRestaurants, activeRestaurants, totalOrders, todayOrders, totalUsers, revenueRows] =
-    await Promise.all([
-      prisma.restaurant.count(),
-      prisma.restaurant.count({ where: { is_active: true } }),
-      prisma.order.count(),
-      prisma.order.count({ where: { created_at: { gte: today } } }),
-      prisma.profile.count(),
-      prisma.order.findMany({
-        where: { created_at: { gte: today } },
-        select: { total: true, status: true },
-      }),
-    ]);
+  const [
+    totalRestaurants,
+    activeRestaurants,
+    totalOrders,
+    todayOrders,
+    totalUsers,
+    revenueRows,
+    openCount,
+    busyCount,
+    closedCount,
+    recentOrders,
+  ] = await Promise.all([
+    prisma.restaurant.count(),
+    prisma.restaurant.count({ where: { is_active: true } }),
+    prisma.order.count(),
+    prisma.order.count({ where: { created_at: { gte: today } } }),
+    prisma.profile.count(),
+    prisma.order.findMany({
+      where: { created_at: { gte: today } },
+      select: { total: true, status: true },
+    }),
+    prisma.restaurant.count({ where: { status: 'OPEN', is_active: true } }),
+    prisma.restaurant.count({ where: { status: 'BUSY', is_active: true } }),
+    prisma.restaurant.count({ where: { status: 'CLOSED', is_active: true } }),
+    prisma.order.findMany({
+      select: {
+        id: true,
+        total: true,
+        status: true,
+        created_at: true,
+        restaurant: { select: { name: true } },
+      },
+      orderBy: { created_at: 'desc' },
+      take: 10,
+    }),
+  ]);
 
   const todayRevenue = revenueRows
     .filter((o) => o.status !== 'CANCELLED')
@@ -57,10 +95,20 @@ export async function getSuperAdminMetrics(): Promise<{
     data: {
       totalRestaurants,
       activeRestaurants,
+      openRestaurants: openCount,
+      busyRestaurants: busyCount,
+      closedRestaurants: closedCount,
       totalOrders,
       todayOrders,
       todayRevenue,
       totalUsers,
+      recentOrders: recentOrders.map((o) => ({
+        id: o.id,
+        restaurantName: o.restaurant.name,
+        total: o.total,
+        status: o.status,
+        createdAt: o.created_at.toISOString(),
+      })),
     },
   };
 }
@@ -227,4 +275,62 @@ export async function setUserRole(
 
   revalidatePath('/super-admin/users');
   return { success: true };
+}
+
+export async function getGlobalAuditLog(page = 1): Promise<{
+  data?: {
+    items: {
+      id: string;
+      action: string;
+      entityType: string;
+      entityId: string | null;
+      actorUserId: string | null;
+      restaurantName: string;
+      createdAt: string;
+    }[];
+    total: number;
+    page: number;
+  };
+  error?: string;
+}> {
+  if (!process.env.DATABASE_URL) {
+    return { data: { items: [], total: 0, page: 1 } };
+  }
+
+  const take = 30;
+  const skip = (page - 1) * take;
+
+  const [items, total] = await Promise.all([
+    prisma.auditLog.findMany({
+      select: {
+        id: true,
+        action: true,
+        entity_type: true,
+        entity_id: true,
+        actor_user_id: true,
+        created_at: true,
+        restaurant: { select: { name: true } },
+      },
+      orderBy: { created_at: 'desc' },
+      skip,
+      take,
+    }),
+    prisma.auditLog.count(),
+  ]);
+
+  return {
+    data: {
+      items: items.map((log) => ({
+        id: log.id,
+        action: log.action,
+        entityType: log.entity_type,
+        entityId: log.entity_id,
+        actorUserId: log.actor_user_id,
+        restaurantName: log.restaurant.name,
+        createdAt: log.created_at.toISOString(),
+      })),
+      total,
+      page,
+    },
+  };
 }

@@ -17,6 +17,8 @@ interface RestaurantItem {
   createdAt: string;
 }
 
+const STATUS_OPTIONS = ['ALL', 'OPEN', 'BUSY', 'CLOSED'] as const;
+
 export default function RestaurantsClient({
   initialItems,
   initialTotal,
@@ -28,6 +30,7 @@ export default function RestaurantsClient({
   const [total, setTotal] = useState(initialTotal);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
   const [loading, setLoading] = useState(false);
 
   const handleSearch = async () => {
@@ -35,7 +38,7 @@ export default function RestaurantsClient({
     setPage(1);
     const r = await getAllRestaurants(1, search);
     if (r.data) {
-      setItems(r.data.items);
+      setItems(r.data.items.filter((i) => statusFilter === 'ALL' || i.status === statusFilter));
       setTotal(r.data.total);
     }
     setLoading(false);
@@ -46,7 +49,7 @@ export default function RestaurantsClient({
     setPage(p);
     const r = await getAllRestaurants(p, search);
     if (r.data) {
-      setItems(r.data.items);
+      setItems(r.data.items.filter((i) => statusFilter === 'ALL' || i.status === statusFilter));
       setTotal(r.data.total);
     }
     setLoading(false);
@@ -62,18 +65,32 @@ export default function RestaurantsClient({
     }
   };
 
+  const filtered = items.filter((i) => statusFilter === 'ALL' || i.status === statusFilter);
+
   return (
-    <div className="space-y-6">
-      <div className="flex gap-2">
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2">
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-          placeholder="Buscar por nome..."
-          className="flex-1 rounded-lg border px-3 py-2 text-sm"
+          placeholder="Buscar por nome ou email do dono..."
+          className="flex-1 min-w-[200px] rounded-lg border px-3 py-2 text-sm"
           style={{ borderColor: 'var(--color-border)' }}
         />
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="rounded-lg border px-3 py-2 text-sm"
+          style={{ borderColor: 'var(--color-border)' }}
+        >
+          {STATUS_OPTIONS.map((s) => (
+            <option key={s} value={s}>
+              {s === 'ALL' ? 'Todos Status' : s}
+            </option>
+          ))}
+        </select>
         <button
           onClick={handleSearch}
           className="flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white"
@@ -134,14 +151,14 @@ export default function RestaurantsClient({
                   Carregando...
                 </td>
               </tr>
-            ) : items.length === 0 ? (
+            ) : filtered.length === 0 ? (
               <tr>
                 <td colSpan={6} className="p-8 text-center text-gray-400">
                   Nenhum restaurante
                 </td>
               </tr>
             ) : (
-              items.map((r) => (
+              filtered.map((r) => (
                 <tr key={r.id} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
                   <td className="p-3" style={{ color: 'var(--color-text)' }}>
                     <span className="font-medium">{r.name}</span>
@@ -154,13 +171,7 @@ export default function RestaurantsClient({
                   </td>
                   <td className="p-3">
                     <span
-                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                        r.status === 'OPEN'
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : r.status === 'BUSY'
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-gray-100 text-gray-600'
-                      }`}
+                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${r.status === 'OPEN' ? 'bg-emerald-100 text-emerald-700' : r.status === 'BUSY' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'}`}
                     >
                       {r.status}
                     </span>
@@ -174,11 +185,7 @@ export default function RestaurantsClient({
                   <td className="p-3 text-center">
                     <button
                       onClick={() => handleToggle(r.id)}
-                      className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium ${
-                        r.isActive
-                          ? 'text-red-600 hover:bg-red-50'
-                          : 'text-emerald-600 hover:bg-emerald-50'
-                      }`}
+                      className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium ${r.isActive ? 'text-red-600 hover:bg-red-50' : 'text-emerald-600 hover:bg-emerald-50'}`}
                     >
                       {r.isActive ? (
                         <PowerOff className="w-3 h-3" />

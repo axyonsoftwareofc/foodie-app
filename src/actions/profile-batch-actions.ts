@@ -56,6 +56,15 @@ export async function getProfileBatch(): Promise<{
       },
     }));
 
+  // Sync avatar for existing profiles missing it (e.g., Google OAuth after first login)
+  if (profile && !profile.avatar_url && (user.user_metadata?.avatar_url as string)) {
+    await prisma.profile.update({
+      where: { id: user.id },
+      data: { avatar_url: user.user_metadata?.avatar_url as string },
+    });
+    resolvedProfile.avatar_url = user.user_metadata?.avatar_url as string;
+  }
+
   return {
     data: {
       profile: resolvedProfile

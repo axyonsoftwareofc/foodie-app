@@ -3,12 +3,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Store, Users, LayoutDashboard } from 'lucide-react';
+import { Store, Users, LayoutDashboard, Shield } from 'lucide-react';
 
 const NAV = [
   { href: '/super-admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/super-admin/restaurants', label: 'Restaurantes', icon: Store },
   { href: '/super-admin/users', label: 'Usuários', icon: Users },
+  { href: '/super-admin/audit', label: 'Auditoria', icon: Shield },
 ];
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
