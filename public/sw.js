@@ -1,5 +1,5 @@
 // public/sw.js
-const CACHE_NAME = 'foodie-v1';
+const CACHE_NAME = 'foodie-v2';
 
 const STATIC_ASSETS = ['/', '/cart', '/favorites', '/manifest.json'];
 

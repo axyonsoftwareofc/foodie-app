@@ -27,6 +27,10 @@ export async function getProfileBatch(): Promise<{
   };
   error?: string;
 }> {
+  if (!process.env.DATABASE_URL) {
+    return { data: { profile: null, privacy: null, favoritesCount: 0 } };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },

@@ -21,6 +21,18 @@ export async function getSuperAdminMetrics(): Promise<{
   };
   error?: string;
 }> {
+  if (!process.env.DATABASE_URL) {
+    return {
+      data: {
+        totalRestaurants: 0,
+        activeRestaurants: 0,
+        totalOrders: 0,
+        todayOrders: 0,
+        todayRevenue: 0,
+        totalUsers: 0,
+      },
+    };
+  }
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -73,6 +85,10 @@ export async function getAllRestaurants(
   };
   error?: string;
 }> {
+  if (!process.env.DATABASE_URL) {
+    return { data: { items: [], total: 0, page: 1 } };
+  }
+
   const take = 20;
   const skip = (page - 1) * take;
 
@@ -160,6 +176,9 @@ export async function getAllUsers(roleFilter?: string): Promise<{
   }[];
   error?: string;
 }> {
+  if (!process.env.DATABASE_URL) {
+    return { data: [] };
+  }
   const where = roleFilter && roleFilter !== 'ALL' ? { role: roleFilter as UserRole } : {};
 
   const profiles = await prisma.profile.findMany({
