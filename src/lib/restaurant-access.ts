@@ -127,7 +127,8 @@ async function ensureMinimumAppRole(user: User): Promise<void> {
 }
 
 export async function getRestaurantAccess(
-  allowedRoles?: RestaurantMemberRole[]
+  allowedRoles?: RestaurantMemberRole[],
+  ensureMembership = true
 ): Promise<AccessResult> {
   const auth = await getAuthenticatedUser();
   if (!auth.user) return { error: auth.error ?? 'Usuário não autenticado' };
@@ -139,7 +140,18 @@ export async function getRestaurantAccess(
   });
 
   if (ownedRestaurant) {
-    const member = await ensureOwnerMember(user, ownedRestaurant);
+    let member: RestaurantMember;
+    if (ensureMembership) {
+      member = await ensureOwnerMember(user, ownedRestaurant);
+    } else {
+      const existing = await prisma.restaurantMember.findFirst({
+        where: { restaurant_id: ownedRestaurant.id, user_id: user.id, status: 'ACTIVE' },
+      });
+      if (!existing) {
+        return { error: 'Usuário não está vinculado a um restaurante' };
+      }
+      member = existing;
+    }
     if (!hasAllowedRole('OWNER', allowedRoles)) {
       return { error: 'Acesso negado para esta operação' };
     }

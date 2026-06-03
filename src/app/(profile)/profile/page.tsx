@@ -24,13 +24,9 @@ import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import Image from 'next/image';
 import { formatDateBR } from '@/lib/utils/format.utils';
-import {
-  getUserProfile,
-  getUserPrivacySettings,
-  updateUserPrivacySettings,
-  getFavoriteRestaurants,
-} from '@/actions/profileActions';
+import { getProfileBatch } from '@/actions/profile-batch-actions';
 import { UserPrivacySettings } from '@/types/user-profile.types';
+import { updateUserPrivacySettings } from '@/actions/profileActions';
 
 interface ProfileMenuItem {
   icon: React.ReactNode;
@@ -62,22 +58,23 @@ export default function ProfilePage() {
         return;
       }
 
-      // Carregar perfil, privacidade e favoritos em paralelo
-      const [profileResult, privacyResult, favoritesResult] = await Promise.all([
-        getUserProfile(),
-        getUserPrivacySettings(),
-        getFavoriteRestaurants(),
-      ]);
+      // Carregar perfil, privacidade e favoritos em UMA chamada
+      const batchResult = await getProfileBatch();
 
-      if (profileResult.data) {
-        setProfile(profileResult.data);
+      if (batchResult.error) {
+        setIsLoading(false);
+        return;
       }
-      if (privacyResult.data) {
-        setPrivacySettings(privacyResult.data);
+
+      const { profile, privacy, favoritesCount: count } = batchResult.data!;
+
+      if (profile) {
+        setProfile(profile);
       }
-      if (favoritesResult.data) {
-        setFavoritesCount(favoritesResult.data.length);
+      if (privacy) {
+        setPrivacySettings(privacy);
       }
+      setFavoritesCount(count);
 
       setIsLoading(false);
     };
