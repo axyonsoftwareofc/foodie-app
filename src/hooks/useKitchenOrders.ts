@@ -19,15 +19,17 @@ export interface KitchenFilters {
   dateTo?: string;
 }
 
-export function useKitchenOrders() {
-  const [orders, setOrders] = useState<KitchenOrder[]>([]);
-  const [loading, setLoading] = useState(true);
+export function useKitchenOrders(initialOrders?: KitchenOrder[]) {
+  const [orders, setOrders] = useState<KitchenOrder[]>(initialOrders || []);
+  const [loading, setLoading] = useState(!initialOrders);
   const [filters, setFilters] = useState<KitchenFilters>({});
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
-  const previousOrderIdsRef = useRef<Set<string>>(new Set());
+  const previousOrderIdsRef = useRef<Set<string>>(new Set((initialOrders || []).map((o) => o.id)));
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null);
-  const derivedRestaurantIdRef = useRef<string | null>(null);
+  const derivedRestaurantIdRef = useRef<string | null>(
+    initialOrders && initialOrders.length > 0 ? initialOrders[0].restaurantId : null
+  );
 
   const fetchOrders = useCallback(async () => {
     const result = await getOrdersForRestaurant({

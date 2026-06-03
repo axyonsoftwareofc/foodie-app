@@ -1,32 +1,11 @@
 // src/app/super-admin/page.tsx
-'use client';
-
-import { useEffect, useState } from 'react';
 import { getSuperAdminMetrics } from '@/actions/super-admin-actions';
 import { Store, ShoppingBag, Users, DollarSign, TrendingUp, Activity } from 'lucide-react';
 import { formatPrice } from '@/lib/utils/format.utils';
 
-export default function SuperAdminDashboard() {
-  const [metrics, setMetrics] = useState<{
-    totalRestaurants: number;
-    activeRestaurants: number;
-    totalOrders: number;
-    todayOrders: number;
-    todayRevenue: number;
-    totalUsers: number;
-  } | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    getSuperAdminMetrics().then((r) => {
-      if (r.data) setMetrics(r.data);
-      setLoading(false);
-    });
-  }, []);
-
-  if (loading) {
-    return <div className="p-8 text-gray-500">Carregando metricas...</div>;
-  }
+export default async function SuperAdminDashboard() {
+  const result = await getSuperAdminMetrics();
+  const metrics = result.data;
 
   return (
     <div
