@@ -73,19 +73,33 @@ function bufferToHex(buffer: ArrayBuffer): string {
 }
 
 async function signCookieValue(value: string): Promise<string> {
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  const payload = `${timestamp}.${value}`;
   const key = await getSigningKey();
   const encoder = new TextEncoder();
-  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(value));
-  return `${value}.${bufferToHex(signature)}`;
+  const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
+  return `${payload}.${bufferToHex(sig)}`;
 }
 
 async function verifyCookieValue(signed: string): Promise<string | null> {
-  const dotIndex = signed.lastIndexOf('.');
-  if (dotIndex === -1) return null;
-  const value = signed.substring(0, dotIndex);
-  const expected = await signCookieValue(value);
-  if (signed !== expected) return null;
-  return value;
+  const parts = signed.split('.');
+  if (parts.length < 3) return null;
+
+  const hexSig = parts[parts.length - 1];
+  const role = parts[parts.length - 2];
+  const timestamp = parts.slice(0, parts.length - 2).join('.');
+
+  const payload = `${timestamp}.${role}`;
+  const key = await getSigningKey();
+  const encoder = new TextEncoder();
+  const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
+
+  if (hexSig !== bufferToHex(sig)) return null;
+
+  const age = Math.floor(Date.now() / 1000) - parseInt(timestamp, 10);
+  if (age > 3600) return null;
+
+  return role;
 }
 
 /** Retorna true se userRole tiver permissão mínima necessária. */

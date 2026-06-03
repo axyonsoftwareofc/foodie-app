@@ -187,7 +187,7 @@ export default function ProfilePage() {
             />
           ) : (
             <div className="w-16 h-16 rounded-full bg-[#00A082] flex items-center justify-center text-white text-xl font-bold">
-              {(profile?.full_name || '?')
+              {(profile?.full_name || user?.email?.split('@')[0] || '?')
                 .split(' ')
                 .map((n: string) => n[0])
                 .join('')
