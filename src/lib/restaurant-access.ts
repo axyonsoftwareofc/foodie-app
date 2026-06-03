@@ -66,6 +66,15 @@ async function ensureOwnerMember(
   });
 
   if (existing) {
+    if (
+      existing.user_id === user.id &&
+      existing.email === email &&
+      existing.role === 'OWNER' &&
+      existing.status === 'ACTIVE'
+    ) {
+      return existing;
+    }
+
     return prisma.restaurantMember.update({
       where: { id: existing.id },
       data: {

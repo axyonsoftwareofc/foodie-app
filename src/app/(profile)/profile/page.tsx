@@ -62,20 +62,19 @@ export default function ProfilePage() {
         return;
       }
 
-      // Carregar perfil
-      const profileResult = await getUserProfile();
+      // Carregar perfil, privacidade e favoritos em paralelo
+      const [profileResult, privacyResult, favoritesResult] = await Promise.all([
+        getUserProfile(),
+        getUserPrivacySettings(),
+        getFavoriteRestaurants(),
+      ]);
+
       if (profileResult.data) {
         setProfile(profileResult.data);
       }
-
-      // Carregar configurações de privacidade
-      const privacyResult = await getUserPrivacySettings();
       if (privacyResult.data) {
         setPrivacySettings(privacyResult.data);
       }
-
-      // Carregar favoritos
-      const favoritesResult = await getFavoriteRestaurants();
       if (favoritesResult.data) {
         setFavoritesCount(favoritesResult.data.length);
       }
