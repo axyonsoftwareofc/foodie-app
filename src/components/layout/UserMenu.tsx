@@ -132,6 +132,7 @@ export function UserMenu({ userName, userEmail, userAvatar, isRestaurantOwner }:
             width={36}
             height={36}
             className="rounded-full object-cover"
+            unoptimized
           />
         ) : (
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#00A082] text-xs font-bold text-white">
