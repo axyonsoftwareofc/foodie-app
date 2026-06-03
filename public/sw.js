@@ -33,6 +33,11 @@ self.addEventListener('fetch', (event) => {
   // Skip chrome-extension and other non-http requests
   if (!event.request.url.startsWith('http')) return;
 
+  // Skip Next.js static chunks — they have content-hash filenames, no cache benefit
+  if (event.request.url.includes('/_next/')) {
+    return fetch(event.request);
+  }
+
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       // Return cached response if available

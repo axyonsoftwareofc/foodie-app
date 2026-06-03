@@ -50,6 +50,7 @@ const nextConfig: NextConfig = {
               "img-src 'self' data: res.cloudinary.com images.unsplash.com *.supabase.co",
               "style-src 'self' 'unsafe-inline'",
               "font-src 'self'",
+              "worker-src 'self' blob:",
               'report-uri /monitoring',
             ].join('; '),
           },
