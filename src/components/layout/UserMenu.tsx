@@ -30,6 +30,8 @@ export function UserMenu({ userName, userEmail, userAvatar, isRestaurantOwner }:
   const [isSigningOut, setIsSigningOut] = useState<boolean>(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  console.log('Avatar recebido:', userAvatar);
+
   // Close on click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent): void => {
