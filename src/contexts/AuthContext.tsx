@@ -27,13 +27,20 @@ interface AuthContextType extends AuthState {
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 function buildProfileFromUser(user: User): UserProfile {
+  // Get avatar from user_metadata - check common field names used by OAuth providers
+  const avatarUrl =
+    user.user_metadata?.avatar_url || // GitHub, etc.
+    user.user_metadata?.picture || // Google
+    user.user_metadata?.avatar || // Some providers
+    undefined;
+
   return {
     id: user.id,
     email: user.email || '',
     fullName:
       user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || '',
     role: 'CLIENTE',
-    avatarUrl: user.user_metadata?.avatar_url || undefined,
+    avatarUrl,
     phone: undefined,
     createdAt: user.created_at,
     updatedAt: user.updated_at || user.created_at,
@@ -51,12 +58,19 @@ async function fetchUserProfile(
       return buildProfileFromUser(user);
     }
 
+    // Get avatar from user_metadata - check common field names used by OAuth providers
+    const metadataAvatarUrl =
+      user.user_metadata?.avatar_url || // GitHub, etc.
+      user.user_metadata?.picture || // Google
+      user.user_metadata?.avatar || // Some providers
+      undefined;
+
     return {
       id: data.id,
       email: data.email || user.email || '',
       fullName: data.full_name || user.user_metadata?.full_name || user.user_metadata?.name || '',
       role: data.role || 'CLIENTE',
-      avatarUrl: data.avatar_url || user.user_metadata?.avatar_url,
+      avatarUrl: data.avatar_url ?? metadataAvatarUrl,
       phone: data.phone,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
