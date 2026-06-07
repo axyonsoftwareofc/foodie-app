@@ -121,7 +121,7 @@ export default function ForgotPasswordPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="seu@email.com"
-                className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-colors"
+                className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-colors focus:ring-2 focus:ring-[var(--color-border-focus)]"
                 style={{
                   backgroundColor: 'var(--color-bg-input)',
                   borderWidth: '1px',

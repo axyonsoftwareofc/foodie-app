@@ -14,78 +14,46 @@ describe('SkipLinks', () => {
     document.body.innerHTML = '';
   });
 
-  it('should render skip links when keyboard navigation is enabled', () => {
-    renderWithAccessibility(
-      <>
-        <SkipLinks />
-        <main id="main-content" tabIndex={-1}>
-          Content
-        </main>
-      </>
-    );
+  it('should render skip links always (not gated by keyboardNavigation)', () => {
+    renderWithAccessibility(<SkipLinks />);
 
-    expect(screen.getByText(/ir para o conteúdo principal/i)).toBeInTheDocument();
-    expect(screen.getByText(/ir para navegação/i)).toBeInTheDocument();
-    expect(screen.getByText(/ir para busca/i)).toBeInTheDocument();
+    expect(screen.getByText(/ir para o conteudo principal/i)).toBeInTheDocument();
+    expect(screen.getByText(/ir para navegacao/i)).toBeInTheDocument();
   });
 
-  it('should have main content link', () => {
-    renderWithAccessibility(
-      <>
-        <SkipLinks />
-        <main id="main-content">Content</main>
-      </>
-    );
+  it('should have main content link pointing to #main-content', () => {
+    renderWithAccessibility(<SkipLinks />);
 
-    const link = screen.getByText(/ir para o conteúdo principal/i);
+    const link = screen.getByText(/ir para o conteudo principal/i);
     expect(link).toHaveAttribute('href', '#main-content');
   });
 
-  it('should have navigation link', () => {
-    renderWithAccessibility(
-      <>
-        <SkipLinks />
-        <nav id="main-nav">Navigation</nav>
-      </>
-    );
+  it('should have navigation link pointing to #main-navigation', () => {
+    renderWithAccessibility(<SkipLinks />);
 
-    const link = screen.getByText(/ir para navegação/i);
-    expect(link).toHaveAttribute('href', '#main-nav');
+    const link = screen.getByText(/ir para navegacao/i);
+    expect(link).toHaveAttribute('href', '#main-navigation');
   });
 
-  it('should have search link', () => {
-    renderWithAccessibility(
-      <>
-        <SkipLinks />
-        <input id="search-input" />
-      </>
-    );
+  it('should be hidden visually but accessible via skip-link class', () => {
+    renderWithAccessibility(<SkipLinks />);
 
-    const link = screen.getByText(/ir para busca/i);
-    expect(link).toHaveAttribute('href', '#search-input');
-  });
-
-  it('should be hidden visually but accessible to screen readers', () => {
-    renderWithAccessibility(
-      <>
-        <SkipLinks />
-        <main>Content</main>
-      </>
-    );
-
-    const link = screen.getByText(/ir para o conteúdo principal/i);
+    const link = screen.getByText(/ir para o conteudo principal/i);
     expect(link).toHaveClass('skip-link');
   });
 
-  it('should have proper aria-label', () => {
-    renderWithAccessibility(
-      <>
-        <SkipLinks />
-        <main>Content</main>
-      </>
-    );
+  it('should have proper aria-label on nav', () => {
+    renderWithAccessibility(<SkipLinks />);
 
-    const nav = screen.getByLabelText(/links de navegação rápida/i);
+    const nav = screen.getByLabelText(/links de navegacao rapida/i);
     expect(nav).toBeInTheDocument();
+  });
+
+  it('should have exactly two skip links (no search link)', () => {
+    renderWithAccessibility(<SkipLinks />);
+
+    const nav = screen.getByLabelText(/links de navegacao rapida/i);
+    const links = nav.querySelectorAll('a');
+    expect(links).toHaveLength(2);
   });
 });

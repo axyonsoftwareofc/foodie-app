@@ -77,6 +77,7 @@ export default function Header() {
             <button
               className="hidden items-center gap-2 rounded-full px-4 py-2 transition-colors hover:opacity-80 md:flex"
               style={{ backgroundColor: 'var(--color-bg-secondary)' }}
+              aria-label="Endereco de entrega - Rua das Flores, 123"
             >
               <MapPin size={20} className="text-[#00A082]" />
               <div className="text-left">

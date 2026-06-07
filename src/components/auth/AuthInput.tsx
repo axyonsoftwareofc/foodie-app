@@ -48,7 +48,9 @@ export function AuthInput({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           autoComplete={autoComplete}
-          className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-colors"
+          aria-invalid={error ? 'true' : undefined}
+          aria-describedby={error ? `${id}-error` : undefined}
+          className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-colors focus:ring-2 focus:ring-[var(--color-border-focus)]"
           style={{
             backgroundColor: 'var(--color-bg-input)',
             color: 'var(--color-text)',
@@ -72,7 +74,12 @@ export function AuthInput({
       </div>
 
       {error && (
-        <p className="text-xs" style={{ color: 'var(--color-error)' }}>
+        <p
+          id={`${id}-error`}
+          role="alert"
+          className="text-xs"
+          style={{ color: 'var(--color-error)' }}
+        >
           {error}
         </p>
       )}

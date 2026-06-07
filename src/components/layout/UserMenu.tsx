@@ -30,8 +30,6 @@ export function UserMenu({ userName, userEmail, userAvatar, isRestaurantOwner }:
   const [isSigningOut, setIsSigningOut] = useState<boolean>(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  console.log('Avatar recebido:', userAvatar);
-
   // Close on click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent): void => {
@@ -162,6 +160,7 @@ export function UserMenu({ userName, userEmail, userAvatar, isRestaurantOwner }:
       <AnimatePresence>
         {isOpen && (
           <motion.div
+            role="menu"
             initial={{ opacity: 0, y: 8, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.96 }}
@@ -196,6 +195,7 @@ export function UserMenu({ userName, userEmail, userAvatar, isRestaurantOwner }:
             <div className="py-1">
               {menuItems.map((item) => (
                 <button
+                  role="menuitem"
                   key={item.path}
                   onClick={() => handleNavigate(item.path)}
                   className="flex w-full items-center gap-3 px-4 py-2.5 text-sm transition-colors"
@@ -223,6 +223,7 @@ export function UserMenu({ userName, userEmail, userAvatar, isRestaurantOwner }:
               }}
             >
               <button
+                role="menuitem"
                 onClick={handleSignOut}
                 className="flex w-full items-center gap-3 px-4 py-2.5 text-sm transition-colors"
                 style={{ color: 'var(--color-error)' }}

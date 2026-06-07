@@ -144,7 +144,7 @@ function ResetPasswordForm() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Mínimo 6 caracteres"
-                  className="w-full rounded-xl px-4 py-3 pr-12 text-sm outline-none transition-colors"
+                  className="w-full rounded-xl px-4 py-3 pr-12 text-sm outline-none transition-colors focus:ring-2 focus:ring-[var(--color-border-focus)]"
                   style={{
                     backgroundColor: 'var(--color-bg-input)',
                     borderWidth: '1px',
@@ -158,6 +158,7 @@ function ResetPasswordForm() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
                   style={{ color: 'var(--color-text-secondary)' }}
+                  aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
@@ -178,7 +179,7 @@ function ResetPasswordForm() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Confirme sua senha"
-                className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-colors"
+                className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-colors focus:ring-2 focus:ring-[var(--color-border-focus)]"
                 style={{
                   backgroundColor: 'var(--color-bg-input)',
                   borderWidth: '1px',

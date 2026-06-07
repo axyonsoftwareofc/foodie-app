@@ -7,6 +7,7 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import Header from '@/components/layout/Header';
 import BottomNav from '@/components/layout/BottomNav';
+import SkipLinks from '@/components/accessibility/SkipLinks';
 import { CartSidebarGlobal } from '@/components/cart/CartSidebarGlobal';
 import ServiceWorkerRegister from '@/components/pwa/ServiceWorkerRegister';
 
@@ -52,11 +53,14 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <body className="font-sans">
+        <SkipLinks />
         <ThemeProvider>
           <AuthProvider>
             <CartProvider>
               <Header />
-              <main className="min-h-screen pb-20 lg:pb-0">{children}</main>
+              <main id="main-content" role="main" className="min-h-screen pb-20 lg:pb-0">
+                {children}
+              </main>
               <BottomNav />
               <CartSidebarGlobal />
               <Toaster

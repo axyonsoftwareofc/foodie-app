@@ -95,13 +95,13 @@ export function CartSidebarGlobal() {
                   onClick={() => setIsCartOpen(false)}
                   className="rounded-full p-2 transition-colors"
                   style={{ color: 'var(--color-text-secondary)' }}
+                  aria-label="Fechar carrinho"
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.backgroundColor = 'transparent';
                   }}
-                  aria-label="Fechar carrinho"
                 >
                   <X size={22} />
                 </button>
