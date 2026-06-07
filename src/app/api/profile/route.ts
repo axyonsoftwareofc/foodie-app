@@ -15,7 +15,15 @@ const updateProfileSchema = z.object({
   avatarUrl: z.string().url().optional(),
 });
 
-export async function GET() {
+export async function GET(request: Request) {
+  const ip = getClientIp(request);
+  const rate = await checkRateLimit(
+    `profile:get:${ip}`,
+    RateLimitConfig.relaxed.limit,
+    RateLimitConfig.relaxed.windowSeconds
+  );
+  if (!rate.success) return buildRateLimitResponse(rate);
+
   try {
     const supabase = await createClient();
 

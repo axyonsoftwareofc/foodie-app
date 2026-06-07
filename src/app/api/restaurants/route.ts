@@ -52,6 +52,14 @@ const restaurantSchema = z.object({
 });
 
 export async function GET(request: Request) {
+  const ip = getClientIp(request);
+  const rate = await checkRateLimit(
+    `restaurants:get:${ip}`,
+    RateLimitConfig.relaxed.limit,
+    RateLimitConfig.relaxed.windowSeconds
+  );
+  if (!rate.success) return buildRateLimitResponse(rate);
+
   try {
     const supabase = await createClient();
     const { searchParams } = new URL(request.url);

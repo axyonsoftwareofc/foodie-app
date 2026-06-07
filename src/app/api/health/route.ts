@@ -3,6 +3,12 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getRedis } from '@/lib/redis';
 import { logger } from '@/lib/logger';
+import {
+  checkRateLimit,
+  getClientIp,
+  RateLimitConfig,
+  buildRateLimitResponse,
+} from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +21,15 @@ interface HealthStatus {
   };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const ip = getClientIp(request);
+  const rate = await checkRateLimit(
+    `health:get:${ip}`,
+    RateLimitConfig.relaxed.limit,
+    RateLimitConfig.relaxed.windowSeconds
+  );
+  if (!rate.success) return buildRateLimitResponse(rate);
+
   const HEALTH_TOKEN = process.env.HEALTH_API_TOKEN;
   if (HEALTH_TOKEN) {
     try {

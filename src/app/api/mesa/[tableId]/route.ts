@@ -3,8 +3,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { OrderStatus, Prisma } from '@prisma/client';
 import { recalculateRestaurantCapacity } from '@/lib/capacity-checker';
+import {
+  checkRateLimit,
+  getClientIp,
+  RateLimitConfig,
+  buildRateLimitResponse,
+} from '@/lib/rate-limit';
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ tableId: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ tableId: string }> }) {
+  const ip = getClientIp(req);
+  const rate = await checkRateLimit(
+    `mesa:get:${ip}`,
+    RateLimitConfig.relaxed.limit,
+    RateLimitConfig.relaxed.windowSeconds
+  );
+  if (!rate.success) return buildRateLimitResponse(rate);
+
   const { tableId } = await params;
 
   const table = await prisma.restaurantTable.findUnique({
@@ -53,6 +67,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tab
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ tableId: string }> }) {
+  const ip = getClientIp(req);
+  const rate = await checkRateLimit(
+    `mesa:post:${ip}`,
+    RateLimitConfig.strict.limit,
+    RateLimitConfig.strict.windowSeconds
+  );
+  if (!rate.success) return buildRateLimitResponse(rate);
+
   const { tableId } = await params;
 
   const table = await prisma.restaurantTable.findUnique({

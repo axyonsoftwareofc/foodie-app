@@ -1,8 +1,22 @@
 // src/app/api/tables/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import {
+  checkRateLimit,
+  getClientIp,
+  RateLimitConfig,
+  buildRateLimitResponse,
+} from '@/lib/rate-limit';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const ip = getClientIp(req);
+  const rate = await checkRateLimit(
+    `tables:get:${ip}`,
+    RateLimitConfig.relaxed.limit,
+    RateLimitConfig.relaxed.windowSeconds
+  );
+  if (!rate.success) return buildRateLimitResponse(rate);
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -28,6 +42,14 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const ip = getClientIp(request);
+  const rate = await checkRateLimit(
+    `tables:post:${ip}`,
+    RateLimitConfig.moderate.limit,
+    RateLimitConfig.moderate.windowSeconds
+  );
+  if (!rate.success) return buildRateLimitResponse(rate);
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -65,6 +87,14 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const ip = getClientIp(request);
+  const rate = await checkRateLimit(
+    `tables:del:${ip}`,
+    RateLimitConfig.moderate.limit,
+    RateLimitConfig.moderate.windowSeconds
+  );
+  if (!rate.success) return buildRateLimitResponse(rate);
+
   const supabase = await createClient();
   const {
     data: { user },
