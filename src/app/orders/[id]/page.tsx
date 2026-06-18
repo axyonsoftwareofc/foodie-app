@@ -1,7 +1,7 @@
 // src/app/orders/[id]/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getOrderById } from '@/actions/orders';
 import type { OrderData } from '@/actions/orders';
@@ -12,6 +12,7 @@ import { ArrowLeft, Clock, MapPin, Phone, Receipt, Store, User, CreditCard } fro
 import { toast } from 'sonner';
 import LiveTracker from '@/components/delivery/LiveTracker';
 import PixQRCode from '@/components/checkout/PixQRCode';
+import { CancelOrderModal } from '@/components/orders/CancelOrderModal';
 import { createPixPayment } from '@/actions/payments';
 import type { PixPaymentDetails } from '@/types/payment.types';
 
@@ -23,31 +24,38 @@ export default function OrderDetailsPage() {
   const { addItem, clearCart, items: cartItems, restaurantId: cartRestaurantId } = useCart();
   const [pixDetails, setPixDetails] = useState<PixPaymentDetails | null>(null);
   const [isGeneratingPix, setIsGeneratingPix] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [reorderModalOpen, setReorderModalOpen] = useState(false);
 
   const orderId = params.id as string;
 
-  useEffect(() => {
-    async function loadOrder() {
+  const loadOrder = useCallback(async () => {
+    try {
       const result = await getOrderById(orderId);
-
       if (result.error || !result.data) {
-        toast.error('Pedido não encontrado');
+        toast.error(result.error || 'Pedido não encontrado');
         router.push('/orders');
         return;
       }
-
       setOrder(result.data);
+    } catch {
+      toast.error('Erro ao carregar pedido');
+      router.push('/orders');
+    } finally {
       setLoading(false);
     }
-
-    loadOrder();
   }, [orderId, router]);
+
+  useEffect(() => {
+    loadOrder();
+  }, [loadOrder]);
 
   useEffect(() => {
     if (order && order.paymentMethod === 'PIX' && order.status === 'PENDING') {
       setIsGeneratingPix(true);
       createPixPayment(order.id).then((result) => {
         if (result.data) setPixDetails(result.data);
+        if (result.error) toast.error(result.error);
         setIsGeneratingPix(false);
       });
     }
@@ -58,6 +66,7 @@ export default function OrderDetailsPage() {
     setIsGeneratingPix(true);
     createPixPayment(order.id).then((result) => {
       if (result.data) setPixDetails(result.data);
+      if (result.error) toast.error(result.error);
       setIsGeneratingPix(false);
     });
   };
@@ -81,13 +90,16 @@ export default function OrderDetailsPage() {
     if (!order) return;
 
     if (cartRestaurantId && cartRestaurantId !== order.restaurantId && cartItems.length > 0) {
-      const confirmed = window.confirm(
-        'Seu carrinho tem itens de outro restaurante. Deseja limpar e pedir novamente?'
-      );
-      if (!confirmed) return;
-      clearCart();
+      setReorderModalOpen(true);
+      return;
     }
 
+    doReorder();
+  };
+
+  const doReorder = () => {
+    if (!order) return;
+    clearCart();
     order.items.forEach((item) => {
       addItem(
         {
@@ -125,22 +137,28 @@ export default function OrderDetailsPage() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--color-bg-secondary)' }}>
       {/* Header */}
-      <div className="bg-white border-b sticky top-0 z-10">
+      <div
+        className="border-b sticky top-0 z-10"
+        style={{ backgroundColor: 'var(--color-bg-card)' }}
+      >
         <div className="max-w-3xl mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
             <button
               onClick={() => router.back()}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              className="p-2 rounded-full transition-colors"
+              style={{ backgroundColor: 'var(--color-bg-hover)' }}
             >
               <ArrowLeft size={20} />
             </button>
             <div className="flex-1">
-              <h1 className="text-xl font-bold">
+              <h1 className="text-xl font-bold" style={{ color: 'var(--color-text)' }}>
                 Pedido #{String(order.id).slice(-4).toUpperCase()}
               </h1>
-              <p className="text-sm text-gray-500">{formattedDate}</p>
+              <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                {formattedDate}
+              </p>
             </div>
             <div
               className="px-3 py-1.5 rounded-full text-sm font-medium"
@@ -158,7 +176,10 @@ export default function OrderDetailsPage() {
       {/* Content */}
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
         {/* Status Timeline */}
-        <div className="bg-white rounded-xl p-6 shadow-sm">
+        <div
+          className="rounded-xl p-6 shadow-sm"
+          style={{ backgroundColor: 'var(--color-bg-card)' }}
+        >
           <h2 className="font-semibold mb-4 flex items-center gap-2">
             <Clock size={18} />
             Status do Pedido
@@ -227,54 +248,87 @@ export default function OrderDetailsPage() {
         </div>
 
         {/* Restaurant Info */}
-        <div className="bg-white rounded-xl p-6 shadow-sm">
-          <h2 className="font-semibold mb-4 flex items-center gap-2">
+        <div
+          className="rounded-xl p-6 shadow-sm"
+          style={{ backgroundColor: 'var(--color-bg-card)' }}
+        >
+          <h2
+            className="font-semibold mb-4 flex items-center gap-2"
+            style={{ color: 'var(--color-text)' }}
+          >
             <Store size={18} />
             Restaurante
           </h2>
-          <p className="text-lg font-medium">{order.restaurantName}</p>
+          <p className="text-lg font-medium" style={{ color: 'var(--color-text)' }}>
+            {order.restaurantName}
+          </p>
         </div>
 
         {/* Delivery Address */}
         {order.orderType === 'DELIVERY' && order.address && (
-          <div className="bg-white rounded-xl p-6 shadow-sm">
-            <h2 className="font-semibold mb-4 flex items-center gap-2">
+          <div
+            className="rounded-xl p-6 shadow-sm"
+            style={{ backgroundColor: 'var(--color-bg-card)' }}
+          >
+            <h2
+              className="font-semibold mb-4 flex items-center gap-2"
+              style={{ color: 'var(--color-text)' }}
+            >
               <MapPin size={18} />
               Endereço de Entrega
             </h2>
             <div className="space-y-1">
-              <p className="font-medium">{order.customerName}</p>
-              <p className="text-gray-600">
+              <p className="font-medium" style={{ color: 'var(--color-text)' }}>
+                {order.customerName}
+              </p>
+              <p style={{ color: 'var(--color-text-secondary)' }}>
                 {order.address.street}, {order.address.number}
                 {order.address.complement && ` - ${order.address.complement}`}
               </p>
-              <p className="text-gray-600">
+              <p style={{ color: 'var(--color-text-secondary)' }}>
                 {order.address.neighborhood} - {order.address.city}/{order.address.state}
               </p>
-              <p className="text-gray-600">CEP: {order.address.zipCode}</p>
+              <p style={{ color: 'var(--color-text-secondary)' }}>CEP: {order.address.zipCode}</p>
             </div>
           </div>
         )}
 
         {/* Pickup/Dine-in Info */}
         {order.orderType === 'PICKUP' && (
-          <div className="bg-white rounded-xl p-6 shadow-sm">
-            <h2 className="font-semibold mb-4 flex items-center gap-2">
+          <div
+            className="rounded-xl p-6 shadow-sm"
+            style={{ backgroundColor: 'var(--color-bg-card)' }}
+          >
+            <h2
+              className="font-semibold mb-4 flex items-center gap-2"
+              style={{ color: 'var(--color-text)' }}
+            >
               <Store size={18} />
               Retirada no Local
             </h2>
-            <p className="text-gray-600">Dirija-se ao restaurante para retirar seu pedido</p>
+            <p style={{ color: 'var(--color-text-secondary)' }}>
+              Dirija-se ao restaurante para retirar seu pedido
+            </p>
           </div>
         )}
 
         {order.orderType === 'DINE_IN' && order.tableNumber && (
-          <div className="bg-white rounded-xl p-6 shadow-sm">
-            <h2 className="font-semibold mb-4 flex items-center gap-2">
+          <div
+            className="rounded-xl p-6 shadow-sm"
+            style={{ backgroundColor: 'var(--color-bg-card)' }}
+          >
+            <h2
+              className="font-semibold mb-4 flex items-center gap-2"
+              style={{ color: 'var(--color-text)' }}
+            >
               <User size={18} />
               Consumo no Local
             </h2>
-            <p className="text-gray-600">
-              Mesa: <span className="font-bold">{order.tableNumber}</span>
+            <p style={{ color: 'var(--color-text-secondary)' }}>
+              Mesa:{' '}
+              <span className="font-bold" style={{ color: 'var(--color-text)' }}>
+                {order.tableNumber}
+              </span>
             </p>
           </div>
         )}
@@ -285,28 +339,44 @@ export default function OrderDetailsPage() {
         )}
 
         {/* Customer Info */}
-        <div className="bg-white rounded-xl p-6 shadow-sm">
-          <h2 className="font-semibold mb-4 flex items-center gap-2">
+        <div
+          className="rounded-xl p-6 shadow-sm"
+          style={{ backgroundColor: 'var(--color-bg-card)' }}
+        >
+          <h2
+            className="font-semibold mb-4 flex items-center gap-2"
+            style={{ color: 'var(--color-text)' }}
+          >
             <Phone size={18} />
             Informações de Contato
           </h2>
           <div className="space-y-2">
             <p>
-              <span className="text-gray-500">Nome:</span>{' '}
-              <span className="font-medium">{order.customerName}</span>
+              <span style={{ color: 'var(--color-text-secondary)' }}>Nome:</span>{' '}
+              <span className="font-medium" style={{ color: 'var(--color-text)' }}>
+                {order.customerName}
+              </span>
             </p>
             {order.customerPhone && (
               <p>
-                <span className="text-gray-500">Telefone:</span>{' '}
-                <span className="font-medium">{order.customerPhone}</span>
+                <span style={{ color: 'var(--color-text-secondary)' }}>Telefone:</span>{' '}
+                <span className="font-medium" style={{ color: 'var(--color-text)' }}>
+                  {order.customerPhone}
+                </span>
               </p>
             )}
           </div>
         </div>
 
         {/* Items */}
-        <div className="bg-white rounded-xl p-6 shadow-sm">
-          <h2 className="font-semibold mb-4 flex items-center gap-2">
+        <div
+          className="rounded-xl p-6 shadow-sm"
+          style={{ backgroundColor: 'var(--color-bg-card)' }}
+        >
+          <h2
+            className="font-semibold mb-4 flex items-center gap-2"
+            style={{ color: 'var(--color-text)' }}
+          >
             <Receipt size={18} />
             Itens do Pedido
           </h2>
@@ -316,19 +386,32 @@ export default function OrderDetailsPage() {
               <div
                 key={index}
                 className="flex justify-between items-start py-2 border-b last:border-0"
+                style={{ borderColor: 'var(--color-border)' }}
               >
                 <div className="flex-1">
                   <div className="flex items-start gap-2">
-                    <span className="font-medium min-w-[2rem]">{item.quantity}x</span>
+                    <span
+                      className="font-medium min-w-[2rem]"
+                      style={{ color: 'var(--color-text)' }}
+                    >
+                      {item.quantity}x
+                    </span>
                     <div>
-                      <p className="font-medium">{item.menuItemName}</p>
+                      <p className="font-medium" style={{ color: 'var(--color-text)' }}>
+                        {item.menuItemName}
+                      </p>
                       {item.observation && (
-                        <p className="text-sm text-gray-500 mt-0.5">Obs: {item.observation}</p>
+                        <p
+                          className="text-sm mt-0.5"
+                          style={{ color: 'var(--color-text-secondary)' }}
+                        >
+                          Obs: {item.observation}
+                        </p>
                       )}
                     </div>
                   </div>
                 </div>
-                <span className="font-medium">
+                <span className="font-medium" style={{ color: 'var(--color-text)' }}>
                   {formatPrice(item.menuItemPrice * item.quantity)}
                 </span>
               </div>
@@ -337,21 +420,27 @@ export default function OrderDetailsPage() {
         </div>
 
         {/* Payment */}
-        <div className="bg-white rounded-xl p-6 shadow-sm">
-          <h2 className="font-semibold mb-4 flex items-center gap-2">
+        <div
+          className="rounded-xl p-6 shadow-sm"
+          style={{ backgroundColor: 'var(--color-bg-card)' }}
+        >
+          <h2
+            className="font-semibold mb-4 flex items-center gap-2"
+            style={{ color: 'var(--color-text)' }}
+          >
             <CreditCard size={18} />
             Pagamento
           </h2>
 
           <div className="space-y-2">
             <div className="flex justify-between">
-              <span className="text-gray-600">Subtotal</span>
-              <span>{formatPrice(order.subtotal)}</span>
+              <span style={{ color: 'var(--color-text-secondary)' }}>Subtotal</span>
+              <span style={{ color: 'var(--color-text)' }}>{formatPrice(order.subtotal)}</span>
             </div>
 
             <div className="flex justify-between">
-              <span className="text-gray-600">Taxa de Entrega</span>
-              <span>{formatPrice(order.deliveryFee)}</span>
+              <span style={{ color: 'var(--color-text-secondary)' }}>Taxa de Entrega</span>
+              <span style={{ color: 'var(--color-text)' }}>{formatPrice(order.deliveryFee)}</span>
             </div>
 
             {order.discount > 0 && (
@@ -361,15 +450,18 @@ export default function OrderDetailsPage() {
               </div>
             )}
 
-            <div className="flex justify-between font-bold text-lg pt-2 border-t">
-              <span>Total</span>
-              <span>{formatPrice(order.total)}</span>
+            <div
+              className="flex justify-between font-bold text-lg pt-2 border-t"
+              style={{ borderColor: 'var(--color-border)' }}
+            >
+              <span style={{ color: 'var(--color-text)' }}>Total</span>
+              <span style={{ color: 'var(--color-text)' }}>{formatPrice(order.total)}</span>
             </div>
 
             <div className="pt-2">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
                 Método:{' '}
-                <span className="font-medium capitalize">
+                <span className="font-medium capitalize" style={{ color: 'var(--color-text)' }}>
                   {order.paymentMethod === 'pix_manual'
                     ? 'PIX'
                     : order.paymentMethod === 'cash'
@@ -378,7 +470,9 @@ export default function OrderDetailsPage() {
                 </span>
               </p>
               {order.changeFor && (
-                <p className="text-sm text-gray-600">Troco para: {formatPrice(order.changeFor)}</p>
+                <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                  Troco para: {formatPrice(order.changeFor)}
+                </p>
               )}
             </div>
           </div>
@@ -386,8 +480,13 @@ export default function OrderDetailsPage() {
 
         {/* Pix QR Code - para pedidos PIX pendentes */}
         {order.paymentMethod === 'PIX' && order.status === 'PENDING' && (
-          <div className="bg-white rounded-xl p-6 shadow-sm">
-            <h2 className="font-semibold mb-4">Pagamento Pix</h2>
+          <div
+            className="rounded-xl p-6 shadow-sm"
+            style={{ backgroundColor: 'var(--color-bg-card)' }}
+          >
+            <h2 className="font-semibold mb-4" style={{ color: 'var(--color-text)' }}>
+              Pagamento Pix
+            </h2>
             <PixQRCode
               pixDetails={pixDetails}
               amount={order.total}
@@ -404,14 +503,20 @@ export default function OrderDetailsPage() {
 
         {/* Cancel Button */}
         {['PENDING', 'CONFIRMED'].includes(order.status) && (
-          <button
-            onClick={() => {
-              toast.info('Funcionalidade de cancelamento em desenvolvimento');
-            }}
-            className="w-full py-3 text-red-600 font-medium border border-red-200 rounded-xl hover:bg-red-50 transition-colors"
-          >
-            Cancelar Pedido
-          </button>
+          <>
+            <button
+              onClick={() => setCancelOpen(true)}
+              className="w-full py-3 text-red-600 font-medium border border-red-200 rounded-xl hover:bg-red-50 transition-colors"
+            >
+              Cancelar Pedido
+            </button>
+            <CancelOrderModal
+              orderId={order.id}
+              isOpen={cancelOpen}
+              onClose={() => setCancelOpen(false)}
+              onCancelled={loadOrder}
+            />
+          </>
         )}
 
         {/* Pedir Novamente */}
@@ -422,6 +527,50 @@ export default function OrderDetailsPage() {
           >
             🛒 Pedir Novamente
           </button>
+        )}
+
+        {/* Reorder Confirmation Modal */}
+        {reorderModalOpen && (
+          <>
+            <div
+              className="fixed inset-0 z-50 bg-black/50"
+              onClick={() => setReorderModalOpen(false)}
+            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 max-w-sm mx-auto rounded-2xl p-6 shadow-xl"
+              style={{ backgroundColor: 'var(--color-bg-card)' }}
+            >
+              <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--color-text)' }}>
+                Limpar carrinho?
+              </h3>
+              <p className="text-sm mb-6" style={{ color: 'var(--color-text-secondary)' }}>
+                Seu carrinho tem itens de outro restaurante. Deseja limpar e pedir novamente?
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setReorderModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+                  style={{
+                    backgroundColor: 'var(--color-bg-secondary)',
+                    color: 'var(--color-text)',
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    setReorderModalOpen(false);
+                    doReorder();
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-colors"
+                >
+                  Confirmar
+                </button>
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>

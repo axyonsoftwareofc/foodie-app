@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { UtensilsCrossed, ArrowLeft, Lock, Eye, EyeOff } from 'lucide-react';
-import { updatePassword } from '@/actions/auth';
+import { setNewPasswordAfterReset } from '@/actions/auth';
 import { getAuthErrorMessage } from '@/lib/constants/auth.constants';
 
 function ResetPasswordForm() {
@@ -44,7 +44,7 @@ function ResetPasswordForm() {
 
     setIsLoading(true);
     try {
-      const response = await updatePassword(password);
+      const response = await setNewPasswordAfterReset(password);
       if (response?.error) {
         setError(getAuthErrorMessage(response.error));
       } else {

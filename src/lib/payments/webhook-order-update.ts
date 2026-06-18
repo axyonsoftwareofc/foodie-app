@@ -12,6 +12,7 @@ interface UpdateOrderByPaymentInput {
   paymentStatus: 'succeeded' | 'failed' | 'pending' | 'cancelled';
   paymentIntentId?: string;
   gatewayPaymentId?: string;
+  paidAmount?: number;
 }
 
 const STATUS_MAP: Record<string, OrderStatus> = {
@@ -27,6 +28,7 @@ export async function updateOrderStatusByPayment({
   paymentStatus,
   paymentIntentId,
   gatewayPaymentId,
+  paidAmount,
 }: UpdateOrderByPaymentInput): Promise<{ success: boolean; error?: string }> {
   if (!orderId) {
     return { success: false, error: 'orderId is required' };
@@ -35,7 +37,7 @@ export async function updateOrderStatusByPayment({
   try {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      select: { id: true, status: true, restaurant_id: true },
+      select: { id: true, status: true, restaurant_id: true, total: true },
     });
 
     if (!order) {
@@ -70,6 +72,17 @@ export async function updateOrderStatusByPayment({
     }
 
     if (finalStatus === OrderStatus.CONFIRMED) {
+      if (paidAmount != null) {
+        if (Math.abs(paidAmount - order.total) > 0.01) {
+          logger.error('Webhook: paid amount mismatch', undefined, {
+            orderId,
+            paidAmount,
+            orderTotal: order.total,
+            provider,
+          });
+          return { success: false, error: 'Valor pago diverge do total do pedido' };
+        }
+      }
       updateData.confirmed_at = new Date();
     } else if (finalStatus === OrderStatus.CANCELLED) {
       updateData.cancelled_at = new Date();

@@ -10,6 +10,19 @@ import {
 } from '@/lib/rate-limit';
 import { logger } from '@/lib/logger';
 import { captureException } from '@/lib/sentry';
+import { z } from 'zod';
+
+const paypalCreateSchema = z.object({
+  orderId: z.string().min(1),
+  amount: z.number().positive().optional(),
+  description: z.string().optional(),
+  customerEmail: z.string().email().optional(),
+});
+
+const paypalCaptureSchema = z.object({
+  orderId: z.string().min(1),
+  appOrderId: z.string().min(1).optional(),
+});
 
 const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID || '';
 const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET || '';
@@ -56,7 +69,8 @@ export async function POST(request: NextRequest) {
   const rate = await checkRateLimit(
     `payments:paypal:${ip}`,
     RateLimitConfig.strict.limit,
-    RateLimitConfig.strict.windowSeconds
+    RateLimitConfig.strict.windowSeconds,
+    true
   );
   if (!rate.success) return buildRateLimitResponse(rate);
 
@@ -66,7 +80,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body: CreateOrderRequest = await request.json();
+    const rawBody = await request.json();
+    const parseResult = paypalCreateSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      return NextResponse.json({ error: parseResult.error.issues[0].message }, { status: 400 });
+    }
+    const body = parseResult.data;
     const { orderId } = body;
 
     const paymentContext = await getOrderPaymentContext(user.id, orderId);
@@ -148,7 +167,8 @@ export async function PUT(request: NextRequest) {
   const rate = await checkRateLimit(
     `payments:paypal:put:${ip}`,
     RateLimitConfig.strict.limit,
-    RateLimitConfig.strict.windowSeconds
+    RateLimitConfig.strict.windowSeconds,
+    true
   );
   if (!rate.success) return buildRateLimitResponse(rate);
 
@@ -158,7 +178,12 @@ export async function PUT(request: NextRequest) {
   }
 
   try {
-    const body: CaptureOrderRequest = await request.json();
+    const rawBody = await request.json();
+    const parseResult = paypalCaptureSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      return NextResponse.json({ error: parseResult.error.issues[0].message }, { status: 400 });
+    }
+    const body = parseResult.data;
     const { orderId, appOrderId } = body;
 
     if (!orderId) {
@@ -223,7 +248,8 @@ export async function GET(request: NextRequest) {
   const rate = await checkRateLimit(
     `payments:paypal:get:${ip}`,
     RateLimitConfig.strict.limit,
-    RateLimitConfig.strict.windowSeconds
+    RateLimitConfig.strict.windowSeconds,
+    true
   );
   if (!rate.success) return buildRateLimitResponse(rate);
 

@@ -47,10 +47,15 @@ function DeliveryCard({
   const isPickedUp = delivery.status === 'PICKED_UP';
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 p-4 space-y-3 shadow-sm">
+    <div
+      className="rounded-2xl border p-4 space-y-3 shadow-sm"
+      style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}
+    >
       {/* Header */}
       <div className="flex items-center justify-between">
-        <span className="text-xs font-mono text-gray-400">#{delivery.orderId.slice(-4)}</span>
+        <span className="text-xs font-mono" style={{ color: 'var(--color-text-tertiary)' }}>
+          #{delivery.orderId.slice(-4)}
+        </span>
         <span
           className={`text-xs px-2 py-0.5 rounded-full font-medium ${
             isAssigned
@@ -69,24 +74,39 @@ function DeliveryCard({
         <div className="flex items-start gap-2">
           <MapPin className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
           <div className="min-w-0">
-            <p className="text-xs text-gray-400">Retirada</p>
-            <p className="text-sm font-medium text-gray-900 truncate">{delivery.restaurantName}</p>
-            <p className="text-xs text-gray-500 truncate">{delivery.pickupAddress}</p>
+            <p className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+              Retirada
+            </p>
+            <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text)' }}>
+              {delivery.restaurantName}
+            </p>
+            <p className="text-xs truncate" style={{ color: 'var(--color-text-secondary)' }}>
+              {delivery.pickupAddress}
+            </p>
           </div>
         </div>
         <div className="pl-2 border-l-2 border-dashed border-gray-200 ml-2 h-3" />
         <div className="flex items-start gap-2">
           <Navigation className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
           <div className="min-w-0">
-            <p className="text-xs text-gray-400">Entrega</p>
-            <p className="text-sm font-medium text-gray-900 truncate">{delivery.customerName}</p>
-            <p className="text-xs text-gray-500 truncate">{delivery.deliveryAddress}</p>
+            <p className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+              Entrega
+            </p>
+            <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text)' }}>
+              {delivery.customerName}
+            </p>
+            <p className="text-xs truncate" style={{ color: 'var(--color-text-secondary)' }}>
+              {delivery.deliveryAddress}
+            </p>
           </div>
         </div>
       </div>
 
       {/* Info */}
-      <div className="flex items-center gap-4 text-xs text-gray-500">
+      <div
+        className="flex items-center gap-4 text-xs"
+        style={{ color: 'var(--color-text-secondary)' }}
+      >
         <span className="flex items-center gap-1">
           <Clock className="w-3 h-3" /> {delivery.estimatedTime || '--'}
         </span>
@@ -120,7 +140,8 @@ function DeliveryCard({
           <>
             <a
               href={`tel:${delivery.customerPhone}`}
-              className="flex items-center justify-center gap-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium text-sm"
+              className="flex items-center justify-center gap-1 px-4 py-3 rounded-xl font-medium text-sm"
+              style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text)' }}
             >
               <Phone className="w-4 h-4" /> Ligar
             </a>
@@ -154,6 +175,7 @@ export default function DriverPage() {
   const [todayEarnings, setTodayEarnings] = useState(0);
   const [todayDeliveries, setTodayDeliveries] = useState(0);
   const [gpsEnabled, setGpsEnabled] = useState(false);
+  const [activeTab, setActiveTab] = useState<'deliveries' | 'earnings' | 'profile'>('deliveries');
   const gpsWatchRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -238,7 +260,7 @@ export default function DriverPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--color-bg-secondary)' }}>
       {/* Status Bar */}
       <div
         className={`px-4 py-6 text-white ${status === 'OFFLINE' ? 'bg-gray-800' : status === 'BUSY' ? 'bg-emerald-700' : 'bg-emerald-600'}`}
@@ -298,7 +320,10 @@ export default function DriverPage() {
       {/* Active Delivery */}
       {activeDelivery && (
         <div className="px-4 -mt-3 mb-4">
-          <div className="bg-white rounded-2xl border-2 border-emerald-300 shadow-lg shadow-emerald-100 p-4 space-y-3">
+          <div
+            className="rounded-2xl border-2 border-emerald-300 shadow-lg shadow-emerald-100 p-4 space-y-3"
+            style={{ backgroundColor: 'var(--color-bg-card)' }}
+          >
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
               <span className="text-xs font-bold text-emerald-600 uppercase">Em Andamento</span>
@@ -311,49 +336,149 @@ export default function DriverPage() {
         </div>
       )}
 
-      {/* Available Deliveries */}
-      <div className="px-4 py-4">
-        <h2 className="font-semibold text-gray-900 mb-3">
-          {status === 'ONLINE' ? 'Entregas Disponiveis' : 'Historico de Entregas'}
-        </h2>
+      {/* Tab Content */}
+      {activeTab === 'deliveries' && (
+        <div className="px-4 py-4">
+          <h2 className="font-semibold mb-3" style={{ color: 'var(--color-text)' }}>
+            {status === 'ONLINE' ? 'Entregas Disponiveis' : 'Historico de Entregas'}
+          </h2>
 
-        {deliveries.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-2xl border border-gray-200">
-            <Truck className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-            {status === 'ONLINE' ? (
-              <>
-                <p className="font-medium text-gray-500">Aguardando pedidos</p>
-                <p className="text-sm text-gray-400 mt-1">Novos pedidos aparecerao aqui</p>
-              </>
-            ) : (
-              <p className="text-gray-400">Fique online para receber pedidos</p>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {deliveries.map((d) => (
-              <DeliveryCard
-                key={d.id}
-                delivery={d}
-                onAction={(action) => handleAction(d, action)}
+          {deliveries.length === 0 ? (
+            <div
+              className="text-center py-12 rounded-2xl border"
+              style={{
+                backgroundColor: 'var(--color-bg-card)',
+                borderColor: 'var(--color-border)',
+              }}
+            >
+              <Truck
+                className="w-12 h-12 mx-auto mb-3"
+                style={{ color: 'var(--color-text-tertiary)' }}
               />
-            ))}
+              {status === 'ONLINE' ? (
+                <>
+                  <p className="font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                    Aguardando pedidos
+                  </p>
+                  <p className="text-sm mt-1" style={{ color: 'var(--color-text-tertiary)' }}>
+                    Novos pedidos aparecerao aqui
+                  </p>
+                </>
+              ) : (
+                <p style={{ color: 'var(--color-text-tertiary)' }}>
+                  Fique online para receber pedidos
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {deliveries.map((d) => (
+                <DeliveryCard
+                  key={d.id}
+                  delivery={d}
+                  onAction={(action) => handleAction(d, action)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'earnings' && (
+        <div className="px-4 py-4 space-y-4">
+          <div
+            className="rounded-2xl border p-6 text-center"
+            style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}
+          >
+            <p className="text-sm mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+              Ganhos Hoje
+            </p>
+            <p className="text-3xl font-bold text-emerald-600">{formatPrice(todayEarnings)}</p>
           </div>
-        )}
-      </div>
+          <div
+            className="rounded-2xl border p-6 text-center"
+            style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}
+          >
+            <p className="text-sm mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+              Entregas Realizadas
+            </p>
+            <p className="text-3xl font-bold" style={{ color: 'var(--color-text)' }}>
+              {todayDeliveries}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'profile' && (
+        <div className="px-4 py-4">
+          <div
+            className="rounded-2xl border p-6 space-y-4"
+            style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center">
+                <User className="w-6 h-6 text-emerald-600" />
+              </div>
+              <div>
+                <p className="font-semibold" style={{ color: 'var(--color-text)' }}>
+                  Entregador
+                </p>
+                <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                  Online
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span style={{ color: 'var(--color-text-secondary)' }}>Status do GPS</span>
+                <span
+                  className={gpsEnabled ? 'text-emerald-600 font-medium' : ''}
+                  style={!gpsEnabled ? { color: 'var(--color-text-tertiary)' } : undefined}
+                >
+                  {gpsEnabled ? 'Ativo' : 'Inativo'}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span style={{ color: 'var(--color-text-secondary)' }}>Entregas hoje</span>
+                <span className="font-medium" style={{ color: 'var(--color-text)' }}>
+                  {todayDeliveries}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span style={{ color: 'var(--color-text-secondary)' }}>Ganhos hoje</span>
+                <span className="font-medium" style={{ color: 'var(--color-text)' }}>
+                  {formatPrice(todayEarnings)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bottom Nav */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3">
+      <div
+        className="fixed bottom-0 left-0 right-0 border-t px-4 py-3"
+        style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}
+      >
         <div className="flex justify-around">
-          <button className="flex flex-col items-center gap-1 text-emerald-600">
+          <button
+            onClick={() => setActiveTab('deliveries')}
+            className={`flex flex-col items-center gap-1 ${activeTab === 'deliveries' ? 'text-emerald-600' : 'text-gray-400'}`}
+          >
             <Truck className="w-5 h-5" />
             <span className="text-[10px] font-medium">Entregas</span>
           </button>
-          <button className="flex flex-col items-center gap-1 text-gray-400">
+          <button
+            onClick={() => setActiveTab('earnings')}
+            className={`flex flex-col items-center gap-1 ${activeTab === 'earnings' ? 'text-emerald-600' : 'text-gray-400'}`}
+          >
             <DollarSign className="w-5 h-5" />
             <span className="text-[10px] font-medium">Ganhos</span>
           </button>
-          <button className="flex flex-col items-center gap-1 text-gray-400">
+          <button
+            onClick={() => setActiveTab('profile')}
+            className={`flex flex-col items-center gap-1 ${activeTab === 'profile' ? 'text-emerald-600' : 'text-gray-400'}`}
+          >
             <User className="w-5 h-5" />
             <span className="text-[10px] font-medium">Perfil</span>
           </button>

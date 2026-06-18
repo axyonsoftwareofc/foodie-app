@@ -76,7 +76,11 @@ export function CartSidebarGlobal() {
               <div className="flex items-center gap-2">
                 {items.length > 0 && (
                   <button
-                    onClick={clearCart}
+                    onClick={() => {
+                      if (window.confirm('Tem certeza que deseja esvaziar o carrinho?')) {
+                        clearCart();
+                      }
+                    }}
                     className="rounded-full p-2 transition-colors"
                     style={{ color: 'var(--color-error)' }}
                     onMouseEnter={(e) => {

@@ -66,10 +66,17 @@ const STATUS_LABELS: Record<string, string> = {
   CANCELLED: 'Cancelado',
 };
 
-export default function CozinhaClient({ initialOrders }: { initialOrders?: Order[] }) {
+export default function CozinhaClient({
+  initialOrders,
+  initialError,
+}: {
+  initialOrders?: Order[];
+  initialError?: string;
+}) {
   const { orders, refresh, loading } = useKitchenOrders(initialOrders);
   const { requestPermission, notifyNewOrder, isSupported } = useOrderNotifications();
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [fetchError, setFetchError] = useState<string | undefined>(initialError);
 
   const pendingCount = useMemo(
     () => orders.filter((o) => o.status === 'PENDING' || o.status === 'CONFIRMED').length,
@@ -229,6 +236,28 @@ export default function CozinhaClient({ initialOrders }: { initialOrders?: Order
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--color-bg)' }}>
+      {fetchError && (
+        <div
+          className="m-4 p-3 rounded-lg border flex items-center justify-between"
+          style={{
+            borderColor: 'var(--color-error)',
+            backgroundColor: 'var(--color-bg-card)',
+            color: 'var(--color-error)',
+          }}
+        >
+          <span className="text-sm font-medium">{fetchError}</span>
+          <button
+            onClick={() => {
+              setFetchError(undefined);
+              refresh();
+            }}
+            className="text-xs px-3 py-1 rounded-md border"
+            style={{ borderColor: 'var(--color-error)' }}
+          >
+            Tentar novamente
+          </button>
+        </div>
+      )}
       <div
         className="flex items-center gap-4 p-4 border-b"
         style={{ borderColor: 'var(--color-border)' }}

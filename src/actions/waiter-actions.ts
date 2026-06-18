@@ -4,6 +4,7 @@
 import { prisma } from '@/lib/prisma';
 import { OrderStatus, Prisma } from '@prisma/client';
 import { getRestaurantAccess, recordAuditLog, WAITER_ROLES } from '@/lib/restaurant-access';
+import { z } from 'zod';
 
 export async function getTables(): Promise<{
   data?: { id: string; number: string; capacity: number; status: string }[];
@@ -73,13 +74,32 @@ export async function getMenu(): Promise<{
   };
 }
 
-export async function createDineInOrder(data: {
-  tableId: string;
-  tableNumber: string;
-  customerName: string;
-  items: { productId: string; name: string; quantity: number; price: number; notes?: string }[];
-  kitchenNotes?: string;
-}): Promise<{ success?: boolean; error?: string; orderId?: string }> {
+const createDineInOrderSchema = z.object({
+  tableId: z.string().min(1),
+  tableNumber: z.string().min(1),
+  customerName: z.string().min(1),
+  items: z
+    .array(
+      z.object({
+        productId: z.string().min(1),
+        name: z.string().min(1),
+        quantity: z.number().int().min(1).max(99),
+        price: z.number().nonnegative(),
+        notes: z.string().optional(),
+      })
+    )
+    .min(1),
+  kitchenNotes: z.string().optional(),
+});
+
+export async function createDineInOrder(
+  data: z.infer<typeof createDineInOrderSchema>
+): Promise<{ success?: boolean; error?: string; orderId?: string }> {
+  const validation = createDineInOrderSchema.safeParse(data);
+  if (!validation.success) {
+    return { error: validation.error.issues[0].message };
+  }
+  const validated = validation.data;
   const access = await getRestaurantAccess(WAITER_ROLES);
   if (access.error || !access.data) {
     return { error: access.error || 'Nao autorizado' };
@@ -87,31 +107,31 @@ export async function createDineInOrder(data: {
   const acc = access.data;
 
   const table = await prisma.restaurantTable.findFirst({
-    where: { id: data.tableId, restaurant_id: acc.restaurant.id },
+    where: { id: validated.tableId, restaurant_id: acc.restaurant.id },
   });
   if (!table) return { error: 'Mesa nao encontrada' };
 
-  const total = data.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const total = validated.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   try {
     const order = await prisma.order.create({
       data: {
         restaurant_id: acc.restaurant.id,
-        table_id: data.tableId,
-        table_number: data.tableNumber,
+        table_id: validated.tableId,
+        table_number: validated.tableNumber,
         created_by_user_id: acc.user.id,
         created_by_member_id: acc.member.id,
-        customer_name: data.customerName || `Mesa ${data.tableNumber}`,
+        customer_name: validated.customerName || `Mesa ${validated.tableNumber}`,
         order_type: 'DINE_IN',
         status: OrderStatus.PENDING,
-        items: data.items.map((i) => ({
+        items: validated.items.map((i) => ({
           menuItemName: i.name,
           quantity: i.quantity,
           menuItemPrice: i.price,
           notes: i.notes || undefined,
         })) as unknown as Prisma.InputJsonValue,
-        kitchen_notes: data.kitchenNotes
-          ? ({ general: data.kitchenNotes } as unknown as Prisma.InputJsonValue)
+        kitchen_notes: validated.kitchenNotes
+          ? ({ general: validated.kitchenNotes } as unknown as Prisma.InputJsonValue)
           : Prisma.JsonNull,
         total,
         subtotal: total,
@@ -120,7 +140,7 @@ export async function createDineInOrder(data: {
     });
 
     await prisma.restaurantTable.update({
-      where: { id: data.tableId },
+      where: { id: validated.tableId },
       data: { status: 'OCCUPIED' },
     });
 
@@ -132,10 +152,10 @@ export async function createDineInOrder(data: {
       entityType: 'order',
       entityId: order.id,
       metadata: {
-        tableId: data.tableId,
-        tableNumber: data.tableNumber,
+        tableId: validated.tableId,
+        tableNumber: validated.tableNumber,
         total,
-        itemCount: data.items.length,
+        itemCount: validated.items.length,
       },
     });
 

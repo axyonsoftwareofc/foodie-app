@@ -145,8 +145,13 @@ export default function MesasPage() {
             }}
           >
             <button
-              onClick={() => handleDelete(table.id)}
-              className="absolute top-2 right-2 rounded-lg p-1 text-gray-300 hover:bg-red-50 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={() => {
+                if (window.confirm(`Excluir a mesa ${table.number}?`)) {
+                  handleDelete(table.id);
+                }
+              }}
+              aria-label={`Excluir mesa ${table.number}`}
+              className="absolute top-2 right-2 rounded-lg p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
             >
               <Trash2 className="w-4 h-4" />
             </button>

@@ -11,6 +11,7 @@ import CartItemCard from '@/components/cart/CartItemCard';
 import CouponInput from '@/components/cart/CouponInput';
 import CartSummary from '@/components/cart/CartSummary';
 import CartEmpty from '@/components/cart/CartEmpty';
+import { FREE_DELIVERY_COUPON_CODE } from '@/lib/constants/coupon.constants';
 
 export default function CartPage() {
   const { items, restaurantId, totalPrice, couponDiscount, appliedCoupon } = useCart();
@@ -18,7 +19,7 @@ export default function CartPage() {
   const restaurant = restaurantId ? getRestaurantById(restaurantId) : null;
   const deliveryFee = restaurant?.deliveryFee || 0;
 
-  const isFreeDeliveryCoupon = appliedCoupon?.code === 'FRETEGRATIS';
+  const isFreeDeliveryCoupon = appliedCoupon?.code === FREE_DELIVERY_COUPON_CODE;
   const actualDeliveryFee = isFreeDeliveryCoupon ? 0 : deliveryFee;
 
   const finalTotal = totalPrice + actualDeliveryFee - couponDiscount;

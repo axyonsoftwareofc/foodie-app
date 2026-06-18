@@ -60,6 +60,10 @@ export async function GET(request: Request) {
   );
   if (!rate.success) return buildRateLimitResponse(rate);
 
+  // Colunas publicas — NAO incluir bank_info (dados financeiros/PII)
+  const publicSelect =
+    'id, name, slug, subdomain, description, logo, cover_image, category, cuisine, phone, email, cnpj, street, number, complement, neighborhood, city, state, zip_code, latitude, longitude, delivery_fee, minimum_order, estimated_delivery_time, delivery_radius, status, is_active, accepting_orders, operating_hours, theme, avg_rating, review_count, created_at, updated_at';
+
   try {
     const supabase = await createClient();
     const { searchParams } = new URL(request.url);
@@ -68,7 +72,7 @@ export async function GET(request: Request) {
     if (restaurantId) {
       const { data, error } = await supabase
         .from('restaurants')
-        .select('*')
+        .select(publicSelect)
         .eq('id', restaurantId)
         .single();
 
@@ -81,7 +85,7 @@ export async function GET(request: Request) {
 
     const { data, error } = await supabase
       .from('restaurants')
-      .select('*')
+      .select(publicSelect)
       .eq('is_active', true)
       .order('name');
 
@@ -153,13 +157,6 @@ export async function PUT(request: Request) {
   try {
     const supabase = await createClient();
 
-    const { searchParams } = new URL(request.url);
-    const restaurantId = searchParams.get('id');
-
-    if (!restaurantId) {
-      return NextResponse.json({ error: 'ID do restaurante é obrigatório' }, { status: 400 });
-    }
-
     const {
       data: { user },
       error: authError,
@@ -167,6 +164,13 @@ export async function PUT(request: Request) {
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const restaurantId = searchParams.get('id');
+
+    if (!restaurantId) {
+      return NextResponse.json({ error: 'ID do restaurante é obrigatório' }, { status: 400 });
     }
 
     const body = await request.json();

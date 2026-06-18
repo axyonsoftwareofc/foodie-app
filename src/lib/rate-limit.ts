@@ -10,18 +10,32 @@ export interface RateLimitResult {
 
 /**
  * Sliding-window rate limit via Redis.
- * If Redis is unavailable, allows the request (graceful degradation)
- * and logs a warning in production.
+ * If Redis is unavailable:
+ *   - failClosed=true → rejects the request (for auth/payment/webhook endpoints)
+ *   - failClosed=false → allows the request (graceful degradation for reads)
  */
 export async function checkRateLimit(
   key: string,
   limit: number,
-  windowSeconds: number
+  windowSeconds: number,
+  failClosed = false
 ): Promise<RateLimitResult> {
   const redis = getRedis();
   if (!redis) {
     if (process.env.NODE_ENV === 'production') {
-      console.warn('[RateLimit] Redis unavailable; allowing request for', key);
+      console.warn(
+        '[RateLimit] Redis unavailable; request for',
+        key,
+        failClosed ? 'REJECTED' : 'ALLOWED'
+      );
+    }
+    if (failClosed) {
+      return {
+        success: false,
+        limit,
+        remaining: 0,
+        reset: Date.now() + windowSeconds * 1000,
+      };
     }
     return {
       success: true,
@@ -51,12 +65,24 @@ export async function checkRateLimit(
   };
 }
 
-/** Extract client IP from a Next.js request (works behind proxies). */
+/** Extract client IP from a Next.js request (works behind proxies).
+ *  If TRUSTED_PROXY_COUNT is set, trusts the N-th hop from the end.
+ *  Otherwise defaults to the last hop (most conservative).
+ */
 export function getClientIp(request: Request): string {
   const headers = request.headers;
   const forwarded = headers.get('x-forwarded-for');
   if (forwarded) {
-    return forwarded.split(',')[0].trim();
+    const hops = forwarded
+      .split(',')
+      .map((h) => h.trim())
+      .filter(Boolean);
+    const trustedCount = Number(process.env.TRUSTED_PROXY_COUNT);
+    if (!Number.isNaN(trustedCount) && trustedCount > 0 && hops.length > trustedCount) {
+      return hops[hops.length - 1 - trustedCount];
+    }
+    // Default: last hop (closest to the application / hardest to spoof)
+    return hops[hops.length - 1] || hops[0] || 'unknown';
   }
   const realIp = headers.get('x-real-ip');
   if (realIp) {
@@ -84,7 +110,15 @@ export async function getClientIdentifierFromHeaders(): Promise<string> {
   const h = await headers();
   const forwarded = h.get('x-forwarded-for');
   if (forwarded) {
-    return forwarded.split(',')[0].trim();
+    const hops = forwarded
+      .split(',')
+      .map((h) => h.trim())
+      .filter(Boolean);
+    const trustedCount = Number(process.env.TRUSTED_PROXY_COUNT);
+    if (!Number.isNaN(trustedCount) && trustedCount > 0 && hops.length > trustedCount) {
+      return hops[hops.length - 1 - trustedCount];
+    }
+    return hops[hops.length - 1] || hops[0] || 'unknown';
   }
   const realIp = h.get('x-real-ip');
   if (realIp) {

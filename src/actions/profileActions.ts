@@ -8,6 +8,7 @@ import {
   UserPreferences,
   SavedAddressProfile,
 } from '@/types/user-profile.types';
+import { z } from 'zod';
 
 export interface ProfileData {
   id: string;
@@ -80,12 +81,21 @@ export async function getUserProfile() {
   }
 }
 
-export async function updateProfile(formData: {
-  fullName?: string;
-  full_name?: string;
-  phone?: string;
-  avatar_url?: string;
-}): Promise<{ success?: boolean; error?: string }> {
+const updateProfileSchema = z.object({
+  fullName: z.string().min(1).optional(),
+  full_name: z.string().min(1).optional(),
+  phone: z.string().optional(),
+  avatar_url: z.string().url().optional(),
+});
+
+export async function updateProfile(
+  formData: z.infer<typeof updateProfileSchema>
+): Promise<{ success?: boolean; error?: string }> {
+  const validation = updateProfileSchema.safeParse(formData);
+  if (!validation.success) {
+    return { error: validation.error.issues[0].message };
+  }
+  const data = validation.data;
   const supabase = await createClient();
   const {
     data: { user },
@@ -123,11 +133,7 @@ export async function updateProfile(formData: {
   }
 }
 
-export async function updateUserProfile(updates: {
-  full_name?: string;
-  phone?: string;
-  avatar_url?: string;
-}) {
+export async function updateUserProfile(updates: z.infer<typeof updateProfileSchema>) {
   return updateProfile(updates);
 }
 
@@ -170,9 +176,23 @@ export async function getUserPrivacySettings(): Promise<{
   }
 }
 
+const privacySettingsSchema = z.object({
+  showProfile: z.boolean().optional(),
+  showOrderHistory: z.boolean().optional(),
+  allowMarketing: z.boolean().optional(),
+  allowNotifications: z.boolean().optional(),
+  dataSharing: z.boolean().optional(),
+  twoFactorEnabled: z.boolean().optional(),
+});
+
 export async function updateUserPrivacySettings(
-  settings: Partial<UserPrivacySettings>
+  settings: z.infer<typeof privacySettingsSchema>
 ): Promise<{ success?: boolean; error?: string }> {
+  const validation = privacySettingsSchema.safeParse(settings);
+  if (!validation.success) {
+    return { error: validation.error.issues[0].message };
+  }
+  const data = validation.data;
   try {
     const supabase = await createClient();
     const {
@@ -183,29 +203,27 @@ export async function updateUserPrivacySettings(
     await prisma.userPrivacySettings.upsert({
       where: { user_id: user.id },
       update: {
-        ...(settings.showProfile !== undefined ? { show_profile: settings.showProfile } : {}),
-        ...(settings.showOrderHistory !== undefined
-          ? { show_order_history: settings.showOrderHistory }
+        ...(data.showProfile !== undefined ? { show_profile: data.showProfile } : {}),
+        ...(data.showOrderHistory !== undefined
+          ? { show_order_history: data.showOrderHistory }
           : {}),
-        ...(settings.allowMarketing !== undefined
-          ? { allow_marketing: settings.allowMarketing }
+        ...(data.allowMarketing !== undefined ? { allow_marketing: data.allowMarketing } : {}),
+        ...(data.allowNotifications !== undefined
+          ? { allow_notifications: data.allowNotifications }
           : {}),
-        ...(settings.allowNotifications !== undefined
-          ? { allow_notifications: settings.allowNotifications }
-          : {}),
-        ...(settings.dataSharing !== undefined ? { data_sharing: settings.dataSharing } : {}),
-        ...(settings.twoFactorEnabled !== undefined
-          ? { two_factor_enabled: settings.twoFactorEnabled }
+        ...(data.dataSharing !== undefined ? { data_sharing: data.dataSharing } : {}),
+        ...(data.twoFactorEnabled !== undefined
+          ? { two_factor_enabled: data.twoFactorEnabled }
           : {}),
       },
       create: {
         user_id: user.id,
-        show_profile: settings.showProfile ?? true,
-        show_order_history: settings.showOrderHistory ?? true,
-        allow_marketing: settings.allowMarketing ?? true,
-        allow_notifications: settings.allowNotifications ?? true,
-        data_sharing: settings.dataSharing ?? false,
-        two_factor_enabled: settings.twoFactorEnabled ?? false,
+        show_profile: data.showProfile ?? true,
+        show_order_history: data.showOrderHistory ?? true,
+        allow_marketing: data.allowMarketing ?? true,
+        allow_notifications: data.allowNotifications ?? true,
+        data_sharing: data.dataSharing ?? false,
+        two_factor_enabled: data.twoFactorEnabled ?? false,
       },
     });
 
@@ -249,9 +267,22 @@ export async function getUserPreferences(): Promise<{ data?: UserPreferences; er
   }
 }
 
+const preferencesSchema = z.object({
+  dietaryRestrictions: z.array(z.string()).optional(),
+  favoriteCuisines: z.array(z.string()).optional(),
+  notificationOrderUpdates: z.boolean().optional(),
+  notificationPromotions: z.boolean().optional(),
+  notificationNewsletter: z.boolean().optional(),
+});
+
 export async function updateUserPreferences(
-  preferences: Partial<UserPreferences>
+  preferences: z.infer<typeof preferencesSchema>
 ): Promise<{ success?: boolean; error?: string }> {
+  const validation = preferencesSchema.safeParse(preferences);
+  if (!validation.success) {
+    return { error: validation.error.issues[0].message };
+  }
+  const data = validation.data;
   try {
     const supabase = await createClient();
     const {
@@ -262,29 +293,25 @@ export async function updateUserPreferences(
     await prisma.userPreferences.upsert({
       where: { user_id: user.id },
       update: {
-        ...(preferences.dietaryRestrictions
-          ? { dietary_restrictions: preferences.dietaryRestrictions }
+        ...(data.dietaryRestrictions ? { dietary_restrictions: data.dietaryRestrictions } : {}),
+        ...(data.favoriteCuisines ? { favorite_cuisines: data.favoriteCuisines } : {}),
+        ...(data.notificationOrderUpdates !== undefined
+          ? { notification_order_updates: data.notificationOrderUpdates }
           : {}),
-        ...(preferences.favoriteCuisines
-          ? { favorite_cuisines: preferences.favoriteCuisines }
+        ...(data.notificationPromotions !== undefined
+          ? { notification_promotions: data.notificationPromotions }
           : {}),
-        ...(preferences.notificationOrderUpdates !== undefined
-          ? { notification_order_updates: preferences.notificationOrderUpdates }
-          : {}),
-        ...(preferences.notificationPromotions !== undefined
-          ? { notification_promotions: preferences.notificationPromotions }
-          : {}),
-        ...(preferences.notificationNewsletter !== undefined
-          ? { notification_newsletter: preferences.notificationNewsletter }
+        ...(data.notificationNewsletter !== undefined
+          ? { notification_newsletter: data.notificationNewsletter }
           : {}),
       },
       create: {
         user_id: user.id,
-        dietary_restrictions: preferences.dietaryRestrictions || [],
-        favorite_cuisines: preferences.favoriteCuisines || [],
-        notification_order_updates: preferences.notificationOrderUpdates ?? true,
-        notification_promotions: preferences.notificationPromotions ?? true,
-        notification_newsletter: preferences.notificationNewsletter ?? true,
+        dietary_restrictions: data.dietaryRestrictions || [],
+        favorite_cuisines: data.favoriteCuisines || [],
+        notification_order_updates: data.notificationOrderUpdates ?? true,
+        notification_promotions: data.notificationPromotions ?? true,
+        notification_newsletter: data.notificationNewsletter ?? true,
       },
     });
 

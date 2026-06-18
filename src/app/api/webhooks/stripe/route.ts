@@ -18,7 +18,8 @@ export async function POST(request: NextRequest) {
   const rate = await checkRateLimit(
     `webhook:stripe:${ip}`,
     RateLimitConfig.moderate.limit,
-    RateLimitConfig.moderate.windowSeconds
+    RateLimitConfig.moderate.windowSeconds,
+    true
   );
   if (!rate.success) return buildRateLimitResponse(rate);
 
@@ -52,6 +53,7 @@ export async function POST(request: NextRequest) {
         const paymentIntent = event.data.object as {
           id: string;
           metadata?: Record<string, string>;
+          amount_received?: number;
         };
         const orderId = paymentIntent.metadata?.orderId;
 
@@ -62,6 +64,10 @@ export async function POST(request: NextRequest) {
             paymentStatus: 'succeeded',
             paymentIntentId: paymentIntent.id,
             gatewayPaymentId: paymentIntent.id,
+            paidAmount:
+              paymentIntent.amount_received != null
+                ? paymentIntent.amount_received / 100
+                : undefined,
           });
 
           if (!result.success) {

@@ -31,17 +31,32 @@ export async function GET(request: Request) {
   if (!rate.success) return buildRateLimitResponse(rate);
 
   const HEALTH_TOKEN = process.env.HEALTH_API_TOKEN;
+  let isAuthorized = false;
   if (HEALTH_TOKEN) {
     try {
       const { headers } = await import('next/headers');
       const h = await headers();
       const auth = h.get('authorization');
-      if (!auth || auth !== `Bearer ${HEALTH_TOKEN}`) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      if (auth && auth === `Bearer ${HEALTH_TOKEN}`) {
+        isAuthorized = true;
       }
     } catch {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      // ignore
     }
+  }
+
+  // Sem token configurado OU token invalido: retornar status coarse sem detalhes
+  if (!isAuthorized) {
+    if (!HEALTH_TOKEN) {
+      // Nenhum token configurado — verificar apenas o DB coarse e retornar minimo
+      try {
+        await prisma.$queryRaw`SELECT 1`;
+        return NextResponse.json({ status: 'ok' });
+      } catch {
+        return NextResponse.json({ status: 'error' }, { status: 503 });
+      }
+    }
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const start = Date.now();

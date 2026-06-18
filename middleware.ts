@@ -2,6 +2,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { Redis } from '@upstash/redis';
+import { timingSafeEqual } from 'crypto';
 
 const RESERVED_SUBDOMAINS = ['www', 'app', 'admin', 'api', 'mail', 'foodie'];
 
@@ -11,7 +12,8 @@ type UserRole = (typeof ROLE_HIERARCHY)[number];
 
 /** Nome do cookie que cacheia a role do usuario (evita query ao banco em todo request). */
 const ROLE_COOKIE_NAME = 'foodie-role';
-const ROLE_COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 7 dias
+const ROLE_COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 7 dias (maxAge do cookie)
+const ROLE_CACHE_MAX_AGE = 60; // 60s — janela de confiança da assinatura HMAC
 
 let redisForRateLimit: Redis | null = null;
 
@@ -48,10 +50,12 @@ async function checkSentryTunnelRateLimit(request: NextRequest): Promise<boolean
 function getCookieSecret(): string {
   const secret = process.env.COOKIE_SIGNING_SECRET;
   if (secret) return secret;
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('COOKIE_SIGNING_SECRET environment variable is required in production');
+  const env = process.env.NODE_ENV as string;
+  if (env === 'production' || env === 'staging' || env === 'preview') {
+    throw new Error('COOKIE_SIGNING_SECRET environment variable is required in this environment');
   }
-  return 'foodie-cookie-secret-dev';
+  if (env === 'test') return 'foodie-cookie-secret-test';
+  return 'foodie-cookie-secret-dev'; // apenas localhost puro
 }
 
 async function getSigningKey(): Promise<CryptoKey> {
@@ -93,11 +97,21 @@ async function verifyCookieValue(signed: string): Promise<string | null> {
   const key = await getSigningKey();
   const encoder = new TextEncoder();
   const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
+  const expectedHex = bufferToHex(sig);
 
-  if (hexSig !== bufferToHex(sig)) return null;
+  // Comparação time-safe para evitar timing oracle
+  try {
+    const expectedBuf = Buffer.from(expectedHex, 'hex');
+    const actualBuf = Buffer.from(hexSig, 'hex');
+    if (expectedBuf.length !== actualBuf.length || !timingSafeEqual(expectedBuf, actualBuf)) {
+      return null;
+    }
+  } catch {
+    return null;
+  }
 
   const age = Math.floor(Date.now() / 1000) - parseInt(timestamp, 10);
-  if (age > 3600) return null;
+  if (age > ROLE_CACHE_MAX_AGE) return null;
 
   return role;
 }
@@ -145,7 +159,7 @@ async function fetchUserRole(
   if (jwtRole && ROLE_HIERARCHY.includes(jwtRole as UserRole)) {
     response.cookies.set(ROLE_COOKIE_NAME, await signCookieValue(jwtRole), {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.NODE_ENV !== 'development',
       sameSite: 'lax',
       maxAge: ROLE_COOKIE_MAX_AGE,
       path: '/',
@@ -166,7 +180,7 @@ async function fetchUserRole(
     // Cacheia a role em cookie para evitar query futura
     response.cookies.set(ROLE_COOKIE_NAME, await signCookieValue(role), {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.NODE_ENV !== 'development',
       sameSite: 'lax',
       maxAge: ROLE_COOKIE_MAX_AGE,
       path: '/',
@@ -330,7 +344,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Driver routes: require at least CLIENTE (authenticated)
+  // Driver routes: require at least EQUIPE (staff)
   if (isDriverRoute) {
     if (!user) {
       const url = request.nextUrl.clone();

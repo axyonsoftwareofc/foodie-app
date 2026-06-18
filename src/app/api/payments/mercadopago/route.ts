@@ -10,6 +10,17 @@ import {
 } from '@/lib/rate-limit';
 import { logger } from '@/lib/logger';
 import { captureException } from '@/lib/sentry';
+import { z } from 'zod';
+
+const mpPaymentSchema = z.object({
+  orderId: z.string().min(1),
+  email: z.string().email(),
+  name: z.string().min(2),
+  document: z.string().optional(),
+  paymentMethod: z.enum(['pix', 'credit_card', 'debit_card', 'bolbradesco']),
+  cardToken: z.string().optional(),
+  installments: z.number().int().min(1).max(12).optional(),
+});
 
 const FEATURE_ENABLED = process.env.ENABLE_MERCADOPAGO_PAYMENTS === 'true'; // ✅ FEATURE FLAG
 
@@ -74,7 +85,8 @@ export async function POST(request: NextRequest) {
   const rate = await checkRateLimit(
     `payments:mp:${ip}`,
     RateLimitConfig.strict.limit,
-    RateLimitConfig.strict.windowSeconds
+    RateLimitConfig.strict.windowSeconds,
+    true
   );
   if (!rate.success) return buildRateLimitResponse(rate);
 
@@ -95,7 +107,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body: PaymentRequest = await request.json();
+    const rawBody = await request.json();
+    const parseResult = mpPaymentSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      return NextResponse.json({ error: parseResult.error.issues[0].message }, { status: 400 });
+    }
+    const body = parseResult.data;
     const { email, name, orderId, paymentMethod, cardToken, installments } = body;
 
     const paymentContext = await getOrderPaymentContext(user.id, orderId);
@@ -201,7 +218,8 @@ export async function GET(request: NextRequest) {
   const rate = await checkRateLimit(
     `payments:mp:get:${ip}`,
     RateLimitConfig.strict.limit,
-    RateLimitConfig.strict.windowSeconds
+    RateLimitConfig.strict.windowSeconds,
+    true
   );
   if (!rate.success) return buildRateLimitResponse(rate);
 

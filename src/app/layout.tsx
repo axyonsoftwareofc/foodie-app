@@ -5,9 +5,11 @@ import './globals.css';
 import { CartProvider } from '@/contexts/CartContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { AccessibilityProvider } from '@/contexts/AccessibilityContext';
 import Header from '@/components/layout/Header';
 import BottomNav from '@/components/layout/BottomNav';
 import SkipLinks from '@/components/accessibility/SkipLinks';
+import AccessibilityWidget from '@/components/accessibility/AccessibilityWidget';
 import { CartSidebarGlobal } from '@/components/cart/CartSidebarGlobal';
 import ServiceWorkerRegister from '@/components/pwa/ServiceWorkerRegister';
 
@@ -55,28 +57,31 @@ export default function RootLayout({
       <body className="font-sans">
         <SkipLinks />
         <ThemeProvider>
-          <AuthProvider>
-            <CartProvider>
-              <Header />
-              <main id="main-content" role="main" className="min-h-screen pb-20 lg:pb-0">
-                {children}
-              </main>
-              <BottomNav />
-              <CartSidebarGlobal />
-              <Toaster
-                position="top-center"
-                richColors
-                toastOptions={{
-                  style: {
-                    background: 'var(--color-bg-card)',
-                    border: '1px solid var(--color-border)',
-                    color: 'var(--color-text)',
-                  },
-                }}
-              />
-              <ServiceWorkerRegister />
-            </CartProvider>
-          </AuthProvider>
+          <AccessibilityProvider>
+            <AuthProvider>
+              <CartProvider>
+                <Header />
+                <main id="main-content" role="main" className="min-h-screen pb-20 lg:pb-0">
+                  {children}
+                </main>
+                <BottomNav />
+                <CartSidebarGlobal />
+                <AccessibilityWidget />
+                <Toaster
+                  position="top-center"
+                  richColors
+                  toastOptions={{
+                    style: {
+                      background: 'var(--color-bg-card)',
+                      border: '1px solid var(--color-border)',
+                      color: 'var(--color-text)',
+                    },
+                  }}
+                />
+                <ServiceWorkerRegister />
+              </CartProvider>
+            </AuthProvider>
+          </AccessibilityProvider>
         </ThemeProvider>
       </body>
     </html>

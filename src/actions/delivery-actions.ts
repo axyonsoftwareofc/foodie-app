@@ -419,7 +419,7 @@ export async function createDriver(
       .from('delivery_drivers')
       .insert({
         restaurant_id: restaurant.id,
-        user_id: driver.userId,
+        user_id: null,
         name: driver.name,
         phone: driver.phone,
         vehicle_type: driver.vehicleType,

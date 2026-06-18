@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useCart } from '@/hooks/useCart';
 import { formatPrice } from '@/lib/utils/format.utils';
 import { Truck, Clock, MapPin, Tag } from 'lucide-react';
+import { FREE_DELIVERY_COUPON_CODE } from '@/lib/constants/coupon.constants';
 
 interface OrderSummaryProps {
   customDeliveryFee?: number | null;
@@ -20,7 +21,7 @@ export default function OrderSummary({
   const { items, restaurantId, totalPrice, appliedCoupon, couponDiscount } = useCart();
 
   const deliveryFee = customDeliveryFee ?? 0;
-  const isFreeDeliveryCoupon = appliedCoupon?.code === 'FRETEGRATIS';
+  const isFreeDeliveryCoupon = appliedCoupon?.code === FREE_DELIVERY_COUPON_CODE;
   const finalDeliveryFee = isFreeDeliveryCoupon ? 0 : deliveryFee;
   const finalTotal = totalPrice + finalDeliveryFee - couponDiscount;
 

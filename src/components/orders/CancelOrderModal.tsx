@@ -61,6 +61,9 @@ export function CancelOrderModal({ orderId, isOpen, onClose, onCancelled }: Canc
 
           {/* Modal */}
           <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cancel-order-title"
             initial={{ opacity: 0, y: '100%' }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: '100%' }}
@@ -89,7 +92,11 @@ export function CancelOrderModal({ orderId, isOpen, onClose, onCancelled }: Canc
                   >
                     <AlertTriangle size={20} style={{ color: '#FF4444' }} />
                   </div>
-                  <h2 className="text-lg font-bold" style={{ color: 'var(--color-text)' }}>
+                  <h2
+                    id="cancel-order-title"
+                    className="text-lg font-bold"
+                    style={{ color: 'var(--color-text)' }}
+                  >
                     {ORDER_MESSAGES.CANCEL_ORDER}
                   </h2>
                 </div>

@@ -19,8 +19,6 @@ export default function CouponInput() {
     setIsLoading(true);
     setError(null);
 
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
     const result = applyCoupon(code.trim());
 
     if (result.success) {

@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { Upload, Loader2, X, Image as ImageIcon } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface ImageUploadProps {
   value?: string;
@@ -26,8 +27,14 @@ export default function ImageUpload({
 
   const handleFile = useCallback(
     async (file: File) => {
-      if (!file.type.startsWith('image/')) return;
-      if (file.size > 5 * 1024 * 1024) return;
+      if (!file.type.startsWith('image/')) {
+        toast.error('Apenas imagens são permitidas');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Imagem muito grande (máximo 5MB)');
+        return;
+      }
 
       const localPreview = URL.createObjectURL(file);
       setPreview(localPreview);
@@ -44,14 +51,18 @@ export default function ImageUpload({
         if (result.url) {
           onChange(result.url);
           setPreview(result.url);
+        } else if (result.error) {
+          toast.error(result.error);
+          setPreview(value || null);
         }
       } catch {
-        // Keep local preview if upload fails
+        toast.error('Erro ao fazer upload da imagem');
+        setPreview(value || null);
       }
 
       setIsUploading(false);
     },
-    [folder, onChange]
+    [folder, onChange, value]
   );
 
   const handleDrop = useCallback(

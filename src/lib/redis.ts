@@ -1,5 +1,4 @@
 import { Redis } from '@upstash/redis';
-import { createHmac } from 'crypto';
 
 let redis: Redis | null = null;
 
@@ -90,28 +89,4 @@ const CACHE_PREFIX = 'foodie';
 
 export function cacheKey(domain: string, ...parts: string[]): string {
   return [CACHE_PREFIX, domain, ...parts].join(':');
-}
-
-function getCookieSecret(): string {
-  const secret = process.env.COOKIE_SIGNING_SECRET;
-  if (secret) return secret;
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('COOKIE_SIGNING_SECRET environment variable is required in production');
-  }
-  return 'foodie-cookie-secret-dev';
-}
-
-export function signCookieValue(value: string): string {
-  const hmac = createHmac('sha256', getCookieSecret());
-  hmac.update(value);
-  return `${value}.${hmac.digest('hex')}`;
-}
-
-export function verifyCookieValue(signed: string): string | null {
-  const dotIndex = signed.lastIndexOf('.');
-  if (dotIndex === -1) return null;
-  const value = signed.substring(0, dotIndex);
-  const expected = signCookieValue(value);
-  if (signed !== expected) return null;
-  return value;
 }

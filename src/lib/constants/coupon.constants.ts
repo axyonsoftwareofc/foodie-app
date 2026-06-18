@@ -48,3 +48,5 @@ export const COUPON_MESSAGES = {
   minOrderNotMet: 'Pedido mínimo de {value} para este cupom',
   success: 'Você ganhou {discount} de desconto!',
 } as const;
+
+export const FREE_DELIVERY_COUPON_CODE = 'FRETEGRATIS';

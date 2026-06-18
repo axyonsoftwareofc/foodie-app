@@ -12,8 +12,12 @@ import { isDuplicateRequest } from '@/lib/idempotency';
 import { logger } from '@/lib/logger';
 import { captureException } from '@/lib/sentry';
 
-const PIX_KEY = process.env.PIX_KEY || 'foodie@email.com';
+const PIX_KEY = process.env.PIX_KEY;
 const PIX_KEY_TYPE = process.env.PIX_KEY_TYPE || 'email';
+
+if (!PIX_KEY && process.env.NODE_ENV === 'production') {
+  console.error('[Pix] PIX_KEY nao configurada — pagamentos Pix indisponiveis');
+}
 
 // ✅ NÃO INICIALIZAR STRIPE NO TOPO DO ARQUIVO
 // Só importar quando realmente necessário
@@ -41,7 +45,7 @@ function generatePixCode(payload: PixPayload): string {
   const merchantAccount =
     formatValue('00', '01') +
     formatValue('11', PIX_KEY_TYPE === 'email' ? '02' : '01') +
-    formatValue('12', PIX_KEY);
+    formatValue('12', PIX_KEY!);
   const merchantCategory = formatValue('26', '0000');
   const currency = formatValue('44', '986');
   const amountField = formatValue('54', amount.toFixed(2));
@@ -85,11 +89,16 @@ function generatePixCode(payload: PixPayload): string {
 }
 
 export async function POST(request: NextRequest) {
+  if (!PIX_KEY) {
+    return NextResponse.json({ error: 'Pix nao configurado' }, { status: 503 });
+  }
+
   const ip = getClientIp(request);
   const rate = await checkRateLimit(
     `payments:pix:${ip}`,
     RateLimitConfig.strict.limit,
-    RateLimitConfig.strict.windowSeconds
+    RateLimitConfig.strict.windowSeconds,
+    true
   );
   if (!rate.success) return buildRateLimitResponse(rate);
 

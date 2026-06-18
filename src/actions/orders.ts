@@ -10,6 +10,7 @@ import { sendEmail, orderConfirmationTemplate, orderStatusTemplate } from '@/lib
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { calculateOrderPricing } from '@/lib/orders/pricing';
+import { z } from 'zod';
 
 export interface OrderItemData {
   menuItemId: string;
@@ -209,27 +210,47 @@ function mapOrderToData(order: OrderRecord, userId: string, restaurantName?: str
   };
 }
 
-export async function createOrder(orderData: {
-  restaurantId: string;
-  restaurantName: string;
-  items: OrderItemData[];
-  address: {
-    street: string;
-    number: string;
-    complement?: string;
-    neighborhood: string;
-    city: string;
-    state: string;
-    zipCode: string;
-  };
-  paymentMethod: string;
-  changeFor?: number;
-  subtotal: number;
-  deliveryFee: number;
-  discount: number;
-  total: number;
-  couponCode?: string;
-}): Promise<{ data?: OrderData; error?: string }> {
+const createOrderSchema = z.object({
+  restaurantId: z.string().min(1),
+  restaurantName: z.string().min(1),
+  items: z
+    .array(
+      z.object({
+        menuItemId: z.string().min(1),
+        menuItemName: z.string().min(1),
+        menuItemImage: z.string().nullable(),
+        menuItemPrice: z.number().nonnegative(),
+        quantity: z.number().int().positive(),
+        observation: z.string().optional(),
+      })
+    )
+    .min(1),
+  address: z.object({
+    street: z.string().min(1),
+    number: z.string().min(1),
+    complement: z.string().optional(),
+    neighborhood: z.string().min(1),
+    city: z.string().min(1),
+    state: z.string().min(1),
+    zipCode: z.string().min(1),
+  }),
+  paymentMethod: z.string().min(1),
+  changeFor: z.number().optional(),
+  subtotal: z.number().nonnegative(),
+  deliveryFee: z.number().nonnegative(),
+  discount: z.number().nonnegative(),
+  total: z.number().nonnegative(),
+  couponCode: z.string().optional(),
+});
+
+export async function createOrder(
+  orderData: z.infer<typeof createOrderSchema>
+): Promise<{ data?: OrderData; error?: string }> {
+  const validation = createOrderSchema.safeParse(orderData);
+  if (!validation.success) {
+    return { error: validation.error.issues[0].message };
+  }
+  const data = validation.data;
   const supabase = await createClient();
   const {
     data: { user },
@@ -244,7 +265,7 @@ export async function createOrder(orderData: {
   const estimatedDelivery = new Date(Date.now() + estimatedMinutes * 60 * 1000).toISOString();
 
   try {
-    const pricedOrder = await calculateOrderPricing(orderData.restaurantId, orderData.items);
+    const pricedOrder = await calculateOrderPricing(data.restaurantId, data.items);
     if (pricedOrder.error || !pricedOrder.data) {
       return { error: pricedOrder.error || 'Erro ao calcular pedido' };
     }
@@ -269,18 +290,18 @@ export async function createOrder(orderData: {
           customer_name: user.email || 'Cliente',
           customer_phone: null,
           order_type: 'DELIVERY',
-          delivery_address: JSON.stringify(orderData.address),
+          delivery_address: JSON.stringify(data.address),
           status: OrderStatus.PENDING,
           items: pricedOrder.data!.items as unknown as Prisma.InputJsonValue,
           total: pricedOrder.data!.total,
           restaurant_id: pricedOrder.data!.restaurantId,
           estimated_preparation_time: estimatedMinutes,
-          payment_method: orderData.paymentMethod,
-          change_for: orderData.changeFor ?? null,
+          payment_method: data.paymentMethod,
+          change_for: data.changeFor ?? null,
           subtotal: pricedOrder.data!.subtotal,
           delivery_fee: pricedOrder.data!.deliveryFee,
           discount: pricedOrder.data!.discount,
-          coupon_code: orderData.couponCode ?? null,
+          coupon_code: data.couponCode ?? null,
           estimated_delivery: estimatedDelivery,
         },
       });
@@ -288,10 +309,10 @@ export async function createOrder(orderData: {
 
     void sendEmail({
       to: user.email!,
-      subject: `Pedido #${order.id.slice(-8).toUpperCase()} confirmado — ${orderData.restaurantName}`,
+      subject: `Pedido #${order.id.slice(-8).toUpperCase()} confirmado — ${data.restaurantName}`,
       html: orderConfirmationTemplate(
         order.id,
-        orderData.restaurantName,
+        data.restaurantName,
         pricedOrder.data.total,
         pricedOrder.data.items.map((i) => ({ name: i.menuItemName, quantity: i.quantity }))
       ),
@@ -311,9 +332,9 @@ export async function createOrder(orderData: {
         tableNumber: null,
         status: order.status,
         items: pricedOrder.data.items,
-        address: orderData.address,
-        paymentMethod: orderData.paymentMethod,
-        changeFor: orderData.changeFor || null,
+        address: data.address,
+        paymentMethod: data.paymentMethod,
+        changeFor: data.changeFor || null,
         subtotal: pricedOrder.data.subtotal,
         deliveryFee: pricedOrder.data.deliveryFee,
         discount: pricedOrder.data.discount,
@@ -379,8 +400,6 @@ export async function getOrders(): Promise<{ data?: OrderData[]; error?: string 
 }
 
 export async function getOrderById(orderId: string): Promise<{ data?: OrderData; error?: string }> {
-  console.log('🔍 [getOrderById] Buscando pedido:', orderId);
-
   const supabase = await createClient();
   const {
     data: { user },
@@ -388,7 +407,6 @@ export async function getOrderById(orderId: string): Promise<{ data?: OrderData;
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    console.log('❌ [getOrderById] Não autenticado');
     return { error: 'Usuário não autenticado' };
   }
 
@@ -402,11 +420,9 @@ export async function getOrderById(orderId: string): Promise<{ data?: OrderData;
     });
 
     if (!order) {
-      console.log('❌ [getOrderById] Pedido não encontrado:', orderId);
       return { error: 'Pedido não encontrado' };
     }
 
-    console.log('✅ [getOrderById] Pedido encontrado:', order.id);
     const isCustomer = order.customer_id === user.id;
     const isRestaurantOwner = order.restaurant?.user_id === user.id;
     if (!isCustomer && !isRestaurantOwner) {
@@ -420,15 +436,29 @@ export async function getOrderById(orderId: string): Promise<{ data?: OrderData;
   }
 }
 
+const updateOrderStatusSchema = z.object({
+  orderId: z.string().min(1),
+  newStatus: z.enum([
+    'PENDING',
+    'CONFIRMED',
+    'PREPARING',
+    'READY',
+    'DELIVERING',
+    'DELIVERED',
+    'CANCELLED',
+  ]),
+  restaurantId: z.string().min(1),
+});
+
 export async function updateOrderStatus({
   orderId,
   newStatus,
   restaurantId,
-}: {
-  orderId: string;
-  newStatus: OrderStatus;
-  restaurantId: string;
-}): Promise<{ success?: boolean; error?: string }> {
+}: z.infer<typeof updateOrderStatusSchema>): Promise<{ success?: boolean; error?: string }> {
+  const validation = updateOrderStatusSchema.safeParse({ orderId, newStatus, restaurantId });
+  if (!validation.success) {
+    return { error: validation.error.issues[0].message };
+  }
   if (!isValidOrderStatus(newStatus)) {
     return { error: 'Status inválido' };
   }
@@ -542,13 +572,19 @@ export async function updateOrderStatus({
   }
 }
 
+const cancelOrderSchema = z.object({
+  orderId: z.string().min(1),
+  reason: z.string().min(1).optional(),
+});
+
 export async function cancelOrder({
   orderId,
   reason,
-}: {
-  orderId: string;
-  reason?: string;
-}): Promise<{ success?: boolean; error?: string }> {
+}: z.infer<typeof cancelOrderSchema>): Promise<{ success?: boolean; error?: string }> {
+  const validation = cancelOrderSchema.safeParse({ orderId, reason });
+  if (!validation.success) {
+    return { error: validation.error.issues[0].message };
+  }
   const supabase = await createClient();
   const {
     data: { user },
@@ -597,15 +633,21 @@ export async function cancelOrder({
   }
 }
 
+const cancelOrderByRestaurantSchema = z.object({
+  orderId: z.string().min(1),
+  restaurantId: z.string().min(1),
+  reason: z.string().min(1).optional(),
+});
+
 export async function cancelOrderByRestaurant({
   orderId,
   restaurantId,
   reason,
-}: {
-  orderId: string;
-  restaurantId: string;
-  reason?: string;
-}): Promise<{ success?: boolean; error?: string }> {
+}: z.infer<typeof cancelOrderByRestaurantSchema>): Promise<{ success?: boolean; error?: string }> {
+  const validation = cancelOrderByRestaurantSchema.safeParse({ orderId, restaurantId, reason });
+  if (!validation.success) {
+    return { error: validation.error.issues[0].message };
+  }
   const supabase = await createClient();
   const {
     data: { user },
@@ -650,17 +692,23 @@ export async function cancelOrderByRestaurant({
   }
 }
 
+const createOrderReviewSchema = z.object({
+  orderId: z.string().min(1),
+  restaurantId: z.string().min(1),
+  rating: z.number().int().min(1).max(5),
+  comment: z.string().max(500).optional(),
+});
+
 export async function createOrderReview({
   orderId,
   restaurantId,
   rating,
   comment,
-}: {
-  orderId: string;
-  restaurantId: string;
-  rating: number;
-  comment?: string;
-}): Promise<{ success?: boolean; error?: string }> {
+}: z.infer<typeof createOrderReviewSchema>): Promise<{ success?: boolean; error?: string }> {
+  const validation = createOrderReviewSchema.safeParse({ orderId, restaurantId, rating, comment });
+  if (!validation.success) {
+    return { error: validation.error.issues[0].message };
+  }
   const supabase = await createClient();
   const {
     data: { user },
@@ -669,10 +717,6 @@ export async function createOrderReview({
 
   if (authError || !user) {
     return { error: 'Usuário não autenticado' };
-  }
-
-  if (rating < 1 || rating > 5) {
-    return { error: 'Avaliação deve ser entre 1 e 5' };
   }
 
   try {
@@ -725,11 +769,27 @@ export async function createOrderReview({
   }
 }
 
+const orderFiltersSchema = z
+  .object({
+    status: z.string().optional(),
+    dateFrom: z.string().datetime().optional(),
+    dateTo: z.string().datetime().optional(),
+    minValue: z.number().nonnegative().optional(),
+    maxValue: z.number().nonnegative().optional(),
+    orderType: z.string().optional(),
+    search: z.string().optional(),
+  })
+  .optional();
+
 export async function getOrdersForRestaurant({
   filters,
 }: {
-  filters?: OrderFilters;
+  filters?: z.infer<typeof orderFiltersSchema>;
 } = {}): Promise<{ data?: OrderData[]; error?: string }> {
+  const validation = orderFiltersSchema.safeParse(filters);
+  if (!validation.success) {
+    return { error: validation.error.issues[0].message };
+  }
   const supabase = await createClient();
   const {
     data: { user },

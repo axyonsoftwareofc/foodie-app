@@ -949,7 +949,7 @@ export async function registerRestaurant(
     if (restaurant) {
       cookieStore.set('restaurantId', restaurant.id, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: process.env.NODE_ENV !== 'development',
         sameSite: 'lax',
         maxAge: 60 * 60 * 24 * 30,
       });

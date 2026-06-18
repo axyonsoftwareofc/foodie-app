@@ -4,6 +4,7 @@
 import { useCart } from '@/hooks/useCart';
 import { getRestaurantById } from '@/data/mock';
 import { formatPrice } from '@/lib/utils/format.utils';
+import { FREE_DELIVERY_COUPON_CODE } from '@/lib/constants/coupon.constants';
 
 export default function CartSummary() {
   const { totalPrice, restaurantId, appliedCoupon, couponDiscount } = useCart();
@@ -11,7 +12,7 @@ export default function CartSummary() {
   const restaurant = restaurantId ? getRestaurantById(restaurantId) : null;
   const deliveryFee = restaurant?.deliveryFee || 0;
 
-  const isFreeDeliveryCoupon = appliedCoupon?.code === 'FRETEGRATIS';
+  const isFreeDeliveryCoupon = appliedCoupon?.code === FREE_DELIVERY_COUPON_CODE;
   const actualDeliveryFee = isFreeDeliveryCoupon ? 0 : deliveryFee;
 
   const finalTotal = totalPrice + actualDeliveryFee - couponDiscount;

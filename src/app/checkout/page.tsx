@@ -19,6 +19,7 @@ import {
 import { PaymentMethod, Restaurant } from '@/types';
 import { CardDetails } from '@/types/payment.types';
 import { CHECKOUT_MESSAGES } from '@/lib/constants/checkout.constants';
+import { FREE_DELIVERY_COUPON_CODE } from '@/lib/constants/coupon.constants';
 import { createOrder as createOrderAction, type OrderItemData } from '@/actions/orders';
 import { createPixPayment } from '@/actions/payments';
 import { getAddresses, type AddressData } from '@/actions/addresses';
@@ -72,7 +73,7 @@ export default function CheckoutPage() {
   const mockRestaurant = restaurantId ? getRestaurantById(restaurantId) : null;
   const restaurant = mockRestaurant || realRestaurant;
   const baseDeliveryFee = restaurant?.deliveryFee || 0;
-  const isFreeDeliveryCoupon = appliedCoupon?.code === 'FRETEGRATIS';
+  const isFreeDeliveryCoupon = appliedCoupon?.code === FREE_DELIVERY_COUPON_CODE;
 
   // Usar frete calculado ou fixo
   const finalDeliveryFee = isFreeDeliveryCoupon ? 0 : (calculatedDeliveryFee ?? baseDeliveryFee);

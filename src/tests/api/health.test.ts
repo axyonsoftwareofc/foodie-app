@@ -39,44 +39,23 @@ describe('GET /api/health', () => {
     vi.restoreAllMocks();
   });
 
-  it('returns healthy when DB and Redis are up', async () => {
+  it('returns ok when DB is up (unauthenticated, no token set)', async () => {
     vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([{ 1: 1 }]);
-    vi.mocked(getRedis).mockReturnValueOnce({
-      ping: vi.fn().mockResolvedValueOnce('PONG'),
-    } as unknown as NonNullable<ReturnType<typeof getRedis>>);
-
-    const request = buildRequest();
-    const response = await GET(request);
-    expect(response.status).toBe(200);
-
-    const body = await response.json();
-    expect(body.status).toBe('healthy');
-    expect(body.checks.database.status).toBe('up');
-    expect(body.checks.cache.status).toBe('up');
-  });
-
-  it('returns degraded when Redis is down but DB is up', async () => {
-    vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([{ 1: 1 }]);
-    vi.mocked(getRedis).mockReturnValueOnce(null);
 
     const response = await GET(buildRequest());
     expect(response.status).toBe(200);
 
     const body = await response.json();
-    expect(body.status).toBe('degraded');
-    expect(body.checks.database.status).toBe('up');
-    expect(body.checks.cache.status).toBe('down');
+    expect(body.status).toBe('ok');
   });
 
-  it('returns unhealthy when DB is down', async () => {
+  it('returns error when DB is down (unauthenticated, no token set)', async () => {
     vi.mocked(prisma.$queryRaw).mockRejectedValueOnce(new Error('Connection refused'));
-    vi.mocked(getRedis).mockReturnValueOnce(null);
 
     const response = await GET(buildRequest());
     expect(response.status).toBe(503);
 
     const body = await response.json();
-    expect(body.status).toBe('unhealthy');
-    expect(body.checks.database.status).toBe('down');
+    expect(body.status).toBe('error');
   });
 });

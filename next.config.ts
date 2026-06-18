@@ -3,6 +3,7 @@ import type { NextConfig } from 'next';
 import { withSentryConfig } from '@sentry/nextjs';
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
   images: {
     remotePatterns: [
       {
@@ -24,10 +25,10 @@ const nextConfig: NextConfig = {
     ],
   },
   async headers() {
-    const cspReportOnly = process.env.CSP_ENFORCE !== 'true';
-    const cspHeader = cspReportOnly
-      ? 'Content-Security-Policy-Report-Only'
-      : 'Content-Security-Policy';
+    const cspEnforce = process.env.CSP_ENFORCE !== 'false';
+    const cspHeader = cspEnforce
+      ? 'Content-Security-Policy'
+      : 'Content-Security-Policy-Report-Only';
 
     return [
       {

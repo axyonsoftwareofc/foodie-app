@@ -18,7 +18,8 @@ export async function POST(request: NextRequest) {
   const rate = await checkRateLimit(
     `payments:intent:${ip}`,
     RateLimitConfig.strict.limit,
-    RateLimitConfig.strict.windowSeconds
+    RateLimitConfig.strict.windowSeconds,
+    true
   );
   if (!rate.success) return buildRateLimitResponse(rate);
 

@@ -118,6 +118,7 @@ export function OrderReview({
             onClick={() => setRating(star)}
             onMouseEnter={() => setHoveredRating(star)}
             onMouseLeave={() => setHoveredRating(0)}
+            aria-label={`Avaliar com ${star} estrela${star !== 1 ? 's' : ''}`}
             className="transition-transform hover:scale-110"
           >
             <Star

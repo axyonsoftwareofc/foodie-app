@@ -10,16 +10,18 @@ import {
 } from '@/lib/rate-limit';
 import { logger } from '@/lib/logger';
 import { captureException } from '@/lib/sentry';
+import { z } from 'zod';
 
-interface BoletoRequest {
-  amount: number;
-  customerName: string;
-  customerDocument: string;
-  customerEmail: string;
-  orderId: string;
-  description: string;
-  dueDate?: string;
-}
+const boletoSchema = z.object({
+  orderId: z.string().min(1),
+  customerName: z.string().min(2),
+  customerDocument: z.string().min(11),
+  customerEmail: z.string().email().optional(),
+  description: z.string().optional(),
+  dueDate: z.string().datetime().optional(),
+});
+
+type BoletoRequest = z.infer<typeof boletoSchema>;
 
 function generateBoletoBarcode(
   bankCode: string,
@@ -94,7 +96,8 @@ export async function POST(request: NextRequest) {
   const rate = await checkRateLimit(
     `payments:boleto:${ip}`,
     RateLimitConfig.strict.limit,
-    RateLimitConfig.strict.windowSeconds
+    RateLimitConfig.strict.windowSeconds,
+    true
   );
   if (!rate.success) return buildRateLimitResponse(rate);
 
@@ -104,7 +107,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body: BoletoRequest = await request.json();
+    const rawBody = await request.json();
+    const parseResult = boletoSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      return NextResponse.json({ error: parseResult.error.issues[0].message }, { status: 400 });
+    }
+    const body = parseResult.data;
     const { customerName, customerDocument, customerEmail, orderId, dueDate } = body;
 
     const paymentContext = await getOrderPaymentContext(user.id, orderId);
@@ -188,7 +196,8 @@ export async function GET(request: NextRequest) {
   const rate = await checkRateLimit(
     `payments:boleto:get:${ip}`,
     RateLimitConfig.strict.limit,
-    RateLimitConfig.strict.windowSeconds
+    RateLimitConfig.strict.windowSeconds,
+    true
   );
   if (!rate.success) return buildRateLimitResponse(rate);
 

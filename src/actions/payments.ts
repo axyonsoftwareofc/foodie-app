@@ -13,7 +13,8 @@ export async function createPaymentIntent(
     const rate = await checkRateLimit(
       `sa:payments:intent:${clientId}`,
       RateLimitConfig.strict.limit,
-      RateLimitConfig.strict.windowSeconds
+      RateLimitConfig.strict.windowSeconds,
+      true
     );
     if (!rate.success) {
       return { error: 'Muitas requisições. Aguarde um momento.' };
@@ -50,7 +51,8 @@ export async function createPixPayment(
     const rate = await checkRateLimit(
       `sa:payments:pix:${clientId}`,
       RateLimitConfig.strict.limit,
-      RateLimitConfig.strict.windowSeconds
+      RateLimitConfig.strict.windowSeconds,
+      true
     );
     if (!rate.success) {
       return { error: 'Muitas requisições. Aguarde um momento.' };

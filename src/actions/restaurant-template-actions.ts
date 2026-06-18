@@ -3,11 +3,18 @@
 
 import { prisma } from '@/lib/prisma';
 import { getTemplate } from '@/lib/menu-templates';
+import { getCurrentUser, userOwnsRestaurant } from '@/lib/authz';
 
 export async function populateRestaurantTemplate(
   restaurantId: string,
   templateId: string
 ): Promise<{ success?: boolean; error?: string }> {
+  const { user, error: authError } = await getCurrentUser();
+  if (authError || !user) return { error: 'Usuario nao autenticado' };
+
+  const owns = await userOwnsRestaurant(user.id, restaurantId);
+  if (!owns) return { error: 'Acesso negado a este restaurante' };
+
   const template = getTemplate(templateId);
   if (!template) return { error: 'Template nao encontrado' };
 

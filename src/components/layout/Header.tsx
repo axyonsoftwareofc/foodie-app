@@ -75,9 +75,10 @@ export default function Header() {
           {/* Center - Address (home only, desktop) */}
           {isHomePage && (
             <button
+              onClick={() => router.push('/addresses')}
               className="hidden items-center gap-2 rounded-full px-4 py-2 transition-colors hover:opacity-80 md:flex"
               style={{ backgroundColor: 'var(--color-bg-secondary)' }}
-              aria-label="Endereco de entrega - Rua das Flores, 123"
+              aria-label="Selecionar endereco de entrega"
             >
               <MapPin size={20} className="text-[#00A082]" />
               <div className="text-left">
@@ -88,7 +89,7 @@ export default function Header() {
                   className="max-w-[200px] truncate text-sm font-medium"
                   style={{ color: 'var(--color-text)' }}
                 >
-                  Rua das Flores, 123
+                  Selecionar endereco
                 </p>
               </div>
             </button>

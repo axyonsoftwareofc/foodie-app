@@ -27,9 +27,7 @@ export default function HomePageClient({ initialRestaurants }: HomePageClientPro
 
   const handleFilterChange = useCallback(
     <K extends keyof ActiveFilters>(key: K, value: ActiveFilters[K]): void => {
-      setIsLoading(true);
       updateFilter(key, value);
-      setTimeout(() => setIsLoading(false), 300);
     },
     [updateFilter]
   );
@@ -42,9 +40,7 @@ export default function HomePageClient({ initialRestaurants }: HomePageClientPro
   );
 
   const handleReset = useCallback((): void => {
-    setIsLoading(true);
     resetFilters();
-    setTimeout(() => setIsLoading(false), 300);
   }, [resetFilters]);
 
   return (

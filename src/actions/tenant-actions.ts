@@ -163,7 +163,7 @@ export async function createTenant(
     const cookieStore = await cookies();
     cookieStore.set('restaurantId', restaurant.id, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.NODE_ENV !== 'development',
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 30,
     });

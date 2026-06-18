@@ -1,5 +1,6 @@
 // src/app/api/webhooks/mercadopago/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { createHmac, timingSafeEqual } from 'crypto';
 import {
   checkRateLimit,
   getClientIp,
@@ -11,6 +12,38 @@ import { isDuplicateRequest } from '@/lib/idempotency';
 import { logger } from '@/lib/logger';
 import { captureException } from '@/lib/sentry';
 
+function verifyMpSignature(
+  rawBody: string,
+  xSignature: string,
+  xRequestId: string | null,
+  secret: string
+): boolean {
+  const parts = xSignature.split(',');
+  let ts: string | null = null;
+  let hash: string | null = null;
+
+  for (const part of parts) {
+    const [key, value] = part.split('=');
+    if (key.trim() === 'ts') ts = value.trim();
+    if (key.trim() === 'v1') hash = value.trim();
+  }
+
+  if (!ts || !hash) return false;
+
+  const manifest = `${xRequestId ?? ''}:${rawBody}`;
+  const hmac = createHmac('sha256', secret);
+  hmac.update(manifest);
+  const expected = hmac.digest('hex');
+
+  if (expected.length !== hash.length) return false;
+
+  try {
+    return timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(hash, 'hex'));
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(request: NextRequest) {
   const WEBHOOK_SECRET = process.env.MERCADOPAGO_WEBHOOK_SECRET;
   const ACCESS_TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN;
@@ -19,7 +52,8 @@ export async function POST(request: NextRequest) {
   const rate = await checkRateLimit(
     `webhook:mp:${ip}`,
     RateLimitConfig.moderate.limit,
-    RateLimitConfig.moderate.windowSeconds
+    RateLimitConfig.moderate.windowSeconds,
+    true
   );
   if (!rate.success) return buildRateLimitResponse(rate);
 
@@ -28,15 +62,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Webhook not configured' }, { status: 500 });
   }
 
-  // Mercado Pago pode enviar notificacoes com query params (secret) ou assinatura
-  const { searchParams } = new URL(request.url);
-  const querySecret = searchParams.get('secret');
-  if (!querySecret || querySecret !== WEBHOOK_SECRET) {
-    return NextResponse.json({ error: 'Invalid secret' }, { status: 401 });
+  const xSignature = request.headers.get('x-signature');
+  if (!xSignature) {
+    return NextResponse.json({ error: 'Missing x-signature header' }, { status: 401 });
+  }
+
+  const xRequestId = request.headers.get('x-request-id');
+  const rawBody = await request.text();
+
+  if (!verifyMpSignature(rawBody, xSignature, xRequestId, WEBHOOK_SECRET)) {
+    logger.warn('[MP Webhook] Invalid signature');
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
   }
 
   try {
-    const body = await request.json();
+    const body = JSON.parse(rawBody);
 
     // Mercado Pago envia `data.id` (paymentId) e `type` (payment, merchant_order, etc)
     const paymentId = body?.data?.id;
@@ -71,6 +111,7 @@ export async function POST(request: NextRequest) {
       status: string;
       status_detail?: string;
       external_reference?: string;
+      transaction_amount?: number;
     };
 
     if (topic === 'payment' || body?.type === 'payment') {
@@ -84,6 +125,7 @@ export async function POST(request: NextRequest) {
             provider: 'MERCADOPAGO',
             paymentStatus: mappedStatus,
             gatewayPaymentId: String(payment.id),
+            paidAmount: payment.transaction_amount,
           });
 
           if (!result.success) {

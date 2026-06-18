@@ -1,8 +1,10 @@
 // src/app/api/mesa/[tableId]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { OrderStatus, Prisma } from '@prisma/client';
 import { recalculateRestaurantCapacity } from '@/lib/capacity-checker';
+import { calculateOrderPricing } from '@/lib/orders/pricing';
 import {
   checkRateLimit,
   getClientIp,
@@ -71,7 +73,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tab
   const rate = await checkRateLimit(
     `mesa:post:${ip}`,
     RateLimitConfig.strict.limit,
-    RateLimitConfig.strict.windowSeconds
+    RateLimitConfig.strict.windowSeconds,
+    true
   );
   if (!rate.success) return buildRateLimitResponse(rate);
 
@@ -88,16 +91,36 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tab
     return NextResponse.json({ error: 'Mesa nao encontrada' }, { status: 404 });
   }
 
-  const body = await req.json();
-  const { items } = body as {
-    items: { productId: string; name: string; quantity: number; price: number }[];
-  };
+  // Validar corpo — apenas productId + quantity, NUNCA price/name do cliente
+  const orderSchema = z.object({
+    items: z
+      .array(
+        z.object({
+          productId: z.string().min(1),
+          quantity: z.number().int().min(1).max(99),
+        })
+      )
+      .min(1),
+  });
 
-  if (!items || items.length === 0) {
-    return NextResponse.json({ error: 'Nenhum item no pedido' }, { status: 400 });
+  let parsed: z.infer<typeof orderSchema>;
+  try {
+    parsed = orderSchema.parse(await req.json());
+  } catch {
+    return NextResponse.json({ error: 'Dados do pedido invalidos' }, { status: 400 });
   }
 
-  const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  // Recalcular precos server-side (nao confiar no cliente)
+  const priced = await calculateOrderPricing(
+    table.restaurant.id,
+    parsed.items.map((i) => ({ menuItemId: i.productId, quantity: i.quantity }))
+  );
+
+  if (priced.error || !priced.data) {
+    return NextResponse.json({ error: priced.error ?? 'Erro ao calcular preco' }, { status: 400 });
+  }
+
+  const { items, total } = priced.data;
 
   try {
     const order = await prisma.order.create({
@@ -109,9 +132,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tab
         order_type: 'DINE_IN',
         status: OrderStatus.PENDING,
         items: items.map((i) => ({
-          menuItemName: i.name,
+          menuItemName: i.menuItemName,
           quantity: i.quantity,
-          menuItemPrice: i.price,
+          menuItemPrice: i.menuItemPrice,
         })) as unknown as Prisma.InputJsonValue,
         total,
         subtotal: total,

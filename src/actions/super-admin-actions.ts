@@ -5,9 +5,25 @@ import { prisma } from '@/lib/prisma';
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { UserRole } from '@prisma/client';
+import { getCurrentUser } from '@/lib/authz';
 
-function requireSuperAdmin() {
-  // Handled by middleware — this is a double-check
+async function requireSuperAdmin(): Promise<{
+  user?: import('@supabase/supabase-js').User;
+  error?: string;
+}> {
+  const { user, error } = await getCurrentUser();
+  if (error || !user) return { error: 'Usuario nao autenticado' };
+
+  const profile = await prisma.profile.findUnique({
+    where: { id: user.id },
+    select: { role: true },
+  });
+
+  if (!profile || profile.role !== 'SUPER_ADMIN') {
+    return { error: 'Acesso negado' };
+  }
+
+  return { user };
 }
 
 export async function getSuperAdminMetrics(): Promise<{
@@ -31,6 +47,9 @@ export async function getSuperAdminMetrics(): Promise<{
   };
   error?: string;
 }> {
+  const authz = await requireSuperAdmin();
+  if (authz.error) return { error: authz.error };
+
   if (!process.env.DATABASE_URL) {
     return {
       data: {
@@ -133,6 +152,9 @@ export async function getAllRestaurants(
   };
   error?: string;
 }> {
+  const authz = await requireSuperAdmin();
+  if (authz.error) return { error: authz.error };
+
   if (!process.env.DATABASE_URL) {
     return { data: { items: [], total: 0, page: 1 } };
   }
@@ -198,6 +220,9 @@ export async function toggleRestaurantActive(restaurantId: string): Promise<{
   success?: boolean;
   error?: string;
 }> {
+  const authz = await requireSuperAdmin();
+  if (authz.error) return { error: authz.error };
+
   const restaurant = await prisma.restaurant.findUnique({
     where: { id: restaurantId },
     select: { is_active: true },
@@ -224,6 +249,9 @@ export async function getAllUsers(roleFilter?: string): Promise<{
   }[];
   error?: string;
 }> {
+  const authz = await requireSuperAdmin();
+  if (authz.error) return { error: authz.error };
+
   if (!process.env.DATABASE_URL) {
     return { data: [] };
   }
@@ -260,6 +288,9 @@ export async function setUserRole(
   success?: boolean;
   error?: string;
 }> {
+  const authz = await requireSuperAdmin();
+  if (authz.error) return { error: authz.error };
+
   const profile = await prisma.profile.findUnique({
     where: { id: userId },
     select: { id: true, role: true },
@@ -293,6 +324,9 @@ export async function getGlobalAuditLog(page = 1): Promise<{
   };
   error?: string;
 }> {
+  const authz = await requireSuperAdmin();
+  if (authz.error) return { error: authz.error };
+
   if (!process.env.DATABASE_URL) {
     return { data: { items: [], total: 0, page: 1 } };
   }
