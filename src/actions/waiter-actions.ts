@@ -2,7 +2,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { OrderStatus, Prisma } from '@prisma/client';
+import { OrderStatus, Prisma, TableStatus } from '@prisma/client';
 import { getRestaurantAccess, recordAuditLog, WAITER_ROLES } from '@/lib/restaurant-access';
 import { z } from 'zod';
 
@@ -141,7 +141,7 @@ export async function createDineInOrder(
 
     await prisma.restaurantTable.update({
       where: { id: validated.tableId },
-      data: { status: 'OCCUPIED' },
+      data: { status: TableStatus.OCCUPIED },
     });
 
     await recordAuditLog({
@@ -181,7 +181,7 @@ export async function closeTable(tableId: string): Promise<{ success?: boolean; 
 
   await prisma.restaurantTable.update({
     where: { id: tableId },
-    data: { status: 'AVAILABLE' },
+    data: { status: TableStatus.AVAILABLE },
   });
 
   await recordAuditLog({

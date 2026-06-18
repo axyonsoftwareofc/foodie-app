@@ -89,35 +89,71 @@ function isValidOrderStatus(status: string): status is OrderStatus {
   return Object.values(OrderStatus).includes(status as OrderStatus);
 }
 
-function parseOrderItems(items: unknown): OrderItemData[] {
-  if (Array.isArray(items)) {
-    return items as OrderItemData[];
+const orderItemSchema = z.object({
+  menuItemId: z.string(),
+  menuItemName: z.string(),
+  menuItemImage: z.string().nullable(),
+  menuItemPrice: z.number().nonnegative(),
+  quantity: z.number().int().positive(),
+  observation: z.string().optional(),
+});
+
+const addressSchema = z.object({
+  street: z.string(),
+  number: z.string(),
+  complement: z.string().optional(),
+  neighborhood: z.string(),
+  city: z.string(),
+  state: z.string(),
+  zipCode: z.string(),
+});
+
+function parseJson(input: unknown): unknown {
+  if (typeof input === 'string') {
+    try {
+      return JSON.parse(input);
+    } catch {
+      return undefined;
+    }
   }
-  if (typeof items === 'string') {
-    return JSON.parse(items);
-  }
-  return [];
+  return input;
 }
+
+function parseOrderItems(items: unknown): OrderItemData[] {
+  const parsed = parseJson(items);
+  if (!Array.isArray(parsed)) {
+    return [];
+  }
+  const validation = z.array(orderItemSchema).safeParse(parsed);
+  return validation.success ? validation.data : [];
+}
+
+const emptyAddress: OrderData['address'] = {
+  street: '',
+  number: '',
+  neighborhood: '',
+  city: '',
+  state: '',
+  zipCode: '',
+};
 
 function parseAddress(deliveryAddress: unknown): OrderData['address'] {
   if (!deliveryAddress) {
-    return { street: '', number: '', neighborhood: '', city: '', state: '', zipCode: '' };
+    return emptyAddress;
   }
+
   if (typeof deliveryAddress === 'string') {
     try {
-      return JSON.parse(deliveryAddress);
+      const parsed = JSON.parse(deliveryAddress);
+      const validation = addressSchema.safeParse(parsed);
+      return validation.success ? validation.data : { ...emptyAddress, street: deliveryAddress };
     } catch {
-      return {
-        street: deliveryAddress,
-        number: '',
-        neighborhood: '',
-        city: '',
-        state: '',
-        zipCode: '',
-      };
+      return { ...emptyAddress, street: deliveryAddress };
     }
   }
-  return deliveryAddress as OrderData['address'];
+
+  const validation = addressSchema.safeParse(deliveryAddress);
+  return validation.success ? validation.data : emptyAddress;
 }
 
 type OrderReviewRecord = {
@@ -261,8 +297,11 @@ export async function createOrder(
     return { error: 'Usuário não autenticado' };
   }
 
-  const estimatedMinutes = 40 + Math.floor(Math.random() * 20);
-  const estimatedDelivery = new Date(Date.now() + estimatedMinutes * 60 * 1000).toISOString();
+  const profile = await prisma.profile.findUnique({
+    where: { id: user.id },
+    select: { full_name: true },
+  });
+  const customerName = profile?.full_name || user.email || 'Cliente';
 
   try {
     const pricedOrder = await calculateOrderPricing(data.restaurantId, data.items);
@@ -275,7 +314,7 @@ export async function createOrder(
       // Re-validate restaurant is still active inside the transaction
       const restaurant = await tx.restaurant.findFirst({
         where: { id: pricedOrder.data!.restaurantId, is_active: true },
-        select: { id: true, accepting_orders: true },
+        select: { id: true, accepting_orders: true, estimated_delivery_time: true },
       });
       if (!restaurant) {
         throw new Error('Restaurante nao encontrado ou inativo');
@@ -284,10 +323,13 @@ export async function createOrder(
         throw new Error('Restaurante nao esta aceitando pedidos no momento');
       }
 
+      const estimatedMinutes = restaurant.estimated_delivery_time || 45;
+      const estimatedDelivery = new Date(Date.now() + estimatedMinutes * 60 * 1000).toISOString();
+
       return tx.order.create({
         data: {
           customer_id: user.id,
-          customer_name: user.email || 'Cliente',
+          customer_name: customerName,
           customer_phone: null,
           order_type: 'DELIVERY',
           delivery_address: JSON.stringify(data.address),
@@ -339,9 +381,9 @@ export async function createOrder(
         deliveryFee: pricedOrder.data.deliveryFee,
         discount: pricedOrder.data.discount,
         total: order.total,
-        couponCode: null,
-        estimatedDelivery,
-        estimatedPreparationTime: estimatedMinutes,
+        couponCode: order.coupon_code || null,
+        estimatedDelivery: order.estimated_delivery || null,
+        estimatedPreparationTime: order.estimated_preparation_time || null,
         preparationStartedAt: null,
         readyAt: null,
         deliveredAt: null,
@@ -426,7 +468,7 @@ export async function getOrderById(orderId: string): Promise<{ data?: OrderData;
     const isCustomer = order.customer_id === user.id;
     const isRestaurantOwner = order.restaurant?.user_id === user.id;
     if (!isCustomer && !isRestaurantOwner) {
-      return { error: 'NÃ£o autorizado' };
+      return { error: 'Não autorizado' };
     }
 
     return { data: mapOrderToData(order, user.id, order.restaurant?.name) };
@@ -734,7 +776,7 @@ export async function createOrderReview({
     }
 
     if (order.restaurant_id !== restaurantId) {
-      return { error: 'Restaurante invÃ¡lido para este pedido' };
+      return { error: 'Restaurante inválido para este pedido' };
     }
 
     if (order.status !== 'DELIVERED') {
@@ -840,6 +882,17 @@ export async function getOrdersForRestaurant({
 
     if (filters?.orderType && filters.orderType !== 'ALL') {
       where.order_type = filters.orderType as OrderType;
+    }
+
+    // Push id/customer_name filtering to the database for scalability;
+    // item names are still filtered in memory because Prisma cannot index
+    // search inside the Json items column without raw SQL.
+    if (filters?.search) {
+      const searchTerm = filters.search;
+      where.OR = [
+        { id: { contains: searchTerm, mode: 'insensitive' } },
+        { customer_name: { contains: searchTerm, mode: 'insensitive' } },
+      ];
     }
 
     const orders = await prisma.order.findMany({

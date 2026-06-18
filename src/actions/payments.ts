@@ -4,6 +4,8 @@
 import { PixPaymentDetails, PaymentIntentResponse } from '@/types/payment.types';
 import { checkRateLimit, getClientIdentifierFromHeaders, RateLimitConfig } from '@/lib/rate-limit';
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
 export async function createPaymentIntent(
   orderId: string,
   email?: string
@@ -19,7 +21,7 @@ export async function createPaymentIntent(
     if (!rate.success) {
       return { error: 'Muitas requisições. Aguarde um momento.' };
     }
-    const response = await fetch('/api/payments/intent', {
+    const response = await fetch(`${APP_URL}/api/payments/intent`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -57,7 +59,7 @@ export async function createPixPayment(
     if (!rate.success) {
       return { error: 'Muitas requisições. Aguarde um momento.' };
     }
-    const response = await fetch('/api/payments/pix', {
+    const response = await fetch(`${APP_URL}/api/payments/pix`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

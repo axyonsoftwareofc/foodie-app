@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { OrderStatus, Prisma } from '@prisma/client';
+import { OrderStatus, Prisma, TableStatus } from '@prisma/client';
 import { recalculateRestaurantCapacity } from '@/lib/capacity-checker';
 import { calculateOrderPricing } from '@/lib/orders/pricing';
 import {
@@ -144,7 +144,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tab
 
     await prisma.restaurantTable.update({
       where: { id: tableId },
-      data: { status: 'OCCUPIED' },
+      data: { status: TableStatus.OCCUPIED },
     });
 
     void recalculateRestaurantCapacity(table.restaurant.id);
