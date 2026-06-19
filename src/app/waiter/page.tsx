@@ -3,8 +3,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { getTables } from '@/actions/waiter-actions';
-import { ArrowRight, Users, Circle } from 'lucide-react';
+import { ArrowRight, Users, Circle, ArrowLeft } from 'lucide-react';
 
 export default function WaiterPage() {
   const [tables, setTables] = useState<
@@ -29,8 +30,32 @@ export default function WaiterPage() {
   }
 
   return (
-    <div className="min-h-screen p-4" style={{ backgroundColor: 'var(--color-bg)' }}>
-      <div className="mx-auto max-w-2xl">
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--color-bg)' }}>
+      {/* Minimal Header */}
+      <div
+        className="flex items-center justify-between p-4 border-b"
+        style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}
+      >
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-2 text-sm"
+          style={{ color: 'var(--color-text-secondary)' }}
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Voltar ao Dashboard
+        </Link>
+        <span
+          className="text-xs font-medium px-2 py-1 rounded-full"
+          style={{
+            backgroundColor: 'var(--color-bg-secondary)',
+            color: 'var(--color-text-secondary)',
+          }}
+        >
+          Área do Garçom
+        </span>
+      </div>
+
+      <div className="p-4">
         <h1 className="mb-2 text-2xl font-bold" style={{ color: 'var(--color-text)' }}>
           🍽️ Mesas
         </h1>

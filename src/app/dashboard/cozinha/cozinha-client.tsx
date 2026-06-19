@@ -46,6 +46,12 @@ const COLORS = {
   },
 };
 
+const KITCHEN_COLUMNS = [
+  { key: 'NEW', label: '🔔 Novos', color: COLORS.NEW },
+  { key: 'PREPARING', label: '👨‍🍳 Preparando', color: COLORS.PREPARING },
+  { key: 'READY', label: '📦 Prontos', color: COLORS.READY },
+] as const;
+
 const STATUS_COLORS: Record<string, string> = {
   PENDING: 'bg-amber-500',
   CONFIRMED: 'bg-amber-600',
@@ -93,8 +99,6 @@ export default function CozinhaClient({
       NEW: orders.filter((o) => o.status === 'PENDING' || o.status === 'CONFIRMED'),
       PREPARING: orders.filter((o) => o.status === 'PREPARING'),
       READY: orders.filter((o) => o.status === 'READY'),
-      DELIVERING: orders.filter((o) => o.status === 'DELIVERING'),
-      COMPLETED: orders.filter((o) => o.status === 'DELIVERED' || o.status === 'CANCELLED'),
     }),
     [orders]
   );
@@ -202,22 +206,9 @@ export default function CozinhaClient({
         );
       }
       return (
-        <button
-          onClick={() => handleAction(order, 'COMPLETE')}
-          className="px-4 py-2 bg-purple-500 text-white rounded-xl text-sm font-bold active:scale-95 transition-transform"
-        >
-          Iniciar Entrega
-        </button>
-      );
-    }
-    if (status === 'DELIVERING') {
-      return (
-        <button
-          onClick={() => handleAction(order, 'COMPLETE')}
-          className="px-4 py-2 bg-gray-600 text-white rounded-xl text-sm font-bold active:scale-95 transition-transform"
-        >
-          Finalizar Entrega
-        </button>
+        <span className="text-xs text-gray-400 px-2 py-1 bg-gray-100 rounded-lg">
+          Aguardando expedição
+        </span>
       );
     }
     return null;
@@ -273,22 +264,18 @@ export default function CozinhaClient({
         </span>
       </div>
 
-      <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {Object.entries(COLORS).map(([key, colors]) => {
+      <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {KITCHEN_COLUMNS.map(({ key, label, color }) => {
           const columnOrders = grouped[key as keyof typeof grouped];
           return (
             <div
               key={key}
-              className={`rounded-2xl ${colors.bg} border ${colors.border} p-3 min-h-[200px]`}
+              className={`rounded-2xl ${color.bg} border ${color.border} p-3 min-h-[200px]`}
             >
               <div className="flex items-center gap-2 mb-3">
-                <div className={`w-2.5 h-2.5 rounded-full ${colors.dot}`} />
-                <h3 className={`text-sm font-semibold ${colors.text}`}>
-                  {key === 'NEW' && `🔔 Novos (${columnOrders.length})`}
-                  {key === 'PREPARING' && `👨‍🍳 Preparando (${columnOrders.length})`}
-                  {key === 'READY' && `📦 Prontos (${columnOrders.length})`}
-                  {key === 'DELIVERING' && `🛵 Entregando (${columnOrders.length})`}
-                  {key === 'COMPLETED' && `✅ Finalizados (${columnOrders.length})`}
+                <div className={`w-2.5 h-2.5 rounded-full ${color.dot}`} />
+                <h3 className={`text-sm font-semibold ${color.text}`}>
+                  {label} ({columnOrders.length})
                 </h3>
               </div>
               <div className="space-y-2">

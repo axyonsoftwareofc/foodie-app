@@ -852,6 +852,102 @@ export async function getDriverByUserId(
   }
 }
 
+export async function getCurrentDriver(): Promise<{ data?: DeliveryDriver; error?: string }> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Usuário não autenticado' };
+
+    const { data, error } = await supabase
+      .from('delivery_drivers')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .single();
+
+    if (error || !data) return { error: 'Entregador não encontrado' };
+
+    return { data: mapDriverFromDB(data) };
+  } catch (error) {
+    console.error('Error fetching current driver:', error);
+    return { error: 'Erro ao buscar entregador' };
+  }
+}
+
+export interface CreateDriverWithAuthParams {
+  email: string;
+  password: string;
+  name: string;
+  phone: string;
+  vehicleType: DeliveryDriver['vehicleType'];
+  vehiclePlate?: string;
+  photoUrl?: string;
+}
+
+export async function createDriverWithAuth(
+  params: CreateDriverWithAuthParams
+): Promise<{ data?: { driver: DeliveryDriver; tempPassword: string }; error?: string }> {
+  try {
+    const access = await getDeliveryAccess();
+    if (!access.data) return { error: access.error || 'Não autorizado' };
+
+    const supabase = await createClient();
+
+    const adminResponse = await fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+          Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+        body: JSON.stringify({
+          email: params.email,
+          password: params.password,
+          email_confirm: true,
+          user_metadata: { role: 'DRIVER', restaurant_id: access.data.restaurant.id },
+        }),
+      }
+    );
+
+    if (!adminResponse.ok) {
+      const errData = await adminResponse.json();
+      return { error: errData.msg || 'Erro ao criar conta do entregador' };
+    }
+
+    const adminData = await adminResponse.json();
+    const authUserId = adminData.id;
+
+    const { data: newDriver, error } = await supabase
+      .from('delivery_drivers')
+      .insert({
+        restaurant_id: access.data.restaurant.id,
+        user_id: authUserId,
+        name: params.name,
+        phone: params.phone,
+        vehicle_type: params.vehicleType,
+        vehicle_plate: params.vehiclePlate,
+        photo_url: params.photoUrl,
+        rating: 5.0,
+        total_deliveries: 0,
+        is_available: true,
+      })
+      .select()
+      .single();
+
+    if (error) return { error: error.message };
+
+    return { data: { driver: mapDriverFromDB(newDriver), tempPassword: params.password } };
+  } catch (error) {
+    console.error('Error creating driver with auth:', error);
+    return { error: 'Erro ao criar entregador' };
+  }
+}
+
 export interface DriverDeliveryItem {
   id: string;
   orderId: string;

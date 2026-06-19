@@ -107,17 +107,14 @@ export function useKitchenOrders(initialOrders?: KitchenOrder[]) {
               : Date.now();
 
             setOrders((prev) => {
-              const existing = prev.find((o) => o.id === eventOrder.id);
-              if (existing?.updatedAt) {
-                const existingTime = new Date(existing.updatedAt).getTime();
-                if (payloadTime <= existingTime) return prev;
-              }
-              return prev;
-            });
+              const existingIndex = prev.findIndex((o) => o.id === eventOrder.id);
 
-            setOrders((prev) => {
-              const exists = prev.find((o) => o.id === eventOrder.id);
-              if (exists) {
+              if (existingIndex !== -1) {
+                const existing = prev[existingIndex];
+                if (existing?.updatedAt) {
+                  const existingTime = new Date(existing.updatedAt).getTime();
+                  if (payloadTime <= existingTime) return prev;
+                }
                 return prev.map((o) =>
                   o.id === eventOrder.id
                     ? {
@@ -130,9 +127,9 @@ export function useKitchenOrders(initialOrders?: KitchenOrder[]) {
               }
               return prev;
             });
-          }
 
-          setLastUpdate(new Date());
+            setLastUpdate(new Date());
+          }
         }
       )
       .subscribe();
@@ -142,14 +139,14 @@ export function useKitchenOrders(initialOrders?: KitchenOrder[]) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [orders.length > 0 ? derivedRestaurantIdRef.current : null]);
+  }, [derivedRestaurantIdRef.current]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
 
     const startPolling = () => {
       if (interval) clearInterval(interval);
-      interval = setInterval(fetchOrders, derivedRestaurantIdRef.current ? 60000 : 30000);
+      interval = setInterval(fetchOrders, 180000);
     };
 
     const stopPolling = () => {

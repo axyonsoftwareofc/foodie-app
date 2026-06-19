@@ -311,7 +311,7 @@ TOTAL: R$ ${order.total.toFixed(2).replace('.', ',')}
       )}
 
       {/* Kanban Columns */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 h-[65vh]">
+      <div className="flex gap-4 overflow-x-auto pb-4 h-[65vh]">
         {COLUMNS.map((col) => {
           const columnOrders = grouped[col.id];
 

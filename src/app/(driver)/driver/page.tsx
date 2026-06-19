@@ -19,7 +19,7 @@ import { toast } from 'sonner';
 import { formatPrice } from '@/lib/utils/format.utils';
 import {
   getDriverDeliveriesForApp,
-  getDriverByUserId,
+  getCurrentDriver,
   updateDriverLocation,
   updateDeliveryStatus,
   rejectDelivery,
@@ -236,9 +236,13 @@ export default function DriverPage() {
     const newStatus: DriverStatus = status === 'OFFLINE' ? 'ONLINE' : 'OFFLINE';
 
     if (newStatus === 'ONLINE') {
-      const driverResult = await getDriverByUserId('me');
+      const driverResult = await getCurrentDriver();
       if (driverResult.data) {
         setDriverId(driverResult.data.id);
+      } else {
+        toast.error(driverResult.error || 'Entregador não encontrado');
+        setIsToggling(false);
+        return;
       }
       startGpsTracking();
     } else {

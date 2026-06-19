@@ -252,9 +252,13 @@ export async function middleware(request: NextRequest) {
   const isAdminRoute = pathname.startsWith('/admin');
   const isSuperAdminRoute = pathname.startsWith('/super-admin');
   const isDashboardRoute = pathname.startsWith('/dashboard');
-  const isDriverRoute = pathname.startsWith('/driver');
-  const isWaiterRoute = pathname.startsWith('/waiter');
-  const isAuthRoute = pathname.startsWith('/sign-in') || pathname.startsWith('/sign-up');
+  const isDriverRoute = pathname.startsWith('/driver') && !pathname.startsWith('/driver/login');
+  const isWaiterRoute = pathname.startsWith('/waiter') && !pathname.startsWith('/waiter/login');
+  const isAuthRoute =
+    pathname.startsWith('/sign-in') ||
+    pathname.startsWith('/sign-up') ||
+    pathname.startsWith('/driver/login') ||
+    pathname.startsWith('/waiter/login');
   const protectedRoutes = ['/profile', '/orders', '/addresses', '/cart', '/favorites', '/checkout'];
   const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
 

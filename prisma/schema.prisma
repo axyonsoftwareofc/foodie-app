@@ -182,6 +182,7 @@ model RestaurantTable {
   id            String   @id @default(uuid())
   restaurant_id String
   number        String
+  location      String?
   capacity      Int
   status        TableStatus   @default(AVAILABLE)
   qr_code       String?

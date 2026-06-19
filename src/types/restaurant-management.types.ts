@@ -69,8 +69,8 @@ export type RestaurantStatus = 'OPEN' | 'CLOSED' | 'TEMPORARILY_CLOSED' | 'MAINT
 export interface RestaurantTable {
   id: string;
   number: number;
+  location?: string;
   capacity: number;
-  location: string;
   status: 'available' | 'occupied' | 'reserved';
   qrCode?: string;
 }
