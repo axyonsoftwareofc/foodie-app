@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useCart } from '@/hooks/useCart';
 import { getRestaurantById } from '@/data/mock';
 import { formatPrice } from '@/lib/utils/format.utils';
-import CartHeader from '@/components/cart/CartHeader';
 import CartRestaurantInfo from '@/components/cart/CartRestaurantInfo';
 import CartItemCard from '@/components/cart/CartItemCard';
 import CouponInput from '@/components/cart/CouponInput';
@@ -30,7 +29,6 @@ export default function CartPage() {
         className="min-h-screen transition-colors"
         style={{ backgroundColor: 'var(--color-bg-secondary)' }}
       >
-        <CartHeader />
         <CartEmpty />
       </div>
     );
@@ -41,8 +39,6 @@ export default function CartPage() {
       className="min-h-screen pb-32 transition-colors"
       style={{ backgroundColor: 'var(--color-bg-secondary)' }}
     >
-      <CartHeader />
-
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-4">
         {restaurant && <CartRestaurantInfo restaurant={restaurant} />}
 

@@ -4,7 +4,7 @@
 import { useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { ShoppingBag, MapPin, User, ArrowLeft } from 'lucide-react';
+import { ShoppingBag, MapPin, User, ArrowLeft, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@/hooks/useCart';
 import { useAuth } from '@/hooks/useAuth';
@@ -14,13 +14,14 @@ import { UserMenu } from '@/components/layout/UserMenu';
 export default function Header() {
   const router = useRouter();
   const pathname = usePathname();
-  const { items, totalItems, setIsCartOpen } = useCart();
+  const { items, totalItems, setIsCartOpen, clearCart } = useCart();
 
-  // ✅ Usa o AuthContext — fonte única da verdade
   const { user, isLoading, isAuthenticated, isGerenciador, isAdmin } = useAuth();
   const isRestaurantOwner = isGerenciador || isAdmin;
 
   const isHomePage = useMemo(() => pathname === '/', [pathname]);
+  const isCartPage = useMemo(() => pathname === '/cart', [pathname]);
+  const isCheckoutPage = useMemo(() => pathname === '/checkout', [pathname]);
   const isAuthPage = useMemo(
     () =>
       pathname.startsWith('/sign') ||
@@ -28,7 +29,10 @@ export default function Header() {
       pathname.startsWith('/reset'),
     [pathname]
   );
-  const isSubPage = useMemo(() => !isHomePage && !isAuthPage, [isHomePage, isAuthPage]);
+  const isSubPage = useMemo(
+    () => !isHomePage && !isAuthPage && !isCartPage && !isCheckoutPage,
+    [isHomePage, isAuthPage, isCartPage, isCheckoutPage]
+  );
 
   if (isAuthPage) return null;
 
@@ -39,6 +43,14 @@ export default function Header() {
       setIsCartOpen(true);
     } else {
       router.push('/cart');
+    }
+  };
+
+  const handleClearCart = (): void => {
+    if (items.length === 0) return;
+    const confirmed = window.confirm('Tem certeza que deseja limpar o carrinho?');
+    if (confirmed) {
+      clearCart();
     }
   };
 
@@ -67,9 +79,21 @@ export default function Header() {
               </button>
             )}
 
-            <Link href="/" className="flex items-center gap-2">
-              <span className="text-2xl font-bold text-[#00A082]">🍽️ Foodie</span>
-            </Link>
+            {isCartPage && (
+              <span className="text-xl font-bold" style={{ color: 'var(--color-text)' }}>
+                Seu Carrinho
+              </span>
+            )}
+            {isCheckoutPage && (
+              <span className="text-xl font-bold" style={{ color: 'var(--color-text)' }}>
+                Checkout
+              </span>
+            )}
+            {!isCartPage && !isCheckoutPage && (
+              <Link href="/" className="flex items-center gap-2">
+                <span className="text-2xl font-bold text-[#00A082]">🍽️ Foodie</span>
+              </Link>
+            )}
           </div>
 
           {/* Center - Address (home only, desktop) */}
@@ -99,6 +123,20 @@ export default function Header() {
           <div className="flex items-center gap-2">
             <ThemeToggle />
 
+            {isCartPage && items.length > 0 && (
+              <button
+                onClick={handleClearCart}
+                className="flex h-10 w-10 items-center justify-center rounded-full transition-colors"
+                style={{
+                  backgroundColor: 'var(--color-bg-secondary)',
+                  color: 'var(--color-text-secondary)',
+                }}
+                aria-label="Limpar carrinho"
+              >
+                <Trash2 size={20} />
+              </button>
+            )}
+
             {/* Cart Button */}
             <button
               onClick={handleCartClick}
@@ -121,7 +159,7 @@ export default function Header() {
               </AnimatePresence>
             </button>
 
-            {/* User Section — ✅ via AuthContext */}
+            {/* User Section */}
             {!isLoading && (
               <>
                 {isAuthenticated && user ? (

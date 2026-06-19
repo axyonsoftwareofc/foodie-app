@@ -23,7 +23,6 @@ import { FREE_DELIVERY_COUPON_CODE } from '@/lib/constants/coupon.constants';
 import { createOrder as createOrderAction, type OrderItemData } from '@/actions/orders';
 import { createPixPayment } from '@/actions/payments';
 import { getAddresses, type AddressData } from '@/actions/addresses';
-import CheckoutHeader from '@/components/checkout/CheckoutHeader';
 import AddressForm from '@/components/checkout/AddressForm';
 import PaymentForm from '@/components/checkout/PaymentForm';
 import OrderSummary from '@/components/checkout/OrderSummary';
@@ -327,7 +326,6 @@ export default function CheckoutPage() {
         className="min-h-screen transition-colors"
         style={{ backgroundColor: 'var(--color-bg-secondary)' }}
       >
-        <CheckoutHeader />
         <CartEmpty />
       </div>
     );
@@ -338,8 +336,6 @@ export default function CheckoutPage() {
       className="min-h-screen pb-32 transition-colors"
       style={{ backgroundColor: 'var(--color-bg-secondary)' }}
     >
-      <CheckoutHeader />
-
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
         {/* Delivery Calculator - Mostrar primeiro se restaurante tem coordenadas */}
         {restaurant?.addressLat && restaurant?.addressLng && (
