@@ -132,7 +132,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
-        // ✅ Seta autenticado imediatamente com dados básicos
         const basicProfile = buildProfileFromUser(session.user);
         setState({
           user: session.user,
@@ -141,8 +140,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           isAuthenticated: true,
         });
 
-        // ✅ setTimeout quebra o deadlock do onAuthStateChange
-        // Busca o perfil completo fora do ciclo do evento
         setTimeout(() => {
           fetchUserProfile(supabase, session.user!).then((profile) => {
             setState({
@@ -163,18 +160,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    refreshUser();
-
-    // ✅ Detecta retorno do OAuth
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('auth') === 'success') {
+    (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.user) {
         refreshUser();
-        const url = new URL(window.location.href);
-        url.searchParams.delete('auth');
-        window.history.replaceState({}, '', url.toString());
+      } else {
+        setState((prev) => ({ ...prev, isLoading: false }));
       }
-    }
+
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('auth') === 'success') {
+          refreshUser();
+          const url = new URL(window.location.href);
+          url.searchParams.delete('auth');
+          window.history.replaceState({}, '', url.toString());
+        }
+      }
+    })();
 
     return () => {
       subscription.unsubscribe();

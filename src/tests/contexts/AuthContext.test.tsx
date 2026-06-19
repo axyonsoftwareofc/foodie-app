@@ -5,6 +5,7 @@ import { AuthProvider, AuthContext } from '@/contexts/AuthContext';
 import { useContext } from 'react';
 
 const mockGetUser = vi.fn();
+const mockGetSession = vi.fn();
 const mockSignInWithPassword = vi.fn();
 const mockSignOut = vi.fn();
 const mockOnAuthStateChange = vi.fn();
@@ -13,6 +14,7 @@ const mockFrom = vi.fn();
 const createMockSupabase = () => ({
   auth: {
     getUser: mockGetUser,
+    getSession: mockGetSession,
     signInWithPassword: mockSignInWithPassword,
     signOut: mockSignOut,
     onAuthStateChange: mockOnAuthStateChange,
@@ -92,6 +94,7 @@ describe('AuthProvider', () => {
   });
 
   it('starts in loading state', async () => {
+    mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
     mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
     render(
       <AuthProvider>
@@ -103,6 +106,7 @@ describe('AuthProvider', () => {
   });
 
   it('sets unauthenticated state when no user is logged in', async () => {
+    mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
     mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
     render(
       <AuthProvider>
@@ -122,6 +126,7 @@ describe('AuthProvider', () => {
       created_at: new Date().toISOString(),
       user_metadata: { full_name: 'Test User' },
     };
+    mockGetSession.mockResolvedValue({ data: { session: { user } }, error: null });
     mockGetUser.mockResolvedValue({ data: { user }, error: null });
 
     render(
@@ -153,6 +158,7 @@ describe('AuthProvider', () => {
       updated_at: new Date().toISOString(),
     };
 
+    mockGetSession.mockResolvedValue({ data: { session: { user } }, error: null });
     mockGetUser.mockResolvedValue({ data: { user }, error: null });
     mockFrom.mockReturnValue({
       select: vi.fn(() => ({
@@ -181,6 +187,7 @@ describe('AuthProvider', () => {
   });
 
   it('returns error from signIn when authentication fails', async () => {
+    mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
     mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
     mockSignInWithPassword.mockResolvedValue({ error: { message: 'Invalid credentials' } });
 
@@ -200,6 +207,7 @@ describe('AuthProvider', () => {
   });
 
   it('calls supabase signOut when signOut is invoked', async () => {
+    mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
     mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
     mockSignOut.mockResolvedValue({});
 
@@ -225,8 +233,8 @@ describe('AuthProvider', () => {
       created_at: new Date().toISOString(),
       user_metadata: {},
     };
-    mockGetUser.mockResolvedValueOnce({ data: { user: null }, error: null });
-    mockGetUser.mockResolvedValueOnce({ data: { user }, error: null });
+    mockGetSession.mockReturnValue({ data: { session: null }, error: null });
+    mockGetUser.mockReturnValue({ data: { user: null }, error: null });
 
     render(
       <AuthProvider>
@@ -235,6 +243,9 @@ describe('AuthProvider', () => {
     );
 
     await waitFor(() => expect(screen.getByTestId('authenticated')).toHaveTextContent('no'));
+
+    mockGetSession.mockReturnValue({ data: { session: { user } }, error: null });
+    mockGetUser.mockReturnValue({ data: { user }, error: null });
 
     await act(async () => {
       screen.getByTestId('refresh').click();
