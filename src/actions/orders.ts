@@ -325,6 +325,8 @@ export async function createOrder(
 
       const estimatedMinutes = restaurant.estimated_delivery_time || 45;
       const estimatedDelivery = new Date(Date.now() + estimatedMinutes * 60 * 1000).toISOString();
+      const isDemoMode = process.env.DEMO_MODE === 'true';
+      const initialStatus = isDemoMode ? OrderStatus.CONFIRMED : OrderStatus.PENDING;
 
       return tx.order.create({
         data: {
@@ -333,7 +335,7 @@ export async function createOrder(
           customer_phone: null,
           order_type: 'DELIVERY',
           delivery_address: JSON.stringify(data.address),
-          status: OrderStatus.PENDING,
+          status: initialStatus,
           items: pricedOrder.data!.items as unknown as Prisma.InputJsonValue,
           total: pricedOrder.data!.total,
           restaurant_id: pricedOrder.data!.restaurantId,

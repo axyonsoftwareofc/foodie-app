@@ -8,7 +8,7 @@ import type { OrderData } from '@/actions/orders';
 import { useCart } from '@/hooks/useCart';
 import { formatPrice } from '@/lib/utils/format.utils';
 import { ORDER_STATUS_CONFIG } from '@/lib/constants/order.constants';
-import { ArrowLeft, Clock, MapPin, Phone, Receipt, Store, User, CreditCard } from 'lucide-react';
+import { Clock, MapPin, Phone, Receipt, Store, User, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 import LiveTracker from '@/components/delivery/LiveTracker';
 import PixQRCode from '@/components/checkout/PixQRCode';
@@ -51,18 +51,41 @@ export default function OrderDetailsPage() {
   }, [loadOrder]);
 
   useEffect(() => {
-    if (order && order.paymentMethod === 'PIX' && order.status === 'PENDING') {
+    if (!order || order.paymentMethod !== 'PIX') return;
+    if (order.status === 'PENDING') {
       setIsGeneratingPix(true);
       createPixPayment(order.id).then((result) => {
         if (result.data) setPixDetails(result.data);
         if (result.error) toast.error(result.error);
         setIsGeneratingPix(false);
       });
+    } else if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') {
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+      setPixDetails({
+        qrCode:
+          '00020101021243650044COM.MERCADO.PAGO011600000000000032204000053039865802BR5909FOODIEAPP6014SAO PAULO62160513DEMO0000000630006500000000000000000000006304',
+        pixKey: 'demo@foodie.app',
+        expiresAt,
+        amount: order.total,
+        transactionId: `DEMO-${order.id.slice(-8)}`,
+      });
     }
   }, [order]);
 
   const handleGeneratePix = () => {
     if (!order) return;
+    if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') {
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+      setPixDetails({
+        qrCode:
+          '00020101021243650044COM.MERCADO.PAGO011600000000000032204000053039865802BR5909FOODIEAPP6014SAO PAULO62160513DEMO0000000630006500000000000000000000006304',
+        pixKey: 'demo@foodie.app',
+        expiresAt,
+        amount: order.total,
+        transactionId: `DEMO-${order.id.slice(-8)}`,
+      });
+      return;
+    }
     setIsGeneratingPix(true);
     createPixPayment(order.id).then((result) => {
       if (result.data) setPixDetails(result.data);
@@ -138,41 +161,13 @@ export default function OrderDetailsPage() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--color-bg-secondary)' }}>
-      {/* Header */}
-      <div
-        className="border-b sticky top-0 z-10"
-        style={{ backgroundColor: 'var(--color-bg-card)' }}
-      >
-        <div className="max-w-3xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.back()}
-              className="p-2 rounded-full transition-colors"
-              style={{ backgroundColor: 'var(--color-bg-hover)' }}
-            >
-              <ArrowLeft size={20} />
-            </button>
-            <div className="flex-1">
-              <h1 className="text-xl font-bold" style={{ color: 'var(--color-text)' }}>
-                Pedido #{String(order.id).slice(-4).toUpperCase()}
-              </h1>
-              <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                {formattedDate}
-              </p>
-            </div>
-            <div
-              className="px-3 py-1.5 rounded-full text-sm font-medium"
-              style={{
-                backgroundColor: statusConfig.bgColor,
-                color: statusConfig.color,
-              }}
-            >
-              {statusConfig.icon} {statusConfig.label}
-            </div>
-          </div>
+      {process.env.NEXT_PUBLIC_DEMO_MODE === 'true' && (
+        <div className="bg-amber-100 border-b border-amber-300 px-4 py-2 text-center">
+          <span className="text-amber-800 font-semibold text-sm">
+            ⚠️ MODO DEMO — Pagamento simulado
+          </span>
         </div>
-      </div>
-
+      )}
       {/* Content */}
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
         {/* Status Timeline */}
@@ -478,28 +473,45 @@ export default function OrderDetailsPage() {
           </div>
         </div>
 
-        {/* Pix QR Code - para pedidos PIX pendentes */}
-        {order.paymentMethod === 'PIX' && order.status === 'PENDING' && (
-          <div
-            className="rounded-xl p-6 shadow-sm"
-            style={{ backgroundColor: 'var(--color-bg-card)' }}
-          >
-            <h2 className="font-semibold mb-4" style={{ color: 'var(--color-text)' }}>
-              Pagamento Pix
-            </h2>
-            <PixQRCode
-              pixDetails={pixDetails}
-              amount={order.total}
-              onGenerateNew={handleGeneratePix}
-              isGenerating={isGeneratingPix}
-            />
-            {pixDetails && (
-              <p className="text-xs text-gray-400 text-center mt-3">
-                Apos o pagamento, seu pedido sera confirmado automaticamente
+        {/* Pix QR Code - para pedidos PIX pendentes ou modo demo */}
+        {order.paymentMethod === 'PIX' &&
+          (order.status === 'PENDING' || process.env.NEXT_PUBLIC_DEMO_MODE === 'true') && (
+            <div
+              className="rounded-xl p-6 shadow-sm"
+              style={{ backgroundColor: 'var(--color-bg-card)' }}
+            >
+              <h2 className="font-semibold mb-4" style={{ color: 'var(--color-text)' }}>
+                Pagamento Pix
+              </h2>
+              <PixQRCode
+                pixDetails={pixDetails}
+                amount={order.total}
+                onGenerateNew={handleGeneratePix}
+                isGenerating={isGeneratingPix}
+              />
+              {pixDetails && (
+                <p className="text-xs text-gray-400 text-center mt-3">
+                  Apos o pagamento, seu pedido sera confirmado automaticamente
+                </p>
+              )}
+            </div>
+          )}
+
+        {/* Demo mode card payment indicator */}
+        {process.env.NEXT_PUBLIC_DEMO_MODE === 'true' &&
+          ['CREDIT_CARD', 'DEBIT_CARD'].includes(order.paymentMethod) && (
+            <div
+              className="rounded-xl p-6 shadow-sm"
+              style={{ backgroundColor: 'var(--color-bg-card)' }}
+            >
+              <h2 className="font-semibold mb-2" style={{ color: 'var(--color-text)' }}>
+                Pagamento com Cartao
+              </h2>
+              <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                Pagamento simulado em modo demo. Nenhuma transacao real foi processada.
               </p>
-            )}
-          </div>
-        )}
+            </div>
+          )}
 
         {/* Cancel Button */}
         {['PENDING', 'CONFIRMED'].includes(order.status) && (

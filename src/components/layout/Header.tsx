@@ -29,10 +29,9 @@ export default function Header() {
       pathname.startsWith('/reset'),
     [pathname]
   );
-  const isSubPage = useMemo(
-    () => !isHomePage && !isAuthPage && !isCartPage && !isCheckoutPage,
-    [isHomePage, isAuthPage, isCartPage, isCheckoutPage]
-  );
+  const isSubPage = useMemo(() => !isHomePage && !isAuthPage, [isHomePage, isAuthPage]);
+
+  const showBackButton = isSubPage || isCartPage || isCheckoutPage;
 
   if (isAuthPage) return null;
 
@@ -68,7 +67,7 @@ export default function Header() {
         <div className="flex items-center justify-between gap-4">
           {/* Left Section */}
           <div className="flex items-center gap-3">
-            {isSubPage && (
+            {showBackButton && (
               <button
                 onClick={handleGoBack}
                 className="flex h-10 w-10 items-center justify-center rounded-full transition-colors"

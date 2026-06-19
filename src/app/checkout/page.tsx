@@ -299,11 +299,14 @@ export default function CheckoutPage() {
       const orderId = result.data!.id;
 
       if (paymentMethod === 'PIX') {
-        const pixResult = await createPixPayment(orderId);
-        if (pixResult.error) {
-          toast.error(
-            'Pedido criado, mas erro ao gerar Pix. Va para a pagina do pedido para tentar novamente.'
-          );
+        const isDemo = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+        if (!isDemo) {
+          const pixResult = await createPixPayment(orderId);
+          if (pixResult.error) {
+            toast.error(
+              'Pedido criado, mas erro ao gerar Pix. Va para a pagina do pedido para tentar novamente.'
+            );
+          }
         }
       }
 
@@ -336,6 +339,13 @@ export default function CheckoutPage() {
       className="min-h-screen pb-32 transition-colors"
       style={{ backgroundColor: 'var(--color-bg-secondary)' }}
     >
+      {process.env.NEXT_PUBLIC_DEMO_MODE === 'true' && (
+        <div className="bg-amber-100 border-b border-amber-300 px-4 py-2 text-center">
+          <span className="text-amber-800 font-semibold text-sm">
+            ⚠️ MODO DEMO — Pagamentos não são processados
+          </span>
+        </div>
+      )}
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
         {/* Delivery Calculator - Mostrar primeiro se restaurante tem coordenadas */}
         {restaurant?.addressLat && restaurant?.addressLng && (
