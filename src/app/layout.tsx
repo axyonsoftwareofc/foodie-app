@@ -9,7 +9,6 @@ import { AccessibilityProvider } from '@/contexts/AccessibilityContext';
 import Header from '@/components/layout/Header';
 import BottomNav from '@/components/layout/BottomNav';
 import SkipLinks from '@/components/accessibility/SkipLinks';
-import AccessibilityWidget from '@/components/accessibility/AccessibilityWidget';
 import { CartSidebarGlobal } from '@/components/cart/CartSidebarGlobal';
 import ServiceWorkerRegister from '@/components/pwa/ServiceWorkerRegister';
 
@@ -99,7 +98,6 @@ export default function RootLayout({
                 </main>
                 <BottomNav />
                 <CartSidebarGlobal />
-                <AccessibilityWidget />
                 <Toaster
                   position="top-center"
                   richColors

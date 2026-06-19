@@ -13,28 +13,22 @@ import {
   DollarSign,
   Loader2,
   User,
-  Crosshair,
+  RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPrice } from '@/lib/utils/format.utils';
-import { updateDriverLocation } from '@/actions/delivery-actions';
+import {
+  getDriverDeliveriesForApp,
+  getDriverByUserId,
+  updateDriverLocation,
+  updateDeliveryStatus,
+  rejectDelivery,
+  DriverDeliveryItem,
+} from '@/actions/delivery-actions';
 
 type DriverStatus = 'OFFLINE' | 'ONLINE' | 'BUSY';
 
-interface DriverDelivery {
-  id: string;
-  orderId: string;
-  status: string;
-  restaurantName: string;
-  customerName: string;
-  customerAddress: string;
-  customerPhone: string;
-  distance: string;
-  earnings: number;
-  pickupAddress: string;
-  deliveryAddress: string;
-  estimatedTime: string;
-}
+type DriverDelivery = DriverDeliveryItem;
 
 function DeliveryCard({
   delivery,
@@ -164,19 +158,33 @@ function DeliveryCard({
   );
 }
 
-// Mock deliveries for demo
-const MOCK_DELIVERIES: DriverDelivery[] = [];
-
 export default function DriverPage() {
   const [status, setStatus] = useState<DriverStatus>('OFFLINE');
   const [isToggling, setIsToggling] = useState(false);
-  const [deliveries] = useState<DriverDelivery[]>(MOCK_DELIVERIES);
+  const [deliveries, setDeliveries] = useState<DriverDelivery[]>([]);
   const [activeDelivery, setActiveDelivery] = useState<DriverDelivery | null>(null);
   const [todayEarnings, setTodayEarnings] = useState(0);
   const [todayDeliveries, setTodayDeliveries] = useState(0);
   const [gpsEnabled, setGpsEnabled] = useState(false);
   const [activeTab, setActiveTab] = useState<'deliveries' | 'earnings' | 'profile'>('deliveries');
+  const [isLoading, setIsLoading] = useState(false);
+  const [driverId, setDriverId] = useState<string | null>(null);
   const gpsWatchRef = useRef<number | null>(null);
+
+  const fetchDeliveries = async () => {
+    setIsLoading(true);
+    const result = await getDriverDeliveriesForApp();
+    if (result.error) {
+      toast.error(result.error);
+    } else if (result.data) {
+      setDeliveries(result.data);
+    }
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    fetchDeliveries();
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -203,7 +211,9 @@ export default function DriverPage() {
         setGpsEnabled(true);
         const { latitude, longitude } = pos.coords;
         try {
-          await updateDriverLocation('current', { latitude, longitude });
+          if (driverId) {
+            await updateDriverLocation(driverId, { latitude, longitude });
+          }
         } catch {
           // Silencioso — atualizacao de GPS nao deve poluir a UI
         }
@@ -226,9 +236,14 @@ export default function DriverPage() {
     const newStatus: DriverStatus = status === 'OFFLINE' ? 'ONLINE' : 'OFFLINE';
 
     if (newStatus === 'ONLINE') {
+      const driverResult = await getDriverByUserId('me');
+      if (driverResult.data) {
+        setDriverId(driverResult.data.id);
+      }
       startGpsTracking();
     } else {
       stopGpsTracking();
+      setDriverId(null);
     }
 
     setStatus(newStatus);
@@ -238,24 +253,49 @@ export default function DriverPage() {
     setIsToggling(false);
   };
 
-  const handleAction = (delivery: DriverDelivery, action: string) => {
+  const handleAction = async (delivery: DriverDelivery, action: string) => {
     switch (action) {
-      case 'accept':
+      case 'accept': {
+        const result = await updateDeliveryStatus(delivery.id, 'PICKED_UP');
+        if (result.error) {
+          toast.error(result.error);
+          return;
+        }
         setActiveDelivery({ ...delivery, status: 'PICKED_UP' });
         setStatus('BUSY');
         toast.success('Entrega aceita! Va ate o restaurante.');
+        await fetchDeliveries();
         break;
-      case 'navigate':
+      }
+      case 'reject': {
+        const result = await rejectDelivery(delivery.id);
+        if (result.error) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success('Entrega recusada.');
+        await fetchDeliveries();
+        break;
+      }
+      case 'navigate': {
         const dest = encodeURIComponent(delivery.deliveryAddress);
         window.open(`https://maps.google.com/?daddr=${dest}`, '_blank');
         break;
-      case 'complete':
+      }
+      case 'complete': {
+        const result = await updateDeliveryStatus(delivery.id, 'DELIVERED');
+        if (result.error) {
+          toast.error(result.error);
+          return;
+        }
         setActiveDelivery(null);
         setStatus('ONLINE');
         setTodayDeliveries((d) => d + 1);
         setTodayEarnings((e) => e + delivery.earnings);
         toast.success('Entrega concluida! 🎉');
+        await fetchDeliveries();
         break;
+      }
     }
   };
 
@@ -339,11 +379,28 @@ export default function DriverPage() {
       {/* Tab Content */}
       {activeTab === 'deliveries' && (
         <div className="px-4 py-4">
-          <h2 className="font-semibold mb-3" style={{ color: 'var(--color-text)' }}>
-            {status === 'ONLINE' ? 'Entregas Disponiveis' : 'Historico de Entregas'}
-          </h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold" style={{ color: 'var(--color-text)' }}>
+              {status === 'ONLINE' ? 'Entregas Disponiveis' : 'Historico de Entregas'}
+            </h2>
+            <button
+              onClick={fetchDeliveries}
+              disabled={isLoading}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
 
-          {deliveries.length === 0 ? (
+          {isLoading && deliveries.length === 0 ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2
+                className="w-8 h-8 animate-spin"
+                style={{ color: 'var(--color-text-tertiary)' }}
+              />
+            </div>
+          ) : deliveries.length === 0 ? (
             <div
               className="text-center py-12 rounded-2xl border"
               style={{

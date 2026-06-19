@@ -366,25 +366,16 @@ export async function calculateDeliveryFee(
 
 export async function getDrivers(): Promise<{ data?: DeliveryDriver[]; error?: string }> {
   try {
+    const access = await getDeliveryAccess();
+    if (!access.data) return { error: access.error || 'Não autorizado' };
+
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) return { error: 'Usuário não autenticado' };
-
-    const { data: restaurant } = await supabase
-      .from('restaurants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!restaurant) return { data: [] };
 
     const { data, error } = await supabase
       .from('delivery_drivers')
       .select('*')
-      .eq('restaurant_id', restaurant.id)
+      .eq('restaurant_id', access.data.restaurant.id)
+      .eq('is_active', true)
       .order('name');
 
     if (error) return { error: error.message };
@@ -400,25 +391,15 @@ export async function createDriver(
   driver: Omit<DeliveryDriver, 'id'>
 ): Promise<{ data?: DeliveryDriver; error?: string }> {
   try {
+    const access = await getDeliveryAccess();
+    if (!access.data) return { error: access.error || 'Não autorizado' };
+
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) return { error: 'Usuário não autenticado' };
-
-    const { data: restaurant } = await supabase
-      .from('restaurants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!restaurant) return { error: 'Restaurante não encontrado' };
 
     const { data: newDriver, error } = await supabase
       .from('delivery_drivers')
       .insert({
-        restaurant_id: restaurant.id,
+        restaurant_id: access.data.restaurant.id,
         user_id: null,
         name: driver.name,
         phone: driver.phone,
@@ -587,6 +568,46 @@ export async function updateDeliveryStatus(
   }
 }
 
+export async function rejectDelivery(
+  deliveryId: string
+): Promise<{ success?: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Usuário não autenticado' };
+
+    const { data: driver } = await supabase
+      .from('delivery_drivers')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .single();
+
+    if (!driver) return { error: 'Entregador não encontrado' };
+
+    const { error } = await supabase
+      .from('deliveries')
+      .update({
+        status: 'PENDING',
+        driver_id: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', deliveryId)
+      .eq('driver_id', driver.id)
+      .eq('status', 'ASSIGNED');
+
+    if (error) return { error: error.message };
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error rejecting delivery:', error);
+    return { error: 'Erro ao recusar entrega' };
+  }
+}
+
 export async function submitDeliveryProof(
   deliveryId: string,
   proof: DeliveryProof
@@ -645,25 +666,15 @@ export async function getDeliveryByOrder(
 
 export async function getDeliveryStats(): Promise<{ data?: DeliveryStats; error?: string }> {
   try {
+    const access = await getDeliveryAccess();
+    if (!access.data) return { error: access.error || 'Não autorizado' };
+
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) return { error: 'Usuário não autenticado' };
-
-    const { data: restaurant } = await supabase
-      .from('restaurants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!restaurant) return { error: 'Restaurante não encontrado' };
 
     const { data: deliveries } = await supabase
       .from('deliveries')
       .select('status, delivery_fee, distance_km, estimated_delivery_time, actual_delivery_time')
-      .eq('restaurant_id', restaurant.id);
+      .eq('restaurant_id', access.data.restaurant.id);
 
     const all = deliveries || [];
 
@@ -839,4 +850,108 @@ export async function getDriverByUserId(
     console.error('Error fetching driver:', error);
     return { error: 'Erro ao buscar entregador' };
   }
+}
+
+export interface DriverDeliveryItem {
+  id: string;
+  orderId: string;
+  status: string;
+  restaurantName: string;
+  restaurantAddress: string;
+  customerName: string;
+  customerPhone: string;
+  customerAddress: string;
+  distance: string;
+  earnings: number;
+  pickupAddress: string;
+  deliveryAddress: string;
+  estimatedTime: string;
+}
+
+export async function getDriverDeliveriesForApp(): Promise<{
+  data?: DriverDeliveryItem[];
+  error?: string;
+}> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Usuário não autenticado' };
+
+    const { data: driver } = await supabase
+      .from('delivery_drivers')
+      .select('id, restaurant_id')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .single();
+
+    if (!driver) return { data: [] };
+
+    const { data: deliveries, error: deliveriesError } = await supabase
+      .from('deliveries')
+      .select('*, delivery_drivers(*)')
+      .eq('driver_id', driver.id)
+      .in('status', ['ASSIGNED', 'PICKED_UP', 'DELIVERING'])
+      .order('created_at', { ascending: false });
+
+    if (deliveriesError) return { error: deliveriesError.message };
+    if (!deliveries || deliveries.length === 0) return { data: [] };
+
+    const restaurantIds = [...new Set(deliveries.map((d) => d.restaurant_id))];
+    const orderIds = deliveries.map((d) => d.order_id);
+
+    const [restaurantsResult, ordersResult] = await Promise.all([
+      supabase.from('restaurants').select('id, name, address').in('id', restaurantIds),
+      supabase.from('orders').select('id, customer_name, customer_phone').in('id', orderIds),
+    ]);
+
+    const restaurantMap = new Map(
+      (restaurantsResult.data || []).map((r: Record<string, unknown>) => [r.id, r])
+    );
+    const orderMap = new Map(
+      (ordersResult.data || []).map((o: Record<string, unknown>) => [o.id, o])
+    );
+
+    const items: DriverDeliveryItem[] = deliveries.map((d: Record<string, unknown>) => {
+      const restaurant = restaurantMap.get(d.restaurant_id) as Record<string, unknown> | undefined;
+      const order = orderMap.get(d.order_id) as Record<string, unknown> | undefined;
+      const deliveryAddr =
+        typeof d.delivery_address === 'string'
+          ? JSON.parse(d.delivery_address)
+          : (d.delivery_address as Record<string, unknown>);
+      const pickupAddr =
+        typeof d.pickup_address === 'string'
+          ? JSON.parse(d.pickup_address)
+          : (d.pickup_address as Record<string, unknown>);
+
+      return {
+        id: d.id as string,
+        orderId: d.order_id as string,
+        status: d.status as string,
+        restaurantName: (restaurant?.name as string) || '',
+        restaurantAddress: formatAddress(pickupAddr as Record<string, string>),
+        customerName: (order?.customer_name as string) || '',
+        customerPhone: (order?.customer_phone as string) || '',
+        customerAddress: formatAddress(deliveryAddr as Record<string, string>),
+        distance: String((d.distance_km as number) || 0),
+        earnings: Number(d.delivery_fee) || 0,
+        pickupAddress: formatAddress(pickupAddr as Record<string, string>),
+        deliveryAddress: formatAddress(deliveryAddr as Record<string, string>),
+        estimatedTime: (d.estimated_delivery_time as string) || '',
+      };
+    });
+
+    return { data: items };
+  } catch (error) {
+    console.error('Error fetching driver deliveries for app:', error);
+    return { error: 'Erro ao buscar entregas' };
+  }
+}
+
+function formatAddress(addr: Record<string, string>): string {
+  if (!addr) return '';
+  const parts = [addr.street, addr.number, addr.neighborhood, addr.city].filter(Boolean);
+  return parts.join(', ');
 }
