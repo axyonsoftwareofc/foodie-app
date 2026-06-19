@@ -1,9 +1,9 @@
 // public/sw.js
-const CACHE_NAME = 'foodie-v2';
+const CACHE_NAME = 'foodie-v3';
 
 const STATIC_ASSETS = ['/', '/cart', '/favorites', '/manifest.json'];
 
-// Install
+// Install: cache shell pages for offline fallback
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -13,7 +13,7 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Activate
+// Activate: clean up old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -25,53 +25,70 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch
-self.addEventListener('fetch', (event) => {
-  // Skip non-GET requests
-  if (event.request.method !== 'GET') return;
+// Network-first for navigation requests: always fetch fresh HTML so we don't
+// serve stale pages that reference old/_next static chunks after a deploy.
+async function networkFirst(request) {
+  try {
+    const networkResponse = await fetch(request);
+    if (networkResponse.ok) {
+      const cache = await caches.open(CACHE_NAME);
+      cache.put(request, networkResponse.clone());
+    }
+    return networkResponse;
+  } catch {
+    const cachedResponse = await caches.match(request);
+    if (cachedResponse) {
+      return cachedResponse;
+    }
+    // Fallback to root page for offline navigation
+    if (request.mode === 'navigate') {
+      return caches.match('/');
+    }
+    return new Response('Offline', { status: 503 });
+  }
+}
 
-  // Skip chrome-extension and other non-http requests
-  if (!event.request.url.startsWith('http')) return;
-
-  // Skip Next.js static chunks — they have content-hash filenames, no cache benefit
-  if (event.request.url.includes('/_next/')) {
-    return fetch(event.request);
+// Cache-first for immutable static assets.
+async function cacheFirst(request) {
+  const cachedResponse = await caches.match(request);
+  if (cachedResponse) {
+    return cachedResponse;
   }
 
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      // Return cached response if available
-      if (cachedResponse) {
-        // Fetch new version in background
-        fetch(event.request).then((response) => {
-          if (response.ok) {
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, response);
-            });
-          }
-        });
-        return cachedResponse;
-      }
+  try {
+    const networkResponse = await fetch(request);
+    if (networkResponse.ok) {
+      const cache = await caches.open(CACHE_NAME);
+      cache.put(request, networkResponse.clone());
+    }
+    return networkResponse;
+  } catch {
+    return new Response('Offline', { status: 503 });
+  }
+}
 
-      // Fetch from network
-      return fetch(event.request)
-        .then((response) => {
-          // Cache successful responses
-          if (response.ok) {
-            const responseClone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseClone);
-            });
-          }
-          return response;
-        })
-        .catch(() => {
-          // Return offline fallback for navigation requests
-          if (event.request.mode === 'navigate') {
-            return caches.match('/');
-          }
-          return new Response('Offline', { status: 503 });
-        });
-    })
-  );
+self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+  if (!event.request.url.startsWith('http')) return;
+
+  const { request } = event;
+  const url = new URL(request.url);
+
+  // Next.js static chunks and other immutable assets
+  if (url.pathname.startsWith('/_next/') || url.pathname.startsWith('/static/')) {
+    event.respondWith(cacheFirst(request));
+    return;
+  }
+
+  // Navigation requests (HTML pages) use network-first
+  if (request.mode === 'navigate') {
+    event.respondWith(networkFirst(request));
+    return;
+  }
+
+  // Other same-origin requests: try cache, then network
+  if (url.origin === self.location.origin) {
+    event.respondWith(cacheFirst(request));
+    return;
+  }
 });

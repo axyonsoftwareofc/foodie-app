@@ -54,6 +54,39 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function () {
+                try {
+                  const theme = localStorage.getItem('foodie-theme');
+                  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                  const resolvedTheme = theme || (prefersDark ? 'dark' : 'light');
+                  document.documentElement.classList.add(resolvedTheme);
+                  document.documentElement.setAttribute('data-theme', resolvedTheme);
+
+                  const accessibility = localStorage.getItem('foodie-accessibility');
+                  if (accessibility) {
+                    const settings = JSON.parse(accessibility);
+                    const html = document.documentElement;
+                    if (settings.highContrast) html.classList.add('a11y-high-contrast');
+                    if (settings.largeText) html.classList.add('a11y-large-text');
+                    if (settings.reducedMotion) html.classList.add('a11y-reduced-motion');
+                    if (settings.largeClickTargets) html.classList.add('a11y-large-targets');
+                    if (settings.simplifiedInterface) html.classList.add('a11y-simplified');
+                    if (settings.dyslexiaFriendly) html.classList.add('a11y-dyslexia-friendly');
+                    if (settings.readingGuide) html.classList.add('a11y-reading-guide');
+                    if (settings.reducedDistractions) html.classList.add('a11y-reduced-distractions');
+                  }
+                } catch {
+                  document.documentElement.classList.add('light');
+                }
+              })();
+            `,
+          }}
+        />
+      </head>
       <body className="font-sans">
         <SkipLinks />
         <ThemeProvider>

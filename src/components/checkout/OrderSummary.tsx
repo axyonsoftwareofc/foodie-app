@@ -56,7 +56,7 @@ export default function OrderSummary({
         {items.map((item) => (
           <div key={item.menuItem.id} className="flex gap-3">
             {/* Imagem do produto */}
-            <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
+            <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
               <Image
                 src={item.menuItem.image || '/placeholder.svg'}
                 alt={item.menuItem.name}

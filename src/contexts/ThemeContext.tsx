@@ -45,9 +45,6 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     if (isHydrated) {
       const root = document.documentElement;
 
-      // Debug
-      console.log('Applying theme:', theme);
-
       root.classList.remove('light', 'dark');
       root.classList.add(theme);
 
@@ -59,14 +56,10 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
       root.setAttribute('data-theme', theme);
 
       localStorage.setItem(THEME_STORAGE_KEY, theme);
-
-      // Debug
-      console.log('HTML classes:', root.className);
     }
   }, [theme, isHydrated]);
 
   const toggleTheme = () => {
-    console.log('Toggle theme called, current:', theme);
     setThemeState((prev) => (prev === 'light' ? 'dark' : 'light'));
   };
 
