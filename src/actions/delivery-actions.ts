@@ -782,3 +782,61 @@ function mapDeliveryFromDB(row: Record<string, unknown>): Delivery {
     updatedAt: row.updated_at as string,
   };
 }
+
+export async function getDriverDeliveries(): Promise<{ data?: Delivery[]; error?: string }> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Usuário não autenticado' };
+
+    const { data: driver, error: driverError } = await supabase
+      .from('delivery_drivers')
+      .select('id, restaurant_id')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .single();
+
+    if (driverError || !driver) {
+      return { error: 'Entregador não encontrado' };
+    }
+
+    const { data: deliveries, error: deliveriesError } = await supabase
+      .from('deliveries')
+      .select('*, delivery_drivers(*)')
+      .eq('driver_id', driver.id)
+      .in('status', ['ASSIGNED', 'PICKED_UP', 'DELIVERING'])
+      .order('created_at', { ascending: false });
+
+    if (deliveriesError) return { error: deliveriesError.message };
+
+    return { data: (deliveries || []).map(mapDeliveryFromDB) };
+  } catch (error) {
+    console.error('Error fetching driver deliveries:', error);
+    return { error: 'Erro ao buscar entregas' };
+  }
+}
+
+export async function getDriverByUserId(
+  userId: string
+): Promise<{ data?: DeliveryDriver; error?: string }> {
+  try {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from('delivery_drivers')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .single();
+
+    if (error || !data) return { error: 'Entregador não encontrado' };
+
+    return { data: mapDriverFromDB(data) };
+  } catch (error) {
+    console.error('Error fetching driver:', error);
+    return { error: 'Erro ao buscar entregador' };
+  }
+}

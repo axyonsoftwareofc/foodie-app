@@ -845,10 +845,28 @@ export async function getOrdersForRestaurant({
   }
 
   try {
-    const restaurant = await prisma.restaurant.findFirst({
+    const ownedRestaurant = await prisma.restaurant.findFirst({
       where: { user_id: user.id },
       select: { id: true, name: true },
     });
+
+    let restaurant = ownedRestaurant;
+
+    if (!restaurant) {
+      const membership = await prisma.restaurantMember.findFirst({
+        where: {
+          user_id: user.id,
+          status: 'ACTIVE',
+          restaurant: { is_active: true },
+        },
+        select: {
+          restaurant: { select: { id: true, name: true } },
+        },
+      });
+      if (membership) {
+        restaurant = membership.restaurant;
+      }
+    }
 
     if (!restaurant) {
       return { error: 'Restaurante não encontrado' };

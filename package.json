@@ -23,6 +23,7 @@
     "test:e2e:ui": "playwright test --ui",
     "seed:restaurants": "npx tsx src/scripts/seed-restaurants.ts",
     "seed:products": "npx tsx src/scripts/seed-products.ts",
+    "seed:delivery": "npx tsx src/scripts/seed-delivery.ts",
     "prepare": "husky"
   },
   "lint-staged": {

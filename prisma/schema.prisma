@@ -59,6 +59,26 @@ enum TableStatus {
   RESERVED
 }
 
+enum DeliveryStatus {
+  PENDING
+  ASSIGNED
+  PICKED_UP
+  DELIVERING
+  DELIVERED
+}
+
+enum VehicleType {
+  MOTO
+  BIKE
+  CAR
+}
+
+enum DeliveryZoneType {
+  RADIUS
+  POLYGON
+  AREAS
+}
+
 enum RestaurantStatus {
   OPEN
   CLOSED
@@ -151,6 +171,9 @@ model Restaurant {
   members    RestaurantMember[]
   invitations RestaurantInvitation[]
   auditLogs  AuditLog[]
+  drivers    DeliveryDriver[]
+  zones      DeliveryZone[]
+  deliveries Delivery[]
 
   @@map("restaurants")
 }
@@ -272,6 +295,7 @@ model Order {
   restaurant Restaurant      @relation(fields: [restaurant_id], references: [id], onDelete: Cascade)
   table      RestaurantTable? @relation(fields: [table_id], references: [id], onDelete: SetNull)
   created_by_member RestaurantMember? @relation(fields: [created_by_member_id], references: [id], onDelete: SetNull)
+  delivery   Delivery?
   reviews    Review[]
 
   @@index([restaurant_id])
@@ -447,4 +471,93 @@ model Review {
   @@index([order_id])
   @@index([user_id])
   @@map("reviews")
+}
+
+// ============================================================================
+// DELIVERY
+// ============================================================================
+
+model DeliveryDriver {
+  id             String       @id @default(cuid())
+  user_id        String?      @unique
+  restaurant_id  String
+  name           String
+  phone          String
+  vehicle_type   VehicleType  @default(MOTO)
+  vehicle_plate  String?
+  photo_url      String?
+  rating         Float        @default(5.0)
+  total_deliveries Int         @default(0)
+  is_available   Boolean      @default(true)
+  is_active      Boolean      @default(true)
+  created_at     DateTime     @default(now())
+  updated_at     DateTime     @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurant_id], references: [id], onDelete: Cascade)
+  deliveries Delivery[]
+
+  @@index([restaurant_id])
+  @@index([user_id])
+  @@map("delivery_drivers")
+}
+
+model DeliveryZone {
+  id                    String           @id @default(cuid())
+  restaurant_id         String
+  name                 String
+  type                 DeliveryZoneType @default(RADIUS)
+  center_latitude      Float?
+  center_longitude     Float?
+  radius_km            Float?
+  delivery_fee         Float
+  fee_per_km           Float?
+  min_order_value      Float            @default(0)
+  estimated_time_minutes Int             @default(30)
+  is_active            Boolean          @default(true)
+  priority             Int              @default(0)
+  created_at           DateTime         @default(now())
+  updated_at           DateTime         @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurant_id], references: [id], onDelete: Cascade)
+
+  @@index([restaurant_id])
+  @@map("delivery_zones")
+}
+
+model Delivery {
+  id                  String         @id @default(cuid())
+  order_id            String         @unique
+  restaurant_id       String
+  driver_id           String?
+  status              DeliveryStatus @default(PENDING)
+  pickup_address      String
+  delivery_address    String
+  pickup_latitude     Float?
+  pickup_longitude    Float?
+  delivery_latitude   Float?
+  delivery_longitude  Float?
+  current_latitude    Float?
+  current_longitude   Float?
+  distance_km         Float?
+  delivery_fee        Float          @default(0)
+  estimated_pickup_time String?
+  estimated_delivery_time String?
+  actual_pickup_time    String?
+  actual_delivery_time  String?
+  proof_photo_url      String?
+  proof_notes           String?
+  proof_signed_by       String?
+  proof_timestamp       String?
+  timeline             Json?
+  created_at           DateTime       @default(now())
+  updated_at           DateTime       @updatedAt
+
+  order       Order          @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  restaurant  Restaurant     @relation(fields: [restaurant_id], references: [id], onDelete: Cascade)
+  driver      DeliveryDriver? @relation(fields: [driver_id], references: [id], onDelete: SetNull)
+
+  @@index([restaurant_id])
+  @@index([driver_id])
+  @@index([status])
+  @@map("deliveries")
 }
