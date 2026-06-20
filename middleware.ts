@@ -2,7 +2,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { Redis } from '@upstash/redis';
-import { timingSafeEqual } from 'crypto';
 
 const RESERVED_SUBDOMAINS = ['www', 'app', 'admin', 'api', 'mail', 'foodie'];
 
@@ -76,6 +75,15 @@ function bufferToHex(buffer: ArrayBuffer): string {
     .join('');
 }
 
+function constantTimeCompare(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
+}
+
 async function signCookieValue(value: string): Promise<string> {
   const timestamp = Math.floor(Date.now() / 1000).toString();
   const payload = `${timestamp}.${value}`;
@@ -99,14 +107,8 @@ async function verifyCookieValue(signed: string): Promise<string | null> {
   const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
   const expectedHex = bufferToHex(sig);
 
-  // Comparação time-safe para evitar timing oracle
-  try {
-    const expectedBuf = Buffer.from(expectedHex, 'hex');
-    const actualBuf = Buffer.from(hexSig, 'hex');
-    if (expectedBuf.length !== actualBuf.length || !timingSafeEqual(expectedBuf, actualBuf)) {
-      return null;
-    }
-  } catch {
+  // Comparacao time-safe via JS puro (Edge Runtime nao suporta node:crypto)
+  if (!constantTimeCompare(expectedHex, hexSig)) {
     return null;
   }
 
