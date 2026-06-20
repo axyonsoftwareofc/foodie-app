@@ -4,26 +4,24 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getOrderStats } from '@/actions/orders';
 import type { OrderStats } from '@/actions/orders';
-import { getRestaurantProfile } from '@/actions/restaurantActions';
-import type { RestaurantProfile } from '@/types/restaurant-management.types';
 import { Receipt, TrendingUp, Clock, Package, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { RevenueChart } from '@/components/dashboard/RevenueChart';
 import { WhatsAppShare } from '@/components/dashboard/WhatsAppShare';
+import { useDashboard } from './DashboardProvider';
 
 function formatCurrency(value: number): string {
   return `R$ ${value.toFixed(2).replace('.', ',')}`;
 }
 
 export default function DashboardPage() {
+  const { profile: restaurant } = useDashboard();
   const [stats, setStats] = useState<OrderStats | null>(null);
-  const [restaurant, setRestaurant] = useState<RestaurantProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([getOrderStats(), getRestaurantProfile()]).then(([statsResult, profileResult]) => {
+    getOrderStats().then((statsResult) => {
       if (statsResult.data) setStats(statsResult.data);
-      if (profileResult.data) setRestaurant(profileResult.data);
       setIsLoading(false);
     });
   }, []);
@@ -112,7 +110,7 @@ export default function DashboardPage() {
 
       {/* Revenue Chart */}
       <div className="mb-8">
-        <RevenueChart />
+        <RevenueChart stats={stats} />
       </div>
 
       {/* Quick Actions */}

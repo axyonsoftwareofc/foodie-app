@@ -1,8 +1,9 @@
 // src/lib/auth.ts
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { cache } from 'react';
 
-export async function getServerSession() {
+export const getServerSession = cache(async () => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -14,12 +15,12 @@ export async function getServerSession() {
   }
 
   return { user };
-}
+});
 
-export async function requireAuth() {
+export const requireAuth = cache(async () => {
   const session = await getServerSession();
   if (!session) {
     redirect('/sign-in');
   }
   return session;
-}
+});

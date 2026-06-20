@@ -2,6 +2,7 @@
 import { prisma } from '@/lib/prisma';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
+import { cache } from 'react';
 import { RestaurantHeader } from '@/components/restaurant/RestaurantHeader';
 import { MenuSection } from '@/components/restaurant/MenuSection';
 import { getCssVariables, DEFAULT_THEME, type RestaurantTheme } from '@/lib/theme/resolver';
@@ -27,7 +28,6 @@ interface Props {
 export const revalidate = 60;
 
 export async function generateStaticParams() {
-  // Skip DB query during CI builds when DATABASE_URL is not available
   if (!process.env.DATABASE_URL) {
     return [];
   }
@@ -42,22 +42,60 @@ export async function generateStaticParams() {
     .map((r) => ({ slug: r.subdomain }));
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { slug } = await params;
+const getRestaurantData = cache(async (slug: string) => {
+  const cached = await getCachedMenu(slug);
 
-  const restaurant = await prisma.restaurant.findUnique({
+  if (cached && cached.restaurant) {
+    return {
+      restaurantData: cached.restaurant,
+      categoriesData: (cached.categories || []) as Record<string, unknown>[],
+    };
+  }
+
+  const data = await prisma.restaurant.findUnique({
     where: { subdomain: slug },
-    select: { name: true, description: true, logo: true, category: true },
+    include: {
+      categories: {
+        where: { is_active: true },
+        include: {
+          products: {
+            where: { is_active: true, is_available: true },
+            orderBy: { name: 'asc' },
+          },
+        },
+        orderBy: { sort_order: 'asc' },
+      },
+    },
   });
 
-  if (!restaurant) {
+  if (!data || !data.is_active) {
+    return null;
+  }
+
+  const categoriesData = (data.categories as unknown as Record<string, unknown>[]) || [];
+  const restaurantData = data as unknown as Record<string, unknown>;
+
+  void setCachedMenu(slug, {
+    restaurant: restaurantData,
+    categories: categoriesData,
+  });
+
+  return { restaurantData, categoriesData };
+});
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  const data = await getRestaurantData(slug);
+
+  if (!data) {
     return { title: 'Restaurante nao encontrado — Foodie' };
   }
 
-  const title = `${restaurant.name} — Delivery no Foodie`;
+  const r = data.restaurantData as Record<string, string | null>;
+  const title = `${r.name} — Delivery no Foodie`;
   const description =
-    restaurant.description ||
-    `Peca delivery do ${restaurant.name}. ${restaurant.category || 'Comida deliciosa'} entregue na sua casa.`;
+    (r.description as string) ||
+    `Peca delivery do ${r.name}. ${(r.category as string) || 'Comida deliciosa'} entregue na sua casa.`;
 
   return {
     title,
@@ -66,13 +104,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title,
       description,
       type: 'website',
-      images: restaurant.logo ? [{ url: restaurant.logo }] : [],
+      images: r.logo ? [{ url: r.logo as string }] : [],
     },
     twitter: {
       card: 'summary_large_image',
       title,
       description,
-      images: restaurant.logo ? [restaurant.logo] : [],
+      images: r.logo ? [r.logo as string] : [],
     },
   };
 }
@@ -80,48 +118,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function RestaurantPage({ params }: Props) {
   const { slug } = await params;
 
-  // Cache: tenta Redis primeiro (formato novo). Entradas antigas/corrompidas
-  // sem a chave "restaurant" sao tratadas como cache miss e reescritas.
-  const cached = await getCachedMenu(slug);
+  const data = await getRestaurantData(slug);
 
-  let restaurantData: Record<string, unknown> | null = null;
-  let categoriesData: Record<string, unknown>[] = [];
-
-  if (cached && cached.restaurant) {
-    restaurantData = cached.restaurant;
-    categoriesData = cached.categories || [];
-  } else {
-    const data = await prisma.restaurant.findUnique({
-      where: { subdomain: slug },
-      include: {
-        categories: {
-          where: { is_active: true },
-          include: {
-            products: {
-              where: { is_active: true, is_available: true },
-              orderBy: { name: 'asc' },
-            },
-          },
-          orderBy: { sort_order: 'asc' },
-        },
-      },
-    });
-
-    if (!data || !data.is_active) {
-      notFound();
-    }
-
-    categoriesData = (data.categories as unknown as Record<string, unknown>[]) || [];
-    restaurantData = data as unknown as Record<string, unknown>;
-
-    // Salva no Redis (TTL 5 min)
-    void setCachedMenu(slug, {
-      restaurant: restaurantData,
-      categories: categoriesData,
-    });
+  if (!data) {
+    notFound();
   }
 
-  if (!restaurantData || !(restaurantData as Record<string, boolean>).is_active) {
+  const { restaurantData, categoriesData } = data;
+
+  if (!(restaurantData as Record<string, boolean>).is_active) {
     notFound();
   }
 

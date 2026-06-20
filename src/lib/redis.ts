@@ -76,10 +76,18 @@ export async function redisDelPattern(pattern: string): Promise<void> {
   if (!client) return;
 
   try {
-    const keys = await client.keys(pattern);
-    if (keys.length > 0) {
-      await client.del(...keys);
-    }
+    let cursor = '0';
+    do {
+      const result = await client.scan(cursor, {
+        match: pattern,
+        count: 100,
+      });
+      const keys = result[1];
+      cursor = result[0];
+      if (keys.length > 0) {
+        await client.del(...keys);
+      }
+    } while (cursor !== '0');
   } catch {
     // Silencioso
   }

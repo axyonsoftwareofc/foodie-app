@@ -1,6 +1,7 @@
 // src/app/dashboard/orders/page.tsx
+import { Suspense } from 'react';
 import { KanbanBoard } from '@/components/kitchen/KanbanBoard';
-import { getServerSession } from '@/lib/auth';
+import { requireAuth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { Receipt, Clock, TrendingUp, AlertTriangle } from 'lucide-react';
@@ -52,11 +53,7 @@ async function getRestaurantStats(restaurantId: string) {
 }
 
 export default async function OrdersPage() {
-  const session = await getServerSession();
-
-  if (!session?.user) {
-    redirect('/sign-in');
-  }
+  const session = await requireAuth();
 
   const restaurant = await prisma.restaurant.findFirst({
     where: { user_id: session.user.id },
@@ -135,7 +132,25 @@ export default async function OrdersPage() {
       </div>
 
       {/* Kanban Board */}
-      <KanbanBoard />
+      <Suspense
+        fallback={
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="h-8 w-48 bg-gray-200 rounded animate-pulse mb-4" />
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="bg-gray-50 rounded-lg p-4 space-y-3">
+                  <div className="h-5 w-20 bg-gray-200 rounded animate-pulse" />
+                  {Array.from({ length: 2 }).map((_, j) => (
+                    <div key={j} className="h-24 bg-gray-100 rounded animate-pulse" />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        }
+      >
+        <KanbanBoard />
+      </Suspense>
     </div>
   );
 }

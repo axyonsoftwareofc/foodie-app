@@ -18,7 +18,7 @@ import {
   userOwnsTable,
 } from '@/lib/authz';
 import { parseOperatingHours } from '@/lib/utils/restaurant.utils';
-import { redisDel, cacheKey } from '@/lib/redis';
+import { redisDel, redisGet, redisSet, cacheKey } from '@/lib/redis';
 import {
   CreateRestaurantForm,
   RestaurantProfile,
@@ -77,7 +77,6 @@ export async function getPublicRestaurants(): Promise<{
   error?: string;
 }> {
   try {
-    const { redisGet, redisSet, cacheKey } = await import('@/lib/redis');
     const CACHE_KEY = cacheKey('restaurants', 'public-list');
     const cached = await redisGet<import('@/types').Restaurant[]>(CACHE_KEY);
     if (cached) {
