@@ -1,7 +1,7 @@
 // src/lib/cache/revalidate-public-menu.ts
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import { redisDel, cacheKey } from '@/lib/redis';
+import { invalidateMenuCache } from '@/lib/cache/menu-cache';
 import { logger } from '@/lib/logger';
 
 /**
@@ -24,9 +24,8 @@ export async function revalidatePublicMenu(restaurantId: string): Promise<void> 
   // Revalida ISR da pagina publica do cardapio
   revalidatePath(`/r/${slug}`);
 
-  // Invalida cache Redis do menu (tanto por slug quanto por restaurantId)
-  void redisDel(cacheKey('menu', 'slug', slug));
-  void redisDel(cacheKey('menu', 'restaurant', restaurantId));
+  // Invalida cache Redis do menu (chave unica por slug)
+  void invalidateMenuCache(slug);
 
   logger.info('Public menu revalidated', { restaurantId, slug });
 }

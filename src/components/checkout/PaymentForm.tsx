@@ -2,13 +2,15 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { CreditCard } from 'lucide-react';
 import { PaymentMethod } from '@/types';
 import { CardDetails } from '@/types/payment.types';
 import { PAYMENT_OPTIONS, CHECKOUT_MESSAGES } from '@/lib/constants/checkout.constants';
 import CardForm from './CardForm';
-import PixQRCode from './PixQRCode';
 import { PixPaymentDetails } from '@/types/payment.types';
+
+const PixQRCode = dynamic(() => import('./PixQRCode'), { ssr: false });
 
 interface PaymentFormProps {
   selectedMethod: PaymentMethod | null;

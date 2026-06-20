@@ -827,13 +827,18 @@ const orderFiltersSchema = z
 
 export async function getOrdersForRestaurant({
   filters,
+  cursor,
+  take = 100,
 }: {
   filters?: z.infer<typeof orderFiltersSchema>;
-} = {}): Promise<{ data?: OrderData[]; error?: string }> {
+  cursor?: string;
+  take?: number;
+} = {}): Promise<{ data?: OrderData[]; error?: string; nextCursor?: string }> {
   const validation = orderFiltersSchema.safeParse(filters);
   if (!validation.success) {
     return { error: validation.error.issues[0].message };
   }
+  const limit = Math.max(1, Math.min(200, Math.floor(take)));
   const supabase = await createClient();
   const {
     data: { user },
@@ -921,9 +926,15 @@ export async function getOrdersForRestaurant({
         reviews: true,
       },
       orderBy: { created_at: 'desc' },
+      take: limit + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
 
-    let mappedOrders = orders.map((order) => mapOrderToData(order, user.id, restaurant.name));
+    const hasMore = orders.length > limit;
+    const dbOrders = hasMore ? orders.slice(0, limit) : orders;
+    const nextCursor = hasMore ? dbOrders[dbOrders.length - 1].id : undefined;
+
+    let mappedOrders = dbOrders.map((order) => mapOrderToData(order, user.id, restaurant.name));
 
     if (filters?.search) {
       const searchTerm = filters.search.toLowerCase();
@@ -935,7 +946,7 @@ export async function getOrdersForRestaurant({
       );
     }
 
-    return { data: mappedOrders };
+    return { data: mappedOrders, nextCursor };
   } catch (error) {
     console.error('Erro ao buscar pedidos do restaurante:', error);
     return { error: 'Erro ao carregar pedidos' };

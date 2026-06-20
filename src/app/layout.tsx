@@ -3,14 +3,7 @@ import type { Metadata, Viewport } from 'next';
 import { Toaster } from 'sonner';
 import './globals.css';
 import { CartProvider } from '@/contexts/CartContext';
-import { ThemeProvider } from '@/contexts/ThemeContext';
-import { AuthProvider } from '@/contexts/AuthContext';
-import { AccessibilityProvider } from '@/contexts/AccessibilityContext';
-import Header from '@/components/layout/Header';
-import BottomNav from '@/components/layout/BottomNav';
 import SkipLinks from '@/components/accessibility/SkipLinks';
-import { CartSidebarGlobal } from '@/components/cart/CartSidebarGlobal';
-import ServiceWorkerRegister from '@/components/pwa/ServiceWorkerRegister';
 
 export const metadata: Metadata = {
   title: 'Foodie - Delivery de Comida',
@@ -88,32 +81,20 @@ export default function RootLayout({
       </head>
       <body className="font-sans">
         <SkipLinks />
-        <ThemeProvider>
-          <AccessibilityProvider>
-            <AuthProvider>
-              <CartProvider>
-                <Header />
-                <main id="main-content" role="main" className="min-h-screen pb-20 lg:pb-0">
-                  {children}
-                </main>
-                <BottomNav />
-                <CartSidebarGlobal />
-                <Toaster
-                  position="top-center"
-                  richColors
-                  toastOptions={{
-                    style: {
-                      background: 'var(--color-bg-card)',
-                      border: '1px solid var(--color-border)',
-                      color: 'var(--color-text)',
-                    },
-                  }}
-                />
-                <ServiceWorkerRegister />
-              </CartProvider>
-            </AuthProvider>
-          </AccessibilityProvider>
-        </ThemeProvider>
+        <CartProvider>
+          {children}
+          <Toaster
+            position="top-center"
+            richColors
+            toastOptions={{
+              style: {
+                background: 'var(--color-bg-card)',
+                border: '1px solid var(--color-border)',
+                color: 'var(--color-text)',
+              },
+            }}
+          />
+        </CartProvider>
       </body>
     </html>
   );

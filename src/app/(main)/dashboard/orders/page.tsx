@@ -10,27 +10,27 @@ async function getRestaurantStats(restaurantId: string) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const todayOrders = await prisma.order.findMany({
-    where: {
-      restaurant_id: restaurantId,
-      created_at: { gte: today },
-    },
-    select: {
-      total: true,
-      status: true,
-      created_at: true,
-      ready_at: true,
-      preparation_started_at: true,
-    },
-  });
-
-  const pendingCount = await prisma.order.count({
-    where: { restaurant_id: restaurantId, status: 'PENDING' as OrderStatus },
-  });
-
-  const preparingCount = await prisma.order.count({
-    where: { restaurant_id: restaurantId, status: 'PREPARING' as OrderStatus },
-  });
+  const [todayOrders, pendingCount, preparingCount] = await Promise.all([
+    prisma.order.findMany({
+      where: {
+        restaurant_id: restaurantId,
+        created_at: { gte: today },
+      },
+      select: {
+        total: true,
+        status: true,
+        created_at: true,
+        ready_at: true,
+        preparation_started_at: true,
+      },
+    }),
+    prisma.order.count({
+      where: { restaurant_id: restaurantId, status: 'PENDING' as OrderStatus },
+    }),
+    prisma.order.count({
+      where: { restaurant_id: restaurantId, status: 'PREPARING' as OrderStatus },
+    }),
+  ]);
 
   const totalToday = todayOrders.length;
   const revenueToday = todayOrders

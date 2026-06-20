@@ -3,6 +3,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { getOrderById } from '@/actions/orders';
 import type { OrderData } from '@/actions/orders';
 import { useCart } from '@/hooks/useCart';
@@ -11,10 +12,14 @@ import { ORDER_STATUS_CONFIG } from '@/lib/constants/order.constants';
 import { Clock, MapPin, Phone, Receipt, Store, User, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 import LiveTracker from '@/components/delivery/LiveTracker';
-import PixQRCode from '@/components/checkout/PixQRCode';
-import { CancelOrderModal } from '@/components/orders/CancelOrderModal';
 import { createPixPayment } from '@/actions/payments';
 import type { PixPaymentDetails } from '@/types/payment.types';
+import { CancelOrderModal } from '@/components/orders/CancelOrderModal';
+
+const PixQRCode = dynamic(() => import('@/components/checkout/PixQRCode'), { ssr: false });
+import { useOrderRealtime } from '@/hooks/useOrderRealtime';
+
+const FINAL_STATUSES = ['DELIVERED', 'CANCELLED'];
 
 export default function OrderDetailsPage() {
   const params = useParams();
@@ -49,6 +54,36 @@ export default function OrderDetailsPage() {
   useEffect(() => {
     loadOrder();
   }, [loadOrder]);
+
+  // Realtime: atualiza status do pedido instantaneamente (websocket Supabase).
+  // Guard contra regressao de status (updates fora de ordem) comparando updatedAt.
+  useOrderRealtime(order?.id, (u) => {
+    setOrder((prev) => {
+      if (!prev) return prev;
+      if (prev.updatedAt && u.updatedAt < prev.updatedAt) return prev;
+      return {
+        ...prev,
+        status: u.status || prev.status,
+        updatedAt: u.updatedAt || prev.updatedAt,
+        preparationStartedAt: u.preparationStartedAt ?? prev.preparationStartedAt,
+        readyAt: u.readyAt ?? prev.readyAt,
+        deliveredAt: u.deliveredAt ?? prev.deliveredAt,
+        cancelledAt: u.cancelledAt ?? prev.cancelledAt,
+        cancelReason: u.cancelReason ?? prev.cancelReason,
+      };
+    });
+  });
+
+  // Safety net: re-sincroniza quando a aba volta ao foco (cobertura caso o
+  // realtime perca um evento, ex.: conexao interrompida em background).
+  useEffect(() => {
+    if (!order || FINAL_STATUSES.includes(order.status)) return;
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') loadOrder();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [order, loadOrder]);
 
   useEffect(() => {
     if (!order || order.paymentMethod !== 'PIX') return;

@@ -5,7 +5,7 @@ import type { Metadata } from 'next';
 import { RestaurantHeader } from '@/components/restaurant/RestaurantHeader';
 import { MenuSection } from '@/components/restaurant/MenuSection';
 import { getCssVariables, DEFAULT_THEME, type RestaurantTheme } from '@/lib/theme/resolver';
-import { redisGet, redisSet, cacheKey } from '@/lib/redis';
+import { getCachedMenu, setCachedMenu } from '@/lib/cache/menu-cache';
 import { WhatsAppButton } from '@/components/restaurant/WhatsAppButton';
 
 function parseTheme(raw: unknown): RestaurantTheme {
@@ -80,14 +80,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function RestaurantPage({ params }: Props) {
   const { slug } = await params;
 
-  // Cache: tenta Redis primeiro
-  const CACHE_KEY = cacheKey('menu', 'slug', slug);
-  const cachedRaw = await redisGet<Record<string, unknown>>(CACHE_KEY);
+  // Cache: tenta Redis primeiro (formato novo). Entradas antigas/corrompidas
+  // sem a chave "restaurant" sao tratadas como cache miss e reescritas.
+  const cached = await getCachedMenu(slug);
 
   let restaurantData: Record<string, unknown> | null = null;
+  let categoriesData: Record<string, unknown>[] = [];
 
-  if (cachedRaw) {
-    restaurantData = cachedRaw;
+  if (cached && cached.restaurant) {
+    restaurantData = cached.restaurant;
+    categoriesData = cached.categories || [];
   } else {
     const data = await prisma.restaurant.findUnique({
       where: { subdomain: slug },
@@ -109,25 +111,26 @@ export default async function RestaurantPage({ params }: Props) {
       notFound();
     }
 
-    // Salva no Redis (TTL 5 min)
-    void redisSet(CACHE_KEY, data as unknown as Record<string, unknown>, 300);
-
+    categoriesData = (data.categories as unknown as Record<string, unknown>[]) || [];
     restaurantData = data as unknown as Record<string, unknown>;
+
+    // Salva no Redis (TTL 5 min)
+    void setCachedMenu(slug, {
+      restaurant: restaurantData,
+      categories: categoriesData,
+    });
   }
 
   if (!restaurantData || !(restaurantData as Record<string, boolean>).is_active) {
     notFound();
   }
 
-  const theme = parseTheme((restaurantData as Record<string, unknown>).theme);
+  const theme = parseTheme(restaurantData.theme);
   const cssVars = getCssVariables(theme);
 
-  const cats = (restaurantData as Record<string, unknown>).categories as Array<
-    Record<string, unknown>
-  >;
   const restaurant = {
     ...restaurantData,
-    categories: cats.map((category: Record<string, unknown>) => ({
+    categories: categoriesData.map((category: Record<string, unknown>) => ({
       id: category.id,
       name: category.name,
       restaurantId: category.restaurant_id,
