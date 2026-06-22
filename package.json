@@ -84,7 +84,7 @@
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
     "jsdom": "^28.1.0",
-    "lint-staged": "^17.0.7",
+    "lint-staged": "^17.0.8",
     "msw": "^2.12.10",
     "prettier": "^3.8.3",
     "prisma": "^6.19.2",
