@@ -32,14 +32,24 @@ export async function generateStaticParams() {
     return [];
   }
 
-  const restaurants = await prisma.restaurant.findMany({
-    where: { is_active: true },
-    select: { subdomain: true },
-    take: 100,
-  });
-  return restaurants
-    .filter((r): r is typeof r & { subdomain: string } => !!r.subdomain)
-    .map((r) => ({ slug: r.subdomain }));
+  try {
+    const restaurants = await prisma.restaurant.findMany({
+      where: { is_active: true },
+      select: { subdomain: true },
+      take: 100,
+    });
+    return restaurants
+      .filter((r): r is typeof r & { subdomain: string } => !!r.subdomain)
+      .map((r) => ({ slug: r.subdomain }));
+  } catch (error) {
+    // Banco indisponível no build não deve derrubar o deploy — as páginas são
+    // geradas sob demanda via ISR (revalidate = 60).
+    console.warn(
+      '[generateStaticParams] Falha ao consultar restaurantes; gerando sob demanda.',
+      error
+    );
+    return [];
+  }
 }
 
 const getRestaurantData = cache(async (slug: string) => {
