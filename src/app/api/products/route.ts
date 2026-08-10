@@ -2,7 +2,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getOwnedCategory, getOwnedProduct, userOwnsRestaurant } from '@/lib/authz';
+import { getRestaurantAccess, MANAGEMENT_ROLES } from '@/lib/restaurant-access';
 import {
   checkRateLimit,
   getClientIp,
@@ -109,13 +109,9 @@ export async function POST(request: Request) {
   try {
     const supabase = await createClient();
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    const access = await getRestaurantAccess(MANAGEMENT_ROLES);
+    if (access.error || !access.data) {
+      return NextResponse.json({ error: access.error || 'Não autorizado' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -126,15 +122,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: result.error.issues[0].message }, { status: 400 });
     }
 
-    if (!(await userOwnsRestaurant(user.id, result.data.restaurantId))) {
-      return NextResponse.json(
-        { error: 'Não autorizado ou restaurante não encontrado' },
-        { status: 403 }
-      );
-    }
-
-    const category = await getOwnedCategory(user.id, result.data.categoryId);
-    if (!category || category.restaurant_id !== result.data.restaurantId) {
+    const { data: category } = await supabase
+      .from('categories')
+      .select('id')
+      .eq('id', result.data.categoryId)
+      .eq('restaurant_id', access.data.restaurant.id)
+      .single();
+    if (!category) {
       return NextResponse.json(
         { error: 'Categoria inválida para este restaurante' },
         { status: 403 }
@@ -144,7 +138,7 @@ export async function POST(request: Request) {
     const { data, error } = await supabase
       .from('products')
       .insert({
-        restaurant_id: result.data.restaurantId,
+        restaurant_id: access.data.restaurant.id,
         category_id: result.data.categoryId,
         name: result.data.name,
         description: result.data.description,
@@ -190,18 +184,19 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'ID do produto é obrigatório' }, { status: 400 });
     }
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    const access = await getRestaurantAccess(MANAGEMENT_ROLES);
+    if (access.error || !access.data) {
+      return NextResponse.json({ error: access.error || 'Não autorizado' }, { status: 403 });
     }
 
     const body = await request.json();
 
-    const productOwner = await getOwnedProduct(user.id, productId);
+    const { data: productOwner } = await supabase
+      .from('products')
+      .select('id, category_id')
+      .eq('id', productId)
+      .eq('restaurant_id', access.data.restaurant.id)
+      .single();
     if (!productOwner) {
       return NextResponse.json(
         { error: 'Não autorizado ou produto não encontrado' },
@@ -210,8 +205,13 @@ export async function PUT(request: Request) {
     }
 
     if (body.categoryId) {
-      const category = await getOwnedCategory(user.id, body.categoryId);
-      if (!category || category.restaurant_id !== productOwner.restaurant_id) {
+      const { data: category } = await supabase
+        .from('categories')
+        .select('id')
+        .eq('id', body.categoryId)
+        .eq('restaurant_id', access.data.restaurant.id)
+        .single();
+      if (!category) {
         return NextResponse.json(
           { error: 'Categoria inválida para este restaurante' },
           { status: 403 }
@@ -221,7 +221,7 @@ export async function PUT(request: Request) {
 
     const updateResult = productSchema.safeParse({
       ...body,
-      restaurantId: productOwner.restaurant_id,
+      restaurantId: access.data.restaurant.id,
       categoryId: body.categoryId || productOwner.category_id,
     });
     if (!updateResult.success) {
@@ -277,16 +277,17 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'ID do produto é obrigatório' }, { status: 400 });
     }
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    const access = await getRestaurantAccess(MANAGEMENT_ROLES);
+    if (access.error || !access.data) {
+      return NextResponse.json({ error: access.error || 'Não autorizado' }, { status: 403 });
     }
 
-    const productOwner = await getOwnedProduct(user.id, productId);
+    const { data: productOwner } = await supabase
+      .from('products')
+      .select('id')
+      .eq('id', productId)
+      .eq('restaurant_id', access.data.restaurant.id)
+      .single();
     if (!productOwner) {
       return NextResponse.json(
         { error: 'Não autorizado ou produto não encontrado' },

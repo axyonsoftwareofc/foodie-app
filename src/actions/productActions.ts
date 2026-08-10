@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { redisDel, cacheKey } from '@/lib/redis';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
-import { getCurrentUser, getOwnedCategory, getOwnedProduct, userOwnsRestaurant } from '@/lib/authz';
+import { getRestaurantAccess, MANAGEMENT_ROLES } from '@/lib/restaurant-access';
 import { revalidatePublicMenu } from '@/lib/cache/revalidate-public-menu';
 
 const productBadgeSchema = z.enum([
@@ -20,7 +20,6 @@ const productBadgeSchema = z.enum([
 ]);
 
 const productSchema = z.object({
-  restaurantId: z.string().optional(),
   categoryId: z.string().min(1, 'ID de categoria é obrigatório'),
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
   description: z.string().optional(),
@@ -141,13 +140,14 @@ export async function searchProducts(restaurantId: string, searchTerm: string) {
 
 export async function createProduct(formData: FormData) {
   try {
-    const { user, error: authError } = await getCurrentUser();
-    if (authError || !user) {
-      return { error: authError || 'Usuário não autenticado' };
+    // Autorização por RBAC de membros: OWNER/MANAGER podem gerir o cardápio.
+    const access = await getRestaurantAccess(MANAGEMENT_ROLES);
+    if (access.error || !access.data) {
+      return { error: access.error || 'Não autorizado' };
     }
+    const restaurantId = access.data.restaurant.id;
 
     const data = {
-      restaurantId: (formData.get('restaurantId') as string) || undefined,
       categoryId: formData.get('categoryId') as string,
       name: formData.get('name') as string,
       description: (formData.get('description') as string) || undefined,
@@ -168,17 +168,13 @@ export async function createProduct(formData: FormData) {
       return { error: result.error.issues[0].message };
     }
 
-    const category = await getOwnedCategory(user.id, result.data.categoryId);
+    // A categoria precisa pertencer ao restaurante do acesso.
+    const category = await prisma.category.findFirst({
+      where: { id: result.data.categoryId, restaurant_id: restaurantId },
+      select: { id: true, restaurant_id: true },
+    });
     if (!category) {
       return { error: 'Não autorizado ou categoria não encontrada' };
-    }
-
-    const restaurantId = result.data.restaurantId || category.restaurant_id;
-    if (
-      restaurantId !== category.restaurant_id ||
-      !(await userOwnsRestaurant(user.id, restaurantId))
-    ) {
-      return { error: 'Não autorizado ou restaurante não encontrado' };
     }
 
     const product = await prisma.product.create({
@@ -210,12 +206,16 @@ export async function createProduct(formData: FormData) {
 
 export async function updateProduct(productId: string, formData: FormData) {
   try {
-    const { user, error: authError } = await getCurrentUser();
-    if (authError || !user) {
-      return { error: authError || 'Usuário não autenticado' };
+    const access = await getRestaurantAccess(MANAGEMENT_ROLES);
+    if (access.error || !access.data) {
+      return { error: access.error || 'Não autorizado' };
     }
+    const restaurantId = access.data.restaurant.id;
 
-    const productOwner = await getOwnedProduct(user.id, productId);
+    const productOwner = await prisma.product.findFirst({
+      where: { id: productId, restaurant_id: restaurantId },
+      select: { id: true, restaurant_id: true, category_id: true },
+    });
     if (!productOwner) {
       return { error: 'Não autorizado ou produto não encontrado' };
     }
@@ -223,8 +223,11 @@ export async function updateProduct(productId: string, formData: FormData) {
     const nextCategoryId = formData.get('categoryId') as string | null;
     let categoryId = productOwner.category_id;
     if (nextCategoryId) {
-      const category = await getOwnedCategory(user.id, nextCategoryId);
-      if (!category || category.restaurant_id !== productOwner.restaurant_id) {
+      const category = await prisma.category.findFirst({
+        where: { id: nextCategoryId, restaurant_id: restaurantId },
+        select: { id: true, restaurant_id: true },
+      });
+      if (!category) {
         return { error: 'Categoria inválida para este restaurante' };
       }
       categoryId = category.id;
@@ -263,12 +266,15 @@ export async function updateProduct(productId: string, formData: FormData) {
 
 export async function toggleProductAvailability(productId: string, isAvailable: boolean) {
   try {
-    const { user, error: authError } = await getCurrentUser();
-    if (authError || !user) {
-      return { error: authError || 'Usuário não autenticado' };
+    const access = await getRestaurantAccess(MANAGEMENT_ROLES);
+    if (access.error || !access.data) {
+      return { error: access.error || 'Não autorizado' };
     }
 
-    const productOwner = await getOwnedProduct(user.id, productId);
+    const productOwner = await prisma.product.findFirst({
+      where: { id: productId, restaurant_id: access.data.restaurant.id },
+      select: { id: true, restaurant_id: true },
+    });
     if (!productOwner) {
       return { error: 'Não autorizado ou produto não encontrado' };
     }
@@ -294,12 +300,15 @@ export async function toggleProductAvailability(productId: string, isAvailable: 
 
 export async function deleteProduct(productId: string) {
   try {
-    const { user, error: authError } = await getCurrentUser();
-    if (authError || !user) {
-      return { error: authError || 'Usuário não autenticado' };
+    const access = await getRestaurantAccess(MANAGEMENT_ROLES);
+    if (access.error || !access.data) {
+      return { error: access.error || 'Não autorizado' };
     }
 
-    const productOwner = await getOwnedProduct(user.id, productId);
+    const productOwner = await prisma.product.findFirst({
+      where: { id: productId, restaurant_id: access.data.restaurant.id },
+      select: { id: true, restaurant_id: true },
+    });
     if (!productOwner) {
       return { error: 'Não autorizado ou produto não encontrado' };
     }

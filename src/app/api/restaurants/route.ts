@@ -2,7 +2,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { userOwnsRestaurant } from '@/lib/authz';
+import { getRestaurantAccess, MANAGEMENT_ROLES } from '@/lib/restaurant-access';
 import {
   checkRateLimit,
   getClientIp,
@@ -157,30 +157,13 @@ export async function PUT(request: Request) {
   try {
     const supabase = await createClient();
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    const access = await getRestaurantAccess(MANAGEMENT_ROLES);
+    if (access.error || !access.data) {
+      return NextResponse.json({ error: access.error || 'Não autorizado' }, { status: 403 });
     }
-
-    const { searchParams } = new URL(request.url);
-    const restaurantId = searchParams.get('id');
-
-    if (!restaurantId) {
-      return NextResponse.json({ error: 'ID do restaurante é obrigatório' }, { status: 400 });
-    }
+    const restaurantId = access.data.restaurant.id;
 
     const body = await request.json();
-
-    if (!(await userOwnsRestaurant(user.id, restaurantId))) {
-      return NextResponse.json(
-        { error: 'Não autorizado ou restaurante não encontrado' },
-        { status: 403 }
-      );
-    }
 
     const updateResult = restaurantSchema.safeParse(body);
     if (!updateResult.success) {
@@ -217,33 +200,16 @@ export async function DELETE(request: Request) {
   try {
     const supabase = await createClient();
 
-    const { searchParams } = new URL(request.url);
-    const restaurantId = searchParams.get('id');
-
-    if (!restaurantId) {
-      return NextResponse.json({ error: 'ID do restaurante é obrigatório' }, { status: 400 });
-    }
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
-    }
-
-    if (!(await userOwnsRestaurant(user.id, restaurantId))) {
-      return NextResponse.json(
-        { error: 'Não autorizado ou restaurante não encontrado' },
-        { status: 403 }
-      );
+    // Excluir o restaurante é destrutivo — OWNER-only.
+    const access = await getRestaurantAccess(['OWNER']);
+    if (access.error || !access.data) {
+      return NextResponse.json({ error: access.error || 'Não autorizado' }, { status: 403 });
     }
 
     const { error } = await supabase
       .from('restaurants')
       .update({ is_active: false })
-      .eq('id', restaurantId);
+      .eq('id', access.data.restaurant.id);
 
     if (error) {
       return NextResponse.json({ error: 'Erro ao excluir restaurante' }, { status: 400 });

@@ -11,12 +11,7 @@ import {
   applyMenuTemplate,
 } from '@/actions/restaurant-creation';
 import { z } from 'zod';
-import {
-  getCurrentUser,
-  userOwnsRestaurant,
-  userOwnsReviewRestaurant,
-  userOwnsTable,
-} from '@/lib/authz';
+import { getRestaurantAccess, MANAGEMENT_ROLES, WAITER_ROLES } from '@/lib/restaurant-access';
 import { parseOperatingHours } from '@/lib/utils/restaurant.utils';
 import { redisDel, redisGet, redisSet, cacheKey } from '@/lib/redis';
 import {
@@ -384,23 +379,11 @@ export async function updateRestaurantProfile(
   data: Partial<RestaurantProfile>
 ): Promise<{ success?: boolean; error?: string }> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return { error: 'Usuário não autenticado' };
+    const access = await getRestaurantAccess(MANAGEMENT_ROLES);
+    if (access.error || !access.data) {
+      return { error: access.error || 'Não autorizado' };
     }
-
-    const restaurant = await prisma.restaurant.findFirst({
-      where: { user_id: user.id, is_active: true },
-      select: { id: true },
-    });
-
-    if (!restaurant) {
-      return { error: 'Restaurante nao encontrado' };
-    }
+    const restaurant = { id: access.data.restaurant.id };
 
     const updateData: Record<string, unknown> = {};
 
@@ -428,7 +411,8 @@ export async function updateRestaurantProfile(
     if (data.location?.latitude !== undefined) updateData.latitude = data.location.latitude;
     if (data.location?.longitude !== undefined) updateData.longitude = data.location.longitude;
     if (data.operatingHours !== undefined) updateData.operating_hours = data.operatingHours;
-    if (data.bankInfo !== undefined) updateData.bank_info = data.bankInfo;
+    // Dados bancários são OWNER-only: ignorados silenciosamente para não-donos.
+    if (data.bankInfo !== undefined && access.data.isOwner) updateData.bank_info = data.bankInfo;
     if (data.theme !== undefined) updateData.theme = data.theme;
 
     // Support flat fields passed directly (from settings page)
@@ -457,17 +441,13 @@ export async function updateRestaurantProfile(
   }
 }
 
-export async function updateRestaurant(restaurantId: string, formData: FormData) {
+export async function updateRestaurant(_restaurantId: string, formData: FormData) {
   const supabase = await createClient();
-  const { user, error: authError } = await getCurrentUser();
-
-  if (authError || !user) {
-    return { error: authError || 'Usuário não autenticado' };
+  const access = await getRestaurantAccess(MANAGEMENT_ROLES);
+  if (access.error || !access.data) {
+    return { error: access.error || 'Não autorizado' };
   }
-
-  if (!(await userOwnsRestaurant(user.id, restaurantId))) {
-    return { error: 'Não autorizado ou restaurante não encontrado' };
-  }
+  const restaurantId = access.data.restaurant.id;
 
   const data = {
     name: formData.get('name'),
@@ -523,19 +503,14 @@ export async function updateRestaurantStatus(
   return updateRestaurantProfile({ status });
 }
 
-export async function toggleRestaurantStatus(restaurantId: string, isActive: boolean) {
-  const { user, error: authError } = await getCurrentUser();
-
-  if (authError || !user) {
-    return { error: authError || 'Usuário não autenticado' };
-  }
-
-  if (!(await userOwnsRestaurant(user.id, restaurantId))) {
-    return { error: 'Não autorizado ou restaurante não encontrado' };
+export async function toggleRestaurantStatus(_restaurantId: string, isActive: boolean) {
+  const access = await getRestaurantAccess(MANAGEMENT_ROLES);
+  if (access.error || !access.data) {
+    return { error: access.error || 'Não autorizado' };
   }
 
   await prisma.restaurant.update({
-    where: { id: restaurantId },
+    where: { id: access.data.restaurant.id },
     data: { is_active: isActive },
   });
 
@@ -547,26 +522,13 @@ export async function updateOperatingHours(
   hours: OperatingHours[]
 ): Promise<{ success?: boolean; error?: string }> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return { error: 'Usuário não autenticado' };
-    }
-
-    const restaurant = await prisma.restaurant.findFirst({
-      where: { user_id: user.id, is_active: true },
-      select: { id: true },
-    });
-
-    if (!restaurant) {
-      return { error: 'Restaurante nao encontrado' };
+    const access = await getRestaurantAccess(MANAGEMENT_ROLES);
+    if (access.error || !access.data) {
+      return { error: access.error || 'Não autorizado' };
     }
 
     await prisma.restaurant.update({
-      where: { id: restaurant.id },
+      where: { id: access.data.restaurant.id },
       data: { operating_hours: hours as unknown as Prisma.InputJsonValue },
     });
 
@@ -581,26 +543,14 @@ export async function updateBankInfo(
   info: BankInfo
 ): Promise<{ success?: boolean; error?: string }> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return { error: 'Usuário não autenticado' };
-    }
-
-    const restaurant = await prisma.restaurant.findFirst({
-      where: { user_id: user.id, is_active: true },
-      select: { id: true },
-    });
-
-    if (!restaurant) {
-      return { error: 'Restaurante nao encontrado' };
+    // Dados bancários: OWNER-only (least privilege).
+    const access = await getRestaurantAccess(['OWNER']);
+    if (access.error || !access.data) {
+      return { error: access.error || 'Não autorizado' };
     }
 
     await prisma.restaurant.update({
-      where: { id: restaurant.id },
+      where: { id: access.data.restaurant.id },
       data: { bank_info: info as unknown as Prisma.InputJsonValue },
     });
 
@@ -615,22 +565,18 @@ export async function updateBankInfo(
 // FUNÇÕES DE EXCLUSÃO (DELETE)
 // ============================================================================
 
-export async function deleteRestaurant(restaurantId: string) {
+export async function deleteRestaurant(_restaurantId: string) {
   const supabase = await createClient();
-  const { user, error: authError } = await getCurrentUser();
-
-  if (authError || !user) {
-    return { error: authError || 'Usuário não autenticado' };
-  }
-
-  if (!(await userOwnsRestaurant(user.id, restaurantId))) {
-    return { error: 'Não autorizado ou restaurante não encontrado' };
+  // Excluir o restaurante é uma ação destrutiva — OWNER-only.
+  const access = await getRestaurantAccess(['OWNER']);
+  if (access.error || !access.data) {
+    return { error: access.error || 'Não autorizado' };
   }
 
   const { error } = await supabase
     .from('restaurants')
     .update({ is_active: false })
-    .eq('id', restaurantId);
+    .eq('id', access.data.restaurant.id);
 
   if (error) {
     return { error: error.message };
@@ -646,28 +592,15 @@ export async function deleteRestaurant(restaurantId: string) {
 export async function getTables(): Promise<{ data?: RestaurantTable[]; error?: string }> {
   try {
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return { error: 'Usuário não autenticado' };
-    }
-
-    const { data: restaurant } = await supabase
-      .from('restaurants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!restaurant) {
-      return { data: [] };
+    const access = await getRestaurantAccess(MANAGEMENT_ROLES);
+    if (access.error || !access.data) {
+      return { error: access.error || 'Não autorizado' };
     }
 
     const { data, error } = await supabase
       .from('restaurant_tables')
       .select('*')
-      .eq('restaurant_id', restaurant.id)
+      .eq('restaurant_id', access.data.restaurant.id)
       .order('number');
 
     if (error) {
@@ -686,29 +619,16 @@ export async function createTable(
 ): Promise<{ data?: RestaurantTable; error?: string }> {
   try {
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return { error: 'Usuário não autenticado' };
-    }
-
-    const { data: restaurant } = await supabase
-      .from('restaurants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!restaurant) {
-      return { error: 'Restaurante não encontrado' };
+    const access = await getRestaurantAccess(MANAGEMENT_ROLES);
+    if (access.error || !access.data) {
+      return { error: access.error || 'Não autorizado' };
     }
 
     const { data: table, error } = await supabase
       .from('restaurant_tables')
       .insert({
         ...data,
-        restaurant_id: restaurant.id,
+        restaurant_id: access.data.restaurant.id,
       })
       .select()
       .single();
@@ -730,13 +650,17 @@ export async function updateTableStatus(
 ): Promise<{ success?: boolean; error?: string }> {
   try {
     const supabase = await createClient();
-    const { user, error: authError } = await getCurrentUser();
-
-    if (authError || !user) {
-      return { error: authError || 'Usuário não autenticado' };
+    // Mudar status de mesa é operação de salão — inclui WAITER.
+    const access = await getRestaurantAccess(WAITER_ROLES);
+    if (access.error || !access.data) {
+      return { error: access.error || 'Não autorizado' };
     }
 
-    if (!(await userOwnsTable(user.id, tableId))) {
+    const table = await prisma.restaurantTable.findFirst({
+      where: { id: tableId, restaurant_id: access.data.restaurant.id },
+      select: { id: true },
+    });
+    if (!table) {
       return { error: 'Não autorizado ou mesa não encontrada' };
     }
 
@@ -756,13 +680,16 @@ export async function updateTableStatus(
 export async function deleteTable(tableId: string): Promise<{ success?: boolean; error?: string }> {
   try {
     const supabase = await createClient();
-    const { user, error: authError } = await getCurrentUser();
-
-    if (authError || !user) {
-      return { error: authError || 'Usuário não autenticado' };
+    const access = await getRestaurantAccess(MANAGEMENT_ROLES);
+    if (access.error || !access.data) {
+      return { error: access.error || 'Não autorizado' };
     }
 
-    if (!(await userOwnsTable(user.id, tableId))) {
+    const table = await prisma.restaurantTable.findFirst({
+      where: { id: tableId, restaurant_id: access.data.restaurant.id },
+      select: { id: true },
+    });
+    if (!table) {
       return { error: 'Não autorizado ou mesa não encontrada' };
     }
 
@@ -784,24 +711,19 @@ export async function deleteTable(tableId: string): Promise<{ success?: boolean;
 // ============================================================================
 
 export async function getRestaurantReviews(
-  restaurantId: string
+  _restaurantId?: string
 ): Promise<{ data?: Review[]; error?: string }> {
   try {
     const supabase = await createClient();
-    const { user, error: authError } = await getCurrentUser();
-
-    if (authError || !user) {
-      return { error: authError || 'Usuário não autenticado' };
-    }
-
-    if (!(await userOwnsRestaurant(user.id, restaurantId))) {
-      return { error: 'Não autorizado ou restaurante não encontrado' };
+    const access = await getRestaurantAccess(MANAGEMENT_ROLES);
+    if (access.error || !access.data) {
+      return { error: access.error || 'Não autorizado' };
     }
 
     const { data, error } = await supabase
       .from('reviews')
       .select('*')
-      .eq('restaurant_id', restaurantId)
+      .eq('restaurant_id', access.data.restaurant.id)
       .order('created_at', { ascending: false })
       .limit(50);
 
@@ -835,13 +757,16 @@ export async function respondToReview(
 ): Promise<{ success?: boolean; error?: string }> {
   try {
     const supabase = await createClient();
-    const { user, error: authError } = await getCurrentUser();
-
-    if (authError || !user) {
-      return { error: authError || 'Usuário não autenticado' };
+    const access = await getRestaurantAccess(MANAGEMENT_ROLES);
+    if (access.error || !access.data) {
+      return { error: access.error || 'Não autorizado' };
     }
 
-    if (!(await userOwnsReviewRestaurant(user.id, reviewId))) {
+    const review = await prisma.review.findFirst({
+      where: { id: reviewId, restaurant_id: access.data.restaurant.id },
+      select: { id: true },
+    });
+    if (!review) {
       return { error: 'Não autorizado ou avaliação não encontrada' };
     }
 

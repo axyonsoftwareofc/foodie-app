@@ -1,7 +1,7 @@
 'use server';
 
 import { v2 as cloudinary } from 'cloudinary';
-import { getCurrentUser } from '@/lib/authz';
+import { getRestaurantAccess, MANAGEMENT_ROLES } from '@/lib/restaurant-access';
 
 cloudinary.config({
   cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
@@ -16,8 +16,9 @@ interface UploadResult {
 }
 
 export async function uploadRestaurantImage(formData: FormData): Promise<UploadResult> {
-  const { user, error: authError } = await getCurrentUser();
-  if (authError || !user) return { error: 'Usuario nao autenticado' };
+  // Upload de imagem do restaurante é ação de gestão (OWNER/MANAGER).
+  const access = await getRestaurantAccess(MANAGEMENT_ROLES);
+  if (access.error || !access.data) return { error: access.error || 'Não autorizado' };
 
   if (!process.env.CLOUDINARY_API_KEY) {
     return { error: 'Cloudinary nao configurado' };
