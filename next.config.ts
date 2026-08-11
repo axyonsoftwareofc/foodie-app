@@ -30,6 +30,18 @@ const nextConfig: NextConfig = {
       ? 'Content-Security-Policy'
       : 'Content-Security-Policy-Report-Only';
 
+    // Em dev, o React usa eval() para recursos de depuração (ex.: reconstruir
+    // callstacks vindas do servidor em Server Components). Em producao o React
+    // nunca usa eval() — por isso 'unsafe-eval' fica restrito ao dev.
+    const isDev = process.env.NODE_ENV === 'development';
+    const scriptSrc = [
+      "script-src 'self' 'unsafe-inline'",
+      isDev ? "'unsafe-eval'" : '',
+      'js.stripe.com *.mercadopago.com browser.sentry-cdn.com *.unsplash.com',
+    ]
+      .filter(Boolean)
+      .join(' ');
+
     return [
       {
         source: '/(.*)',
@@ -49,7 +61,7 @@ const nextConfig: NextConfig = {
             key: cspHeader,
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' js.stripe.com *.mercadopago.com browser.sentry-cdn.com *.unsplash.com",
+              scriptSrc,
               "frame-src 'self' js.stripe.com hooks.stripe.com www.paypal.com www.mercadopago.com.br",
               "connect-src 'self' https://*.supabase.co wss://*.supabase.co api.stripe.com api.mercadopago.com api-m.paypal.com *.ingest.sentry.io",
               "img-src 'self' data: res.cloudinary.com images.unsplash.com *.supabase.co lh3.googleusercontent.com",
