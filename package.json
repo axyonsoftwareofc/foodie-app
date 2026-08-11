@@ -25,6 +25,7 @@
     "seed:products": "npx tsx src/scripts/seed-products.ts",
     "seed:delivery": "npx tsx src/scripts/seed-delivery.ts",
     "seed:owners": "npx tsx src/scripts/create-restaurant-owners.ts",
+    "backfill:members": "npx tsx src/scripts/backfill-restaurant-members.ts",
     "prepare": "husky"
   },
   "lint-staged": {

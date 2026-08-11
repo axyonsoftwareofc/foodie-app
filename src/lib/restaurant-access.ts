@@ -16,7 +16,13 @@ type AccessRestaurant = {
 export type RestaurantAccess = {
   user: User;
   restaurant: AccessRestaurant;
-  member: RestaurantMember;
+  /**
+   * Linha de `restaurant_members` do usuário. Pode ser `null` para um dono cujo
+   * restaurante ainda não tem membro OWNER materializado (dados antigos) — a
+   * autorização do dono vem de `restaurant.user_id`, não daqui.
+   * Para provisionar, use `ensureOwnerMembership` ou o script de backfill.
+   */
+  member: RestaurantMember | null;
   role: RestaurantMemberRole;
   isOwner: boolean;
 };
@@ -51,15 +57,21 @@ async function getAuthenticatedUser(): Promise<{ user?: User; error?: string }> 
   return { user: session.user };
 }
 
-async function ensureOwnerMember(
-  user: User,
-  restaurant: AccessRestaurant
+/**
+ * Provisiona (cria ou corrige) o membro OWNER de um restaurante.
+ *
+ * É uma ESCRITA explícita — não chame em caminho de leitura/autorização.
+ * Use na criação do restaurante e no script de backfill.
+ */
+export async function ensureOwnerMembership(
+  user: Pick<User, 'id' | 'email'> & { user_metadata?: Record<string, unknown> },
+  restaurantId: string
 ): Promise<RestaurantMember> {
   const email = normalizeEmail(user.email!);
 
   const existing = await prisma.restaurantMember.findFirst({
     where: {
-      restaurant_id: restaurant.id,
+      restaurant_id: restaurantId,
       OR: [{ user_id: user.id }, { email }],
     },
   });
@@ -79,7 +91,7 @@ async function ensureOwnerMember(
       data: {
         user_id: user.id,
         email,
-        full_name: existing.full_name ?? user.user_metadata?.full_name ?? null,
+        full_name: existing.full_name ?? (user.user_metadata?.full_name as string | null) ?? null,
         role: 'OWNER',
         status: 'ACTIVE',
         joined_at: existing.joined_at ?? new Date(),
@@ -90,7 +102,7 @@ async function ensureOwnerMember(
 
   return prisma.restaurantMember.create({
     data: {
-      restaurant_id: restaurant.id,
+      restaurant_id: restaurantId,
       user_id: user.id,
       email,
       full_name: (user.user_metadata?.full_name as string | undefined) ?? null,
@@ -101,38 +113,46 @@ async function ensureOwnerMember(
   });
 }
 
-// Chaveado por primitivos e envolvido em cache(): roda no máximo uma vez por
-// request, mesmo quando vários call sites resolvem acesso na mesma renderização.
-const ensureMinimumAppRole = cache(
-  async (userId: string, email: string, fullName: string | null): Promise<void> => {
-    const profile = await prisma.profile.findUnique({ where: { email }, select: { role: true } });
+/**
+ * Garante que um membro ativo tenha ao menos a role global EQUIPE.
+ *
+ * ESCRITA explícita. O aceite de convite (`acceptRestaurantInvitation`) já faz
+ * isso; esta função existe para a criação de restaurante e para o backfill.
+ */
+export async function ensureMinimumAppRole(
+  userId: string,
+  email: string,
+  fullName: string | null
+): Promise<void> {
+  const normalized = normalizeEmail(email);
+  const profile = await prisma.profile.findUnique({
+    where: { email: normalized },
+    select: { role: true },
+  });
 
-    if (!profile) {
-      await prisma.profile.create({
-        data: {
-          id: userId,
-          email,
-          full_name: fullName,
-          role: UserRole.EQUIPE,
-        },
-      });
-      return;
-    }
-
-    if (profile.role === UserRole.CLIENTE) {
-      await prisma.profile.update({
-        where: { email },
-        data: { role: UserRole.EQUIPE },
-      });
-    }
+  if (!profile) {
+    await prisma.profile.create({
+      data: { id: userId, email: normalized, full_name: fullName, role: UserRole.EQUIPE },
+    });
+    return;
   }
-);
+
+  if (profile.role === UserRole.CLIENTE) {
+    await prisma.profile.update({
+      where: { email: normalized },
+      data: { role: UserRole.EQUIPE },
+    });
+  }
+}
 
 /**
  * Resolve usuário + restaurante + membro. É a parte cara (sessão e queries) e
  * NÃO depende dos papéis exigidos — por isso pode ser cacheada por request.
+ *
+ * LEITURA PURA: nunca escreve. Provisionamento é explícito
+ * (`ensureOwnerMembership` / `ensureMinimumAppRole`).
  */
-async function loadRestaurantContext(ensureMembership: boolean): Promise<AccessResult> {
+async function loadRestaurantContext(): Promise<AccessResult> {
   const auth = await getAuthenticatedUser();
   if (!auth.user) return { error: auth.error ?? 'Usuário não autenticado' };
 
@@ -143,18 +163,12 @@ async function loadRestaurantContext(ensureMembership: boolean): Promise<AccessR
   });
 
   if (ownedRestaurant) {
-    let member: RestaurantMember;
-    if (ensureMembership) {
-      member = await ensureOwnerMember(user, ownedRestaurant);
-    } else {
-      const existing = await prisma.restaurantMember.findFirst({
-        where: { restaurant_id: ownedRestaurant.id, user_id: user.id, status: 'ACTIVE' },
-      });
-      if (!existing) {
-        return { error: 'Usuário não está vinculado a um restaurante' };
-      }
-      member = existing;
-    }
+    // A autorização do dono vem de restaurant.user_id. O membro é apenas a
+    // identidade dele na equipe — pode não existir em dados antigos.
+    const member = await prisma.restaurantMember.findFirst({
+      where: { restaurant_id: ownedRestaurant.id, user_id: user.id, status: 'ACTIVE' },
+    });
+
     return {
       data: {
         user,
@@ -194,20 +208,19 @@ async function loadRestaurantContext(ensureMembership: boolean): Promise<AccessR
   };
 }
 
-/** Caso padrão (ensureMembership=true) deduplicado por request via cache(). */
-const loadRestaurantContextCached = cache(() => loadRestaurantContext(true));
+/** Contexto deduplicado por request via cache(). */
+const loadRestaurantContextCached = cache(loadRestaurantContext);
 
 /**
  * Portão de autorização: resolve o contexto (cacheado) e aplica a checagem de
  * papel. A checagem fica fora do cache porque varia por call site.
+ *
+ * Não escreve no banco.
  */
 export async function getRestaurantAccess(
-  allowedRoles?: RestaurantMemberRole[],
-  ensureMembership = true
+  allowedRoles?: RestaurantMemberRole[]
 ): Promise<AccessResult> {
-  const context = ensureMembership
-    ? await loadRestaurantContextCached()
-    : await loadRestaurantContext(false);
+  const context = await loadRestaurantContextCached();
 
   if (context.error || !context.data) {
     return { error: context.error ?? 'Usuário não autenticado' };
@@ -219,14 +232,6 @@ export async function getRestaurantAccess(
     return {
       error: access.isOwner ? 'Acesso negado para esta operação' : 'Acesso negado para esta função',
     };
-  }
-
-  if (!access.isOwner) {
-    await ensureMinimumAppRole(
-      access.user.id,
-      normalizeEmail(access.user.email!),
-      (access.user.user_metadata?.full_name as string | undefined) ?? null
-    );
   }
 
   return { data: access };

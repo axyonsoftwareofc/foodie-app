@@ -9,6 +9,7 @@ import {
   ensureUserCanCreateRestaurant,
   upgradeUserToOwner,
   applyMenuTemplate,
+  provisionRestaurantOwner,
 } from '@/actions/restaurant-creation';
 import { z } from 'zod';
 import { getRestaurantAccess, MANAGEMENT_ROLES, WAITER_ROLES } from '@/lib/restaurant-access';
@@ -296,6 +297,15 @@ export async function createRestaurant(
     if (error) {
       return { error: error.message };
     }
+
+    // Provisiona o dono (membro OWNER + role global) na criação — a
+    // autorização é leitura pura e não faz isso por conta própria.
+    await provisionRestaurantOwner({
+      userId: check.userId,
+      email: check.email,
+      fullName: check.fullName,
+      restaurantId: restaurant.id,
+    });
 
     void redisDel(cacheKey('restaurants', 'public-list'));
 
@@ -863,6 +873,13 @@ export async function registerRestaurant(
     });
 
     if (restaurant) {
+      await provisionRestaurantOwner({
+        userId: user.id,
+        email: user.email ?? '',
+        fullName: (user.user_metadata?.full_name as string | undefined) ?? null,
+        restaurantId: restaurant.id,
+      });
+
       cookieStore.set('restaurantId', restaurant.id, {
         httpOnly: true,
         secure: process.env.NODE_ENV !== 'development',

@@ -120,7 +120,7 @@ export async function createDineInOrder(
         table_id: validated.tableId,
         table_number: validated.tableNumber,
         created_by_user_id: acc.user.id,
-        created_by_member_id: acc.member.id,
+        created_by_member_id: acc.member?.id ?? null,
         customer_name: validated.customerName || `Mesa ${validated.tableNumber}`,
         order_type: 'DINE_IN',
         status: OrderStatus.PENDING,
@@ -147,7 +147,7 @@ export async function createDineInOrder(
     await recordAuditLog({
       restaurantId: acc.restaurant.id,
       actorUserId: acc.user.id,
-      actorMemberId: acc.member.id,
+      actorMemberId: acc.member?.id ?? null,
       action: 'waiter.order.created',
       entityType: 'order',
       entityId: order.id,
@@ -187,7 +187,7 @@ export async function closeTable(tableId: string): Promise<{ success?: boolean; 
   await recordAuditLog({
     restaurantId: data.restaurant.id,
     actorUserId: data.user.id,
-    actorMemberId: data.member.id,
+    actorMemberId: data.member?.id ?? null,
     action: 'waiter.table.closed',
     entityType: 'restaurant_table',
     entityId: tableId,

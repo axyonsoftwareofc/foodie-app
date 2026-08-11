@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { redisDel, cacheKey } from '@/lib/redis';
 import { cookies } from 'next/headers';
 import { RESERVED_SUBDOMAINS } from '@/lib/validations/tenant.validations';
+import { ensureOwnerMembership } from '@/lib/restaurant-access';
 import {
   ensureUserCanCreateRestaurant,
   upgradeUserToOwner,
@@ -137,6 +138,13 @@ export async function createTenant(
         role: 'GERENCIADOR',
       },
     });
+
+    // Materializa o membro OWNER na criação (a autorização é leitura pura e
+    // não provisiona). O profile ja foi promovido logo acima.
+    await ensureOwnerMembership(
+      { id: user.id, email: user.email || '', user_metadata: user.user_metadata },
+      restaurant.id
+    );
 
     const templateId = (data as { templateId?: string }).templateId;
 

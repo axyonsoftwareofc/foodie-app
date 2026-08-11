@@ -13,31 +13,37 @@ Cada achado aponta arquivo/linha e uma recomendação.
 
 ## Resumo
 
-| #   | Achado                                                                       | Categoria      | Severidade |
-| --- | ---------------------------------------------------------------------------- | -------------- | ---------- |
-| P1  | Waterfalls de dados client-side no dashboard (`useEffect` → server action)   | Desempenho     | **Alta**   |
-| P2  | `auth.getUser()` (round-trip de rede) repetido por navegação                 | Desempenho     | **Alta**   |
-| P3  | `getRestaurantAccess` escreve no banco em caminho de leitura (= #2)          | Desempenho     | Média      |
-| P4  | Consultas sem paginação / seleção ampla e busca em memória                   | Desempenho     | Baixa      |
-| 1   | Dois modelos de autorização divergentes (dono único vs RBAC de membros)      | Inconsistência | **Média**  |
-| 2   | Função de autorização faz escritas no banco (efeitos colaterais)             | Dívida/Risco   | **Média**  |
-| 3   | `Order.items`/`kitchen_notes` como JSON sem tipo forte nem tabela relacional | Dívida         | **Média**  |
-| 4   | Staleness da role em cache (até 60s) e `maxAge` de 7 dias enganoso           | Risco (baixo)  | Baixa      |
-| 5   | Extração de IP inconsistente entre middleware e rate-limit                   | Inconsistência | Baixa      |
-| 6   | Webhook do Mercado Pago consulta a API antes do check de idempotência        | Eficiência     | Baixa      |
-| 7   | Cliente Stripe duplicado com `apiVersion as any` e versão hardcoded          | Dívida         | Baixa      |
-| 8   | `canUserCreateRestaurant` libera quando não há profile                       | Observação     | Baixa      |
-| 9   | Restos de exemplo do Sentry e OpenAPI incompleto                             | Higiene        | Info       |
-| 10  | Nomenclatura de rotas mistura PT/EN                                          | Consistência   | Info       |
-| 11  | `GRANT EXECUTE` duplicado no SQL do hook                                     | Cosmético      | Info       |
-| 12  | `/api/tables` ficou fora da unificação de autorização (ainda só-dono)        | Inconsistência | **Média**  |
-| 13  | Tipo `RestaurantTable` diverge do schema Prisma                              | Dívida         | Baixa      |
-| 14  | `getRestaurantProfile` era só-dono e enviava `bank_info` ao cliente          | Segurança      | **Média**  |
+| #   | Achado                                                                       | Categoria      | Severidade  |
+| --- | ---------------------------------------------------------------------------- | -------------- | ----------- |
+| P1  | Waterfalls de dados client-side no dashboard (`useEffect` → server action)   | Desempenho     | **Alta**    |
+| P2  | `auth.getUser()` (round-trip de rede) repetido por navegação                 | Desempenho     | **Alta**    |
+| P3  | `getRestaurantAccess` escreve no banco em caminho de leitura (= #2)          | Desempenho     | Média       |
+| P4  | Consultas sem paginação / seleção ampla e busca em memória                   | Desempenho     | Baixa       |
+| 1   | Dois modelos de autorização divergentes (dono único vs RBAC de membros)      | Inconsistência | **Média**   |
+| 2   | Função de autorização faz escritas no banco (efeitos colaterais)             | Dívida/Risco   | **Média**   |
+| 3   | `Order.items`/`kitchen_notes` como JSON sem tipo forte nem tabela relacional | Dívida         | **Média**   |
+| 4   | Staleness da role em cache (até 60s) e `maxAge` de 7 dias enganoso           | Risco (baixo)  | Baixa       |
+| 5   | Extração de IP inconsistente entre middleware e rate-limit                   | Inconsistência | Baixa       |
+| 6   | Webhook do Mercado Pago consulta a API antes do check de idempotência        | Eficiência     | Baixa       |
+| 7   | Cliente Stripe duplicado com `apiVersion as any` e versão hardcoded          | Dívida         | Baixa       |
+| 8   | `canUserCreateRestaurant` libera quando não há profile                       | Observação     | Baixa       |
+| 9   | Restos de exemplo do Sentry e OpenAPI incompleto                             | Higiene        | Info        |
+| 10  | Nomenclatura de rotas mistura PT/EN                                          | Consistência   | Info        |
+| 11  | `GRANT EXECUTE` duplicado no SQL do hook                                     | Cosmético      | Info        |
+| 12  | `/api/tables` ficou fora da unificação de autorização (ainda só-dono)        | Inconsistência | **Média**   |
+| 13  | Tipo `RestaurantTable` diverge do schema Prisma                              | Dívida         | Baixa       |
+| 14  | `getRestaurantProfile` era só-dono e enviava `bank_info` ao cliente          | Segurança      | **Média**   |
+| 15  | Chave `service_role` do Supabase hardcoded e versionada                      | Segurança      | **CRÍTICA** |
 
 > **Não é problema:** `.env*`, `*.log`, `replay_*.log` e `*.tsbuildinfo` estão no
-> `.gitignore` e não são versionados — nenhum segredo vaza pelo repositório. Os webhooks
-> de pagamento verificam assinatura, aplicam idempotência (TTL 24h) e conferem o valor
-> pago contra o total do pedido — este fluxo está sólido.
+> `.gitignore` e não são versionados. Os webhooks de pagamento verificam assinatura,
+> aplicam idempotência (TTL 24h) e conferem o valor pago contra o total do pedido —
+> este fluxo está sólido.
+>
+> ⚠️ **Correção (2026-08-11):** a primeira versão deste relatório afirmava que "nenhum
+> segredo vaza pelo repositório". Isso estava **errado** — a varredura inicial cobriu
+> `.env*` e logs, mas não os scripts. Ver **achado #15**: há uma chave `service_role`
+> hardcoded em `src/scripts/create-restaurant-owners.ts`, versionada.
 
 ---
 
@@ -188,6 +194,19 @@ de `authz.ts` (mantendo `getCurrentUser`). Decidir isto antes de adicionar novas
 funcionalidades de gestão para não ampliar a divergência.
 
 ## 2. Autorização com efeitos colaterais de escrita — **Média**
+
+> **Status (2026-08-11): RESOLVIDO.** `getRestaurantAccess` é **leitura pura** — não
+> escreve mais. O provisionamento virou explícito:
+> `ensureOwnerMembership` (cria/corrige o membro OWNER) e `ensureMinimumAppRole`
+> (promove o profile) agora são chamados na **criação do restaurante**
+> (`provisionRestaurantOwner`, ligado aos 3 caminhos de criação) e pelo script de backfill.
+> `RestaurantAccess.member` passou a ser `RestaurantMember | null` — a autorização do dono
+> sempre veio de `restaurant.user_id`, então **não há risco de lockout**; o compilador
+> apontou os 7 consumidores de `member.id`, todos campos nulos no schema
+> (`actor_member_id`, `created_by_member_id`) ou com guard redundante.
+> **Ação pendente do usuário:** rodar `npm run backfill:members` (aceita `-- --dry-run`)
+> para materializar os membros OWNER de restaurantes existentes.
+> Coberto por 5 testes que afirmam explicitamente que **nada é escrito**.
 
 **Onde:** `src/lib/restaurant-access.ts` — `getRestaurantAccess` (linhas 129-201),
 `ensureOwnerMember` (55-103), `ensureMinimumAppRole` (105-127).
@@ -372,6 +391,29 @@ ativo — é contexto de layout, não operação privilegiada) e **deixou de ret
 `bankInfo`**. O campo virou opcional em `RestaurantProfile`, para que a ausência seja
 verificada pelo compilador. Nenhum consumidor lia esse campo (a tela de dados bancários
 começa com formulário vazio e escreve via `updateBankInfo`, que é OWNER-only).
+
+## 15. Chave `service_role` do Supabase versionada no repositório — **CRÍTICA**
+
+**Onde:** `src/scripts/create-restaurant-owners.ts` (linhas 4-6) traz **hardcoded** a
+`SUPABASE_URL` do projeto e a **`SUPABASE_SERVICE_ROLE_KEY`**. O arquivo está versionado
+(`git ls-files` confirma) e presente no histórico.
+
+**Impacto:** a chave `service_role` **ignora RLS** e equivale a acesso administrativo
+total ao banco (ler/alterar/apagar qualquer tabela, incluindo `profiles`, `orders` e
+`bank_info`). Quem tiver acesso ao repositório — ou a qualquer clone, fork ou backup —
+tem controle total dos dados. O JWT embutido tem validade até 2036.
+
+**Recomendação (nesta ordem):**
+
+1. **Rotacionar a chave imediatamente** no painel do Supabase
+   (Settings → API → _Reset service role key_). Enquanto não for rotacionada, considere-a
+   comprometida — remover do código **não** basta, pois ela permanece no histórico do git.
+2. Trocar o hardcode por `process.env.SUPABASE_SERVICE_ROLE_KEY` (a variável já existe no
+   `.env.example`) e falhar explicitamente se ausente.
+3. Opcional, depois de rotacionar: limpar o histórico (`git filter-repo` / BFG) e forçar
+   push — só vale se o repositório for privado e a equipe puder recriar clones.
+4. Se o repositório já foi público em algum momento, revisar os logs de acesso do projeto
+   Supabase em busca de uso indevido.
 
 ## Prioridade sugerida
 

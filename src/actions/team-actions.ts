@@ -206,7 +206,7 @@ export async function inviteRestaurantMember(input: {
   await recordAuditLog({
     restaurantId: data.restaurant.id,
     actorUserId: data.user.id,
-    actorMemberId: data.member.id,
+    actorMemberId: data.member?.id ?? null,
     action: 'team.invitation.created',
     entityType: 'restaurant_member',
     metadata: { email, role: input.role },
@@ -376,7 +376,9 @@ export async function disableRestaurantMember(
   }
   const data = access.data;
 
-  if (memberId === data.member.id) {
+  // Guard de auto-desativação. Se o dono ainda não tem membro materializado,
+  // o guard de OWNER logo abaixo continua protegendo.
+  if (data.member && memberId === data.member.id) {
     return { error: 'Você não pode desativar o próprio acesso' };
   }
 
@@ -395,7 +397,7 @@ export async function disableRestaurantMember(
   await recordAuditLog({
     restaurantId: data.restaurant.id,
     actorUserId: data.user.id,
-    actorMemberId: data.member.id,
+    actorMemberId: data.member?.id ?? null,
     action: 'team.member.disabled',
     entityType: 'restaurant_member',
     entityId: memberId,
@@ -433,7 +435,7 @@ export async function cancelRestaurantInvitation(
   await recordAuditLog({
     restaurantId: data.restaurant.id,
     actorUserId: data.user.id,
-    actorMemberId: data.member.id,
+    actorMemberId: data.member?.id ?? null,
     action: 'team.invitation.cancelled',
     entityType: 'restaurant_invitation',
     entityId: invitationId,
