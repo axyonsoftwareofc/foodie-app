@@ -1,6 +1,7 @@
 // src/app/api/tables/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { getRestaurantAccess, MANAGEMENT_ROLES } from '@/lib/restaurant-access';
 import {
   checkRateLimit,
   getClientIp,
@@ -18,24 +19,15 @@ export async function GET(req: NextRequest) {
   if (!rate.success) return buildRateLimitResponse(rate);
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Nao autorizado' }, { status: 401 });
-
-  const { data: restaurant } = await supabase
-    .from('restaurants')
-    .select('id')
-    .eq('user_id', user.id)
-    .single();
-
-  if (!restaurant)
-    return NextResponse.json({ error: 'Restaurante nao encontrado' }, { status: 404 });
+  const access = await getRestaurantAccess(MANAGEMENT_ROLES);
+  if (access.error || !access.data) {
+    return NextResponse.json({ error: access.error || 'Nao autorizado' }, { status: 403 });
+  }
 
   const { data: tables } = await supabase
     .from('restaurant_tables')
     .select('id, number, capacity, status')
-    .eq('restaurant_id', restaurant.id)
+    .eq('restaurant_id', access.data.restaurant.id)
     .order('number');
 
   return NextResponse.json({ tables: tables || [] });
@@ -51,19 +43,10 @@ export async function POST(request: NextRequest) {
   if (!rate.success) return buildRateLimitResponse(rate);
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Nao autorizado' }, { status: 401 });
-
-  const { data: restaurant } = await supabase
-    .from('restaurants')
-    .select('id')
-    .eq('user_id', user.id)
-    .single();
-
-  if (!restaurant)
-    return NextResponse.json({ error: 'Restaurante nao encontrado' }, { status: 404 });
+  const access = await getRestaurantAccess(MANAGEMENT_ROLES);
+  if (access.error || !access.data) {
+    return NextResponse.json({ error: access.error || 'Nao autorizado' }, { status: 403 });
+  }
 
   const body = await request.json();
   const { number, capacity } = body;
@@ -73,7 +56,7 @@ export async function POST(request: NextRequest) {
   const { data: table, error } = await supabase
     .from('restaurant_tables')
     .insert({
-      restaurant_id: restaurant.id,
+      restaurant_id: access.data.restaurant.id,
       number,
       capacity: capacity || 4,
       status: 'AVAILABLE',
@@ -96,19 +79,10 @@ export async function DELETE(request: NextRequest) {
   if (!rate.success) return buildRateLimitResponse(rate);
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Nao autorizado' }, { status: 401 });
-
-  const { data: restaurant } = await supabase
-    .from('restaurants')
-    .select('id')
-    .eq('user_id', user.id)
-    .single();
-
-  if (!restaurant)
-    return NextResponse.json({ error: 'Restaurante nao encontrado' }, { status: 404 });
+  const access = await getRestaurantAccess(MANAGEMENT_ROLES);
+  if (access.error || !access.data) {
+    return NextResponse.json({ error: access.error || 'Nao autorizado' }, { status: 403 });
+  }
 
   const id = request.nextUrl.searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'ID obrigatorio' }, { status: 400 });
@@ -117,7 +91,7 @@ export async function DELETE(request: NextRequest) {
     .from('restaurant_tables')
     .delete()
     .eq('id', id)
-    .eq('restaurant_id', restaurant.id);
+    .eq('restaurant_id', access.data.restaurant.id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 

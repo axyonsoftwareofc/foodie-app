@@ -295,6 +295,12 @@ Sem efeito; remover a linha duplicada.
 
 ## 12. `/api/tables` ficou fora da unificação de autorização — **Média**
 
+> **Status (2026-08-11): RESOLVIDO.** Os três handlers (GET, POST, DELETE) passaram a usar
+> `getRestaurantAccess(MANAGEMENT_ROLES)`, escopando as queries ao restaurante do acesso.
+> Coberto por 6 testes de contrato de autorização (`src/tests/api/tables.test.ts`).
+> Nota: falhas de autorização agora respondem **403** (antes 401/404), consistente com as
+> demais rotas migradas. O cliente só verifica `res.ok`, então não houve impacto.
+
 **Onde:** `src/app/api/tables/route.ts` (GET, POST e DELETE) resolve o restaurante com
 `.eq('user_id', user.id)` — o modelo **só-dono** que o achado #1 aposentou. Passou
 despercebido porque a migração cobriu apenas `/api/{categories,products,restaurants}`.
