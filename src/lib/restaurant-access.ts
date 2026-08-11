@@ -1,9 +1,10 @@
+import { cache } from 'react';
 import { headers } from 'next/headers';
 import type { RestaurantMember, RestaurantMemberRole, Prisma } from '@prisma/client';
 import { UserRole } from '@prisma/client';
 import type { User } from '@supabase/supabase-js';
 import { prisma } from '@/lib/prisma';
-import { createClient } from '@/lib/supabase/server';
+import { getServerSession } from '@/lib/auth';
 
 type AccessRestaurant = {
   id: string;
@@ -39,17 +40,15 @@ function hasAllowedRole(
 }
 
 async function getAuthenticatedUser(): Promise<{ user?: User; error?: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+  // getServerSession usa cache() do React: uma única validação de sessão
+  // (round-trip ao Auth do Supabase) por request, mesmo com vários call sites.
+  const session = await getServerSession();
 
-  if (error || !user?.email) {
+  if (!session?.user?.email) {
     return { error: 'Usuário não autenticado' };
   }
 
-  return { user };
+  return { user: session.user };
 }
 
 async function ensureOwnerMember(
@@ -102,34 +101,38 @@ async function ensureOwnerMember(
   });
 }
 
-async function ensureMinimumAppRole(user: User): Promise<void> {
-  const email = normalizeEmail(user.email!);
-  const profile = await prisma.profile.findUnique({ where: { email }, select: { role: true } });
+// Chaveado por primitivos e envolvido em cache(): roda no máximo uma vez por
+// request, mesmo quando vários call sites resolvem acesso na mesma renderização.
+const ensureMinimumAppRole = cache(
+  async (userId: string, email: string, fullName: string | null): Promise<void> => {
+    const profile = await prisma.profile.findUnique({ where: { email }, select: { role: true } });
 
-  if (!profile) {
-    await prisma.profile.create({
-      data: {
-        id: user.id,
-        email,
-        full_name: (user.user_metadata?.full_name as string | undefined) ?? null,
-        role: UserRole.EQUIPE,
-      },
-    });
-    return;
+    if (!profile) {
+      await prisma.profile.create({
+        data: {
+          id: userId,
+          email,
+          full_name: fullName,
+          role: UserRole.EQUIPE,
+        },
+      });
+      return;
+    }
+
+    if (profile.role === UserRole.CLIENTE) {
+      await prisma.profile.update({
+        where: { email },
+        data: { role: UserRole.EQUIPE },
+      });
+    }
   }
+);
 
-  if (profile.role === UserRole.CLIENTE) {
-    await prisma.profile.update({
-      where: { email },
-      data: { role: UserRole.EQUIPE },
-    });
-  }
-}
-
-export async function getRestaurantAccess(
-  allowedRoles?: RestaurantMemberRole[],
-  ensureMembership = true
-): Promise<AccessResult> {
+/**
+ * Resolve usuário + restaurante + membro. É a parte cara (sessão e queries) e
+ * NÃO depende dos papéis exigidos — por isso pode ser cacheada por request.
+ */
+async function loadRestaurantContext(ensureMembership: boolean): Promise<AccessResult> {
   const auth = await getAuthenticatedUser();
   if (!auth.user) return { error: auth.error ?? 'Usuário não autenticado' };
 
@@ -151,9 +154,6 @@ export async function getRestaurantAccess(
         return { error: 'Usuário não está vinculado a um restaurante' };
       }
       member = existing;
-    }
-    if (!hasAllowedRole('OWNER', allowedRoles)) {
-      return { error: 'Acesso negado para esta operação' };
     }
     return {
       data: {
@@ -183,12 +183,6 @@ export async function getRestaurantAccess(
     return { error: 'Usuário não está vinculado a um restaurante' };
   }
 
-  if (!hasAllowedRole(member.role, allowedRoles)) {
-    return { error: 'Acesso negado para esta função' };
-  }
-
-  await ensureMinimumAppRole(user);
-
   return {
     data: {
       user,
@@ -198,6 +192,44 @@ export async function getRestaurantAccess(
       isOwner: false,
     },
   };
+}
+
+/** Caso padrão (ensureMembership=true) deduplicado por request via cache(). */
+const loadRestaurantContextCached = cache(() => loadRestaurantContext(true));
+
+/**
+ * Portão de autorização: resolve o contexto (cacheado) e aplica a checagem de
+ * papel. A checagem fica fora do cache porque varia por call site.
+ */
+export async function getRestaurantAccess(
+  allowedRoles?: RestaurantMemberRole[],
+  ensureMembership = true
+): Promise<AccessResult> {
+  const context = ensureMembership
+    ? await loadRestaurantContextCached()
+    : await loadRestaurantContext(false);
+
+  if (context.error || !context.data) {
+    return { error: context.error ?? 'Usuário não autenticado' };
+  }
+
+  const access = context.data;
+
+  if (!hasAllowedRole(access.role, allowedRoles)) {
+    return {
+      error: access.isOwner ? 'Acesso negado para esta operação' : 'Acesso negado para esta função',
+    };
+  }
+
+  if (!access.isOwner) {
+    await ensureMinimumAppRole(
+      access.user.id,
+      normalizeEmail(access.user.email!),
+      (access.user.user_metadata?.full_name as string | undefined) ?? null
+    );
+  }
+
+  return { data: access };
 }
 
 export async function getAuditRequestMeta(): Promise<{

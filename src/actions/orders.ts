@@ -7,7 +7,7 @@ import { canTransitionStatus } from '@/lib/utils/order-status.utils';
 import { recalculateRestaurantRating } from '@/lib/review-utils';
 import { recalculateRestaurantCapacity } from '@/lib/capacity-checker';
 import { sendEmail, orderConfirmationTemplate, orderStatusTemplate } from '@/lib/email';
-import { createClient } from '@/lib/supabase/server';
+import { getServerSession } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import { calculateOrderPricing } from '@/lib/orders/pricing';
 import { z } from 'zod';
@@ -287,13 +287,10 @@ export async function createOrder(
     return { error: validation.error.issues[0].message };
   }
   const data = validation.data;
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const session = await getServerSession();
+  const user = session?.user;
 
-  if (authError || !user) {
+  if (!user) {
     return { error: 'Usuário não autenticado' };
   }
 
@@ -405,13 +402,10 @@ export async function createOrder(
 }
 
 export async function getOrders(): Promise<{ data?: OrderData[]; error?: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const session = await getServerSession();
+  const user = session?.user;
 
-  if (authError || !user) {
+  if (!user) {
     return { error: 'Usuário não autenticado' };
   }
 
@@ -444,13 +438,10 @@ export async function getOrders(): Promise<{ data?: OrderData[]; error?: string 
 }
 
 export async function getOrderById(orderId: string): Promise<{ data?: OrderData; error?: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const session = await getServerSession();
+  const user = session?.user;
 
-  if (authError || !user) {
+  if (!user) {
     return { error: 'Usuário não autenticado' };
   }
 
@@ -507,13 +498,10 @@ export async function updateOrderStatus({
     return { error: 'Status inválido' };
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const session = await getServerSession();
+  const user = session?.user;
 
-  if (authError || !user) {
+  if (!user) {
     return { error: 'Usuário não autenticado' };
   }
 
@@ -629,13 +617,10 @@ export async function cancelOrder({
   if (!validation.success) {
     return { error: validation.error.issues[0].message };
   }
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const session = await getServerSession();
+  const user = session?.user;
 
-  if (authError || !user) {
+  if (!user) {
     return { error: 'Usuário não autenticado' };
   }
 
@@ -692,13 +677,10 @@ export async function cancelOrderByRestaurant({
   if (!validation.success) {
     return { error: validation.error.issues[0].message };
   }
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const session = await getServerSession();
+  const user = session?.user;
 
-  if (authError || !user) {
+  if (!user) {
     return { error: 'Usuário não autenticado' };
   }
 
@@ -753,13 +735,10 @@ export async function createOrderReview({
   if (!validation.success) {
     return { error: validation.error.issues[0].message };
   }
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const session = await getServerSession();
+  const user = session?.user;
 
-  if (authError || !user) {
+  if (!user) {
     return { error: 'Usuário não autenticado' };
   }
 
@@ -839,13 +818,10 @@ export async function getOrdersForRestaurant({
     return { error: validation.error.issues[0].message };
   }
   const limit = Math.max(1, Math.min(200, Math.floor(take)));
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const session = await getServerSession();
+  const user = session?.user;
 
-  if (authError || !user) {
+  if (!user) {
     return { error: 'Usuário não autenticado' };
   }
 
@@ -954,13 +930,10 @@ export async function getOrdersForRestaurant({
 }
 
 export async function getOrderStats(): Promise<{ data?: OrderStats; error?: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const session = await getServerSession();
+  const user = session?.user;
 
-  if (authError || !user) {
+  if (!user) {
     return { error: 'Usuário não autenticado' };
   }
 

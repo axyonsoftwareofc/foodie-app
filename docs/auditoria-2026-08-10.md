@@ -83,6 +83,19 @@ filho client — mantendo o fetch fora do `useEffect`.
 
 ### P2. `auth.getUser()` repetido (round-trip de rede) — **Alta**
 
+> **Status (2026-08-11): RESOLVIDO no caminho de renderização.** A validação de sessão
+> passou a ser deduplicada por request via `cache()` do React (`getServerSession`, em
+> `src/lib/auth.ts` — o mesmo mecanismo que `createClient` já usava).
+> `getRestaurantAccess` foi dividido em `loadRestaurantContext` (parte cara, cacheada,
+> sem dependência dos papéis) e um portão fino que aplica a checagem de papel; assinatura
+> e semântica preservadas nos 43 call sites. `getRestaurantProfile` (layout) e as ações de
+> `orders.ts` também passaram a usar a sessão cacheada.
+> Chamadas cruas a `auth.getUser()` no projeto: **61 → 34** (as restantes são mutations,
+> que rodam em requests próprios, onde o dedupe não se aplica).
+> **Permanece:** o `auth.getUser()` do middleware — roda em runtime separado (edge) e não
+> compartilha o cache. Eliminá-lo exigiria confiar no cookie (`getSession`), abrindo mão
+> da verificação do JWT no servidor — **não recomendado**.
+
 **Onde:** 61 chamadas a `supabase.auth.getUser()` no código (ex.: `orders.ts` 9x,
 `restaurantActions.ts` 7x, `delivery-actions.ts` 6x). `auth.getUser()` **revalida o JWT
 contra o servidor Auth do Supabase a cada chamada** (ida à rede) — diferente de ler a
@@ -106,10 +119,16 @@ rede antes de qualquer dado aparecer.
 
 ### P3. `getRestaurantAccess` escreve em caminho de leitura — **Média** (ver achado #2)
 
-Cada carga de `equipe`/`entregadores` chama `getRestaurantAccess`, que faz `INSERT`/`UPDATE`
-(provisiona membro OWNER, promove profile). São escritas — mais lentas que leituras e
-sujeitas a lock/contention — disparadas em telas que deveriam ser só de leitura. A correção
-do achado #2 (separar autorização de provisionamento) também melhora desempenho aqui.
+**Correção de uma imprecisão da primeira versão deste relatório:** afirmei que cada carga
+disparava `INSERT`/`UPDATE`. Na verdade `ensureOwnerMember` tem um _fast path_ — se o
+membro já existe e está consistente (`user_id`, email, `OWNER`, `ATIVO`), apenas retorna;
+o mesmo vale para `ensureMinimumAppRole`, que só promove quando o profile é `CLIENTE`.
+Em regime estável são **leituras extras**, não escritas.
+
+O custo real, portanto, é (a) queries adicionais por call site e (b) uma função de
+autorização com **capacidade** de escrever — surpreendente e difícil de raciocinar.
+O item (a) foi mitigado pelo cache por request do P2; o item (b) é o que o achado #2
+(separar autorização de provisionamento) endereça.
 
 ### P4. Consultas sem paginação / seleção ampla — **Baixa**
 

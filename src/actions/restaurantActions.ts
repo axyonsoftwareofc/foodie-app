@@ -12,6 +12,7 @@ import {
 } from '@/actions/restaurant-creation';
 import { z } from 'zod';
 import { getRestaurantAccess, MANAGEMENT_ROLES, WAITER_ROLES } from '@/lib/restaurant-access';
+import { getServerSession } from '@/lib/auth';
 import { parseOperatingHours } from '@/lib/utils/restaurant.utils';
 import { redisDel, redisGet, redisSet, cacheKey } from '@/lib/redis';
 import {
@@ -167,17 +168,16 @@ export async function getRestaurantProfile(): Promise<{
   error?: string;
 }> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // Sessão cacheada por request (cache() do React): evita revalidar o JWT
+    // na rede a cada chamada dentro da mesma renderização.
+    const session = await getServerSession();
 
-    if (!user) {
+    if (!session?.user) {
       return { error: 'Usuário não autenticado' };
     }
 
     const r = await prisma.restaurant.findFirst({
-      where: { user_id: user.id, is_active: true },
+      where: { user_id: session.user.id, is_active: true },
     });
 
     if (!r) {
