@@ -32,6 +32,7 @@ Cada achado aponta arquivo/linha e uma recomendação.
 | 11  | `GRANT EXECUTE` duplicado no SQL do hook                                     | Cosmético      | Info       |
 | 12  | `/api/tables` ficou fora da unificação de autorização (ainda só-dono)        | Inconsistência | **Média**  |
 | 13  | Tipo `RestaurantTable` diverge do schema Prisma                              | Dívida         | Baixa      |
+| 14  | `getRestaurantProfile` era só-dono e enviava `bank_info` ao cliente          | Segurança      | **Média**  |
 
 > **Não é problema:** `.env*`, `*.log`, `replay_*.log` e `*.tsbuildinfo` estão no
 > `.gitignore` e não são versionados — nenhum segredo vaza pelo repositório. Os webhooks
@@ -347,6 +348,30 @@ escreve comparações que nunca casam (ex.: `status === 'available'`). Em
 **Recomendação:** alinhar o tipo ao schema (`number: string` e status em maiúsculas, de
 preferência reusando o enum do Prisma) e remover as normalizações que existirem. Mudança
 pequena, mas toca consumidores compartilhados — merece ser feita isolada, com typecheck.
+
+## 14. `getRestaurantProfile` era só-dono e vazava `bank_info` ao cliente — **Média**
+
+> **Status (2026-08-11): RESOLVIDO.**
+
+**Onde:** `src/actions/restaurantActions.ts` → `getRestaurantProfile`, consumido pelo
+`dashboard/layout.tsx` (portanto por **todas** as telas do dashboard) e pelas páginas de
+settings, theme, admin/restaurant e admin/reviews.
+
+Dois problemas somados:
+
+1. **Resolvia o restaurante por `restaurant.user_id`** — mais um resíduo do modelo
+   só-dono (achados #1 e #12). Para um `MANAGER`/`KITCHEN`/`WAITER` convidado, o layout
+   não encontrava restaurante e o dashboard renderizava sem o contexto do restaurante.
+2. **Retornava `bankInfo`** (dados bancários) dentro do perfil. Esse objeto é passado ao
+   `DashboardProvider`, ou seja, **trafega para o cliente em toda tela do dashboard**.
+   Enquanto a leitura era só-dono isso era tolerável; abrir para todos os membros sem
+   removê-lo exporia conta bancária a garçom, cozinha e entregador.
+
+**Correção:** a leitura passou a resolver via `getRestaurantAccess()` (qualquer membro
+ativo — é contexto de layout, não operação privilegiada) e **deixou de retornar
+`bankInfo`**. O campo virou opcional em `RestaurantProfile`, para que a ausência seja
+verificada pelo compilador. Nenhum consumidor lia esse campo (a tela de dados bancários
+começa com formulário vazio e escreve via `updateBankInfo`, que é OWNER-only).
 
 ## Prioridade sugerida
 

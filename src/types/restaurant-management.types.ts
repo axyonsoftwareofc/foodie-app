@@ -18,7 +18,8 @@ export interface RestaurantProfile {
   estimatedDeliveryTime: number;
   acceptsReservation: boolean;
   tables: RestaurantTable[];
-  bankInfo: BankInfo;
+  /** Somente OWNER. Não é preenchido por leituras de contexto (ex.: layout do dashboard). */
+  bankInfo?: BankInfo;
   rating: number;
   reviewCount: number;
   theme?: string;

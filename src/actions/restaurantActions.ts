@@ -12,7 +12,6 @@ import {
 } from '@/actions/restaurant-creation';
 import { z } from 'zod';
 import { getRestaurantAccess, MANAGEMENT_ROLES, WAITER_ROLES } from '@/lib/restaurant-access';
-import { getServerSession } from '@/lib/auth';
 import { parseOperatingHours } from '@/lib/utils/restaurant.utils';
 import { redisDel, redisGet, redisSet, cacheKey } from '@/lib/redis';
 import {
@@ -168,16 +167,16 @@ export async function getRestaurantProfile(): Promise<{
   error?: string;
 }> {
   try {
-    // Sessão cacheada por request (cache() do React): evita revalidar o JWT
-    // na rede a cada chamada dentro da mesma renderização.
-    const session = await getServerSession();
+    // Leitura de contexto usada pelo layout do dashboard: qualquer membro ativo
+    // (não só o dono) precisa enxergar o restaurante ao qual pertence.
+    const access = await getRestaurantAccess();
 
-    if (!session?.user) {
-      return { error: 'Usuário não autenticado' };
+    if (access.error || !access.data) {
+      return { error: access.error || 'Restaurante nao encontrado' };
     }
 
-    const r = await prisma.restaurant.findFirst({
-      where: { user_id: session.user.id, is_active: true },
+    const r = await prisma.restaurant.findUnique({
+      where: { id: access.data.restaurant.id },
     });
 
     if (!r) {
@@ -212,16 +211,9 @@ export async function getRestaurantProfile(): Promise<{
       estimatedDeliveryTime: r.estimated_delivery_time || 40,
       acceptsReservation: false,
       tables: [],
-      bankInfo: (r.bank_info as unknown as BankInfo) || {
-        bank: '',
-        agency: '',
-        account: '',
-        accountType: 'checking',
-        pixKey: '',
-        pixKeyType: 'email',
-        holderName: '',
-        document: '',
-      },
+      // bank_info NAO e retornado aqui de proposito: este perfil alimenta o
+      // layout do dashboard (vai para o cliente em toda tela) e e lido por
+      // qualquer membro. Dados bancarios sao OWNER-only — use updateBankInfo.
       rating: 0,
       reviewCount: 0,
       theme: typeof r.theme === 'string' ? r.theme : r.theme ? JSON.stringify(r.theme) : undefined,
