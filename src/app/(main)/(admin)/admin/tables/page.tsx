@@ -46,10 +46,11 @@ export default function TablesPage() {
 
     setIsAddingTable(true);
     const result = await createTable({
-      number: parseInt(newTable.number),
+      // `number` é String no banco (aceita "12" e "A3")
+      number: newTable.number.trim(),
       capacity: parseInt(newTable.capacity),
       location: newTable.location,
-      status: 'available',
+      status: 'AVAILABLE',
     });
 
     if (result.data) {
@@ -83,35 +84,35 @@ export default function TablesPage() {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: RestaurantTable['status']) => {
     switch (status) {
-      case 'available':
+      case 'AVAILABLE':
         return { bg: '#D1FAE5', text: '#059669', icon: <CheckCircle size={16} /> };
-      case 'occupied':
+      case 'OCCUPIED':
         return { bg: '#FEE2E2', text: '#DC2626', icon: <Users size={16} /> };
-      case 'reserved':
+      case 'RESERVED':
         return { bg: '#FEF3C7', text: '#D97706', icon: <Clock size={16} /> };
       default:
         return { bg: '#F3F4F6', text: '#6B7280', icon: <Table size={16} /> };
     }
   };
 
-  const getStatusLabel = (status: string) => {
+  const getStatusLabel = (status: RestaurantTable['status']) => {
     switch (status) {
-      case 'available':
+      case 'AVAILABLE':
         return 'Livre';
-      case 'occupied':
+      case 'OCCUPIED':
         return 'Ocupada';
-      case 'reserved':
+      case 'RESERVED':
         return 'Reservada';
       default:
         return status;
     }
   };
 
-  const availableCount = tables.filter((t) => t.status === 'available').length;
-  const occupiedCount = tables.filter((t) => t.status === 'occupied').length;
-  const reservedCount = tables.filter((t) => t.status === 'reserved').length;
+  const availableCount = tables.filter((t) => t.status === 'AVAILABLE').length;
+  const occupiedCount = tables.filter((t) => t.status === 'OCCUPIED').length;
+  const reservedCount = tables.filter((t) => t.status === 'RESERVED').length;
 
   if (isLoading) {
     return (
@@ -302,27 +303,27 @@ export default function TablesPage() {
                   </div>
                 </div>
                 <div className="flex gap-1">
-                  {table.status === 'available' && (
+                  {table.status === 'AVAILABLE' && (
                     <button
-                      onClick={() => handleStatusChange(table.id, 'occupied')}
+                      onClick={() => handleStatusChange(table.id, 'OCCUPIED')}
                       className="p-2 rounded-lg"
                       style={{ backgroundColor: 'var(--color-bg-secondary)' }}
                     >
                       <Users size={18} style={{ color: 'var(--color-text-secondary)' }} />
                     </button>
                   )}
-                  {table.status === 'occupied' && (
+                  {table.status === 'OCCUPIED' && (
                     <button
-                      onClick={() => handleStatusChange(table.id, 'available')}
+                      onClick={() => handleStatusChange(table.id, 'AVAILABLE')}
                       className="p-2 rounded-lg"
                       style={{ backgroundColor: 'var(--color-bg-secondary)' }}
                     >
                       <CheckCircle size={18} style={{ color: '#059669' }} />
                     </button>
                   )}
-                  {table.status === 'available' && (
+                  {table.status === 'AVAILABLE' && (
                     <button
-                      onClick={() => handleStatusChange(table.id, 'reserved')}
+                      onClick={() => handleStatusChange(table.id, 'RESERVED')}
                       className="p-2 rounded-lg"
                       style={{ backgroundColor: 'var(--color-bg-secondary)' }}
                     >

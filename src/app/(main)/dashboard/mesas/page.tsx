@@ -5,13 +5,11 @@ import { MesasClient, type TableData } from './MesasClient';
 export default async function MesasPage() {
   const result = await getTables();
 
-  // Normaliza para a forma realmente gravada no banco (number é String e
-  // status é o enum em maiúsculas), independente do tipo declarado.
   const tables: TableData[] = (result.data ?? []).map((t) => ({
-    id: String(t.id),
-    number: String(t.number),
-    capacity: Number(t.capacity),
-    status: String(t.status),
+    id: t.id,
+    number: t.number,
+    capacity: t.capacity,
+    status: t.status,
   }));
 
   return <MesasClient tables={tables} />;

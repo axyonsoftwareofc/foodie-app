@@ -67,12 +67,16 @@ export interface OperatingHours {
 
 export type RestaurantStatus = 'OPEN' | 'CLOSED' | 'TEMPORARILY_CLOSED' | 'MAINTENANCE';
 
+/** Status de mesa — mesmos valores do enum `TableStatus` do Prisma (maiúsculas). */
+export type RestaurantTableStatus = 'AVAILABLE' | 'OCCUPIED' | 'RESERVED';
+
 export interface RestaurantTable {
   id: string;
-  number: number;
+  /** `String` no banco (ex.: "12", "A3") — não é numérico. */
+  number: string;
   location?: string;
   capacity: number;
-  status: 'available' | 'occupied' | 'reserved';
+  status: RestaurantTableStatus;
   qrCode?: string;
 }
 
