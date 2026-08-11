@@ -8,6 +8,7 @@ import {
 } from '@/lib/rate-limit';
 import { updateOrderStatusByPayment } from '@/lib/payments/webhook-order-update';
 import { isDuplicateRequest } from '@/lib/idempotency';
+import { getStripeClient } from '@/lib/payments/stripe-server';
 import { logger } from '@/lib/logger';
 import { captureException } from '@/lib/sentry';
 
@@ -36,11 +37,7 @@ export async function POST(request: NextRequest) {
   const payload = await request.text();
 
   try {
-    const Stripe = (await import('stripe')).default;
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      apiVersion: (process.env.STRIPE_API_VERSION as any) || '2024-12-18.acacia',
-    });
+    const stripe = await getStripeClient();
 
     const event = stripe.webhooks.constructEvent(payload, signature, WEBHOOK_SECRET);
 

@@ -8,7 +8,7 @@ import {
   buildRateLimitResponse,
 } from '@/lib/rate-limit';
 import { updateOrderStatusByPayment } from '@/lib/payments/webhook-order-update';
-import { isDuplicateRequest } from '@/lib/idempotency';
+import { isDuplicateRequest, clearIdempotencyKey } from '@/lib/idempotency';
 import { logger } from '@/lib/logger';
 import { captureException } from '@/lib/sentry';
 
@@ -86,6 +86,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
     }
 
+    // Idempotência antes da chamada externa: a assinatura já foi verificada
+    // acima, então paymentId é confiável. Reentregas do MP saem daqui sem
+    // gastar um round-trip à API deles.
+    if (await isDuplicateRequest(`mp-webhook:${paymentId}`, 86400)) {
+      return NextResponse.json({ received: true });
+    }
+
     // Verificar pagamento via API do MP para confirmar autenticidade
     const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
       headers: {
@@ -99,11 +106,9 @@ export async function POST(request: NextRequest) {
         new Error(`HTTP ${mpResponse.status}`),
         { paymentId }
       );
+      // Libera a chave para que a reentrega do MP possa ser processada.
+      await clearIdempotencyKey(`mp-webhook:${paymentId}`);
       return NextResponse.json({ error: 'Failed to verify payment' }, { status: 502 });
-    }
-
-    if (await isDuplicateRequest(`mp-webhook:${paymentId}`, 86400)) {
-      return NextResponse.json({ received: true });
     }
 
     const payment = (await mpResponse.json()) as {

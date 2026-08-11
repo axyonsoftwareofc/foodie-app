@@ -2,6 +2,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { Redis } from '@upstash/redis';
+import { getClientIp } from '@/lib/rate-limit';
 
 const RESERVED_SUBDOMAINS = ['www', 'app', 'admin', 'api', 'mail', 'foodie'];
 
@@ -11,8 +12,14 @@ type UserRole = (typeof ROLE_HIERARCHY)[number];
 
 /** Nome do cookie que cacheia a role do usuario (evita query ao banco em todo request). */
 const ROLE_COOKIE_NAME = 'foodie-role';
-const ROLE_COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 7 dias (maxAge do cookie)
-const ROLE_CACHE_MAX_AGE = 60; // 60s — janela de confiança da assinatura HMAC
+/**
+ * Janela de confiança da assinatura HMAC. Passado esse tempo a role é
+ * rebuscada, então o cookie não tem utilidade além disso — `maxAge` usa o
+ * mesmo valor de propósito (antes era 7 dias, o que sugeria erroneamente que
+ * a role ficava válida por uma semana).
+ */
+const ROLE_CACHE_MAX_AGE = 60;
+const ROLE_COOKIE_MAX_AGE = ROLE_CACHE_MAX_AGE;
 
 let redisForRateLimit: Redis | null = null;
 
@@ -33,8 +40,10 @@ async function checkSentryTunnelRateLimit(request: NextRequest): Promise<boolean
   const redis = getRedisClient();
   if (!redis) return true;
 
-  const forwarded = request.headers.get('x-forwarded-for');
-  const ip = forwarded ? forwarded.split(',')[0].trim() : 'unknown';
+  // Mesma política de confiança em proxy do resto da aplicação (respeita
+  // TRUSTED_PROXY_COUNT). O primeiro hop do x-forwarded-for é controlado pelo
+  // cliente e seria spoofável.
+  const ip = getClientIp(request);
   const key = `ratelimit:sentry:${ip}:${Math.floor(Date.now() / 60000)}`;
 
   try {

@@ -8,6 +8,7 @@ import {
   RateLimitConfig,
   buildRateLimitResponse,
 } from '@/lib/rate-limit';
+import { getStripeClient } from '@/lib/payments/stripe-server';
 import { logger } from '@/lib/logger';
 import { captureException } from '@/lib/sentry';
 
@@ -51,11 +52,7 @@ export async function POST(request: NextRequest) {
   } | null = null;
 
   try {
-    const Stripe = (await import('stripe')).default;
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      apiVersion: (process.env.STRIPE_API_VERSION as any) || '2024-12-18.acacia',
-    });
+    const stripe = await getStripeClient();
 
     const requestBody = await request.json();
     body = requestBody;
