@@ -30,6 +30,8 @@ Cada achado aponta arquivo/linha e uma recomendação.
 | 9   | Restos de exemplo do Sentry e OpenAPI incompleto                             | Higiene        | Info       |
 | 10  | Nomenclatura de rotas mistura PT/EN                                          | Consistência   | Info       |
 | 11  | `GRANT EXECUTE` duplicado no SQL do hook                                     | Cosmético      | Info       |
+| 12  | `/api/tables` ficou fora da unificação de autorização (ainda só-dono)        | Inconsistência | **Média**  |
+| 13  | Tipo `RestaurantTable` diverge do schema Prisma                              | Dívida         | Baixa      |
 
 > **Não é problema:** `.env*`, `*.log`, `replay_*.log` e `*.tsbuildinfo` estão no
 > `.gitignore` e não são versionados — nenhum segredo vaza pelo repositório. Os webhooks
@@ -52,6 +54,16 @@ a combinação de **busca de dados no cliente em cascata** com **revalidação d
 rede repetida**.
 
 ### P1. Waterfalls de dados client-side no dashboard — **Alta**
+
+> **Status (2026-08-11): RESOLVIDO.** As quatro telas (`page`, `equipe`, `entregadores`,
+> `mesas`) foram convertidas: a `page.tsx` virou Server Component que busca no servidor e
+> passa os dados por prop para um componente client (`DashboardHome`, `EquipeClient`,
+> `EntregadoresClient`, `MesasClient`). Os dados do servidor ficam em **props, não em
+> `useState`**, para refletirem as revalidações. Atualização pós-mutação via
+> `revalidatePath` (equipe/entregadores) ou `router.refresh()` (mesas). Removidos os
+> `useEffect` de carga inicial, estados de loading e spinners.
+> **Efeito colateral positivo:** sumiram os warnings `react-hooks/set-state-in-effect`
+> que o Next 16.3 apontava nessas telas.
 
 **Onde:** `src/app/(main)/dashboard/page.tsx` (`'use client'`, `useEffect` →
 `getOrderStats`, linha 22), `.../equipe/page.tsx` (`useEffect` → `getTeamOverview`,
@@ -280,6 +292,36 @@ público) e documentá-la; migrar de forma incremental com redirects.
 Sem efeito; remover a linha duplicada.
 
 ---
+
+## 12. `/api/tables` ficou fora da unificação de autorização — **Média**
+
+**Onde:** `src/app/api/tables/route.ts` (GET, POST e DELETE) resolve o restaurante com
+`.eq('user_id', user.id)` — o modelo **só-dono** que o achado #1 aposentou. Passou
+despercebido porque a migração cobriu apenas `/api/{categories,products,restaurants}`.
+
+**Impacto:** um `MANAGER` convidado não consegue gerenciar mesas por esta rota — a mesma
+expectativa quebrada do achado #1. A tela `/dashboard/mesas` ainda usa esta rota para
+criar/remover.
+
+**Recomendação:** migrar os três handlers para `getRestaurantAccess(MANAGEMENT_ROLES)`,
+como nas demais rotas. Alternativa mais enxuta: trocar as mutações da tela pelas server
+actions `createTable`/`deleteTable` (já em RBAC) e remover a rota — mas isso depende do
+achado #13.
+
+## 13. Tipo `RestaurantTable` diverge do banco — **Baixa**
+
+**Onde:** `src/types/restaurant-management.types.ts` declara `number: number` e
+`status: 'available' | 'occupied' | 'reserved'` (minúsculas). O `prisma/schema.prisma`
+usa `number String` e o enum `TableStatus` em **maiúsculas** (AVAILABLE/OCCUPIED/RESERVED).
+
+**Impacto:** o tipo declarado não corresponde ao dado em runtime; quem confiar nele
+escreve comparações que nunca casam (ex.: `status === 'available'`). Em
+`/dashboard/mesas` a página normaliza defensivamente na fronteira
+(`String(t.number)`, `String(t.status)`) justamente por causa disso.
+
+**Recomendação:** alinhar o tipo ao schema (`number: string` e status em maiúsculas, de
+preferência reusando o enum do Prisma) e remover as normalizações que existirem. Mudança
+pequena, mas toca consumidores compartilhados — merece ser feita isolada, com typecheck.
 
 ## Prioridade sugerida
 
