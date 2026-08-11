@@ -1,9 +1,29 @@
 // src/scripts/create-restaurant-owners.ts
 // Creates owner accounts for all mock restaurants in Supabase Auth and updates user_id
 
-const SUPABASE_URL = 'https://imepormclbjnzuavvqdt.supabase.co';
-const SUPABASE_SERVICE_ROLE_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImltZXBvcm1jbGJqbnp1YXZ2cWR0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjY3Njc5NCwiZXhwIjoyMDg4MjUyNzk0fQ.SL0KZscxbiAdbph4kr6XEjdSIIV306ZtD5ITBxRBL9E';
+// Segredos vêm do ambiente — nunca hardcoded. A chave service_role ignora RLS
+// e equivale a acesso administrativo total ao banco; versioná-la expõe todos
+// os dados a quem tiver acesso ao repositório (ver docs/auditoria, achado #15).
+import { config as loadEnv } from 'dotenv';
+
+loadEnv({ path: '.env.local' });
+loadEnv(); // fallback para .env (não sobrescreve o que já foi carregado)
+
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    console.error(
+      `\n❌ Variável de ambiente ausente: ${name}\n` +
+        `   Defina-a em .env.local antes de rodar este script.\n` +
+        `   A chave service_role está no painel do Supabase em Settings → API.\n`
+    );
+    process.exit(1);
+  }
+  return value;
+}
+
+const SUPABASE_URL = requireEnv('NEXT_PUBLIC_SUPABASE_URL');
+const SUPABASE_SERVICE_ROLE_KEY = requireEnv('SUPABASE_SERVICE_ROLE_KEY');
 
 const restaurants = [
   { id: '1', name: 'Burger King', slug: 'burger-king', email: 'owner-burger-king@foodie.app' },
@@ -24,7 +44,11 @@ const restaurants = [
   },
 ];
 
-const TEMP_PASSWORD = 'FoodieApp2026!';
+// ⚠️ Senha temporária destas contas de demonstração. Estava hardcoded e
+// versionada — se estas contas existirem em produção, qualquer pessoa com
+// acesso ao repositório pode entrar como dono de restaurante. Defina
+// SEED_OWNER_PASSWORD no .env.local e troque as senhas já criadas.
+const TEMP_PASSWORD = process.env.SEED_OWNER_PASSWORD || 'FoodieApp2026!';
 
 async function createUser(email: string, name: string) {
   const response = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
