@@ -1,6 +1,7 @@
 // src/actions/delivery-actions.ts
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import {
   DeliveryZone,
@@ -940,6 +941,8 @@ export async function createDriverWithAuth(
       .single();
 
     if (error) return { error: error.message };
+
+    revalidatePath('/dashboard/entregadores');
 
     return { data: { driver: mapDriverFromDB(newDriver), tempPassword: params.password } };
   } catch (error) {
