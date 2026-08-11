@@ -278,6 +278,15 @@ export async function recordAuditLog(params: {
   }
 }
 
+/**
+ * Regra de criação de restaurante.
+ *
+ * **Intencional:** não há exigência de role global. Quem cria um restaurante é
+ * quem passa pelo fluxo de onboarding — inclusive um usuário recém-cadastrado,
+ * que ainda nem tem `profile`. Os demais usuários são clientes (compram dos
+ * restaurantes) e simplesmente não entram nesse fluxo.
+ * A única restrição é **um restaurante ativo por usuário**.
+ */
 export async function canUserCreateRestaurant(
   userId: string
 ): Promise<{ allowed: boolean; error?: string }> {
@@ -286,6 +295,7 @@ export async function canUserCreateRestaurant(
     select: { role: true },
   });
 
+  // Usuário novo (sem profile): está começando o onboarding.
   if (!profile) {
     return { allowed: true };
   }

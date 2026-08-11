@@ -275,6 +275,10 @@ necessários.
 
 ## 4. Staleness da role e `maxAge` enganoso — **Baixa**
 
+> **Status (2026-08-11): RESOLVIDO.** `ROLE_COOKIE_MAX_AGE` passou a usar o mesmo
+> valor da janela de confiança (60s). O cookie não sobrevive mais além do tempo em que
+> é de fato aceito — some a discrepância que sugeria validade de 7 dias.
+
 **Onde:** `middleware.ts` — `ROLE_CACHE_MAX_AGE = 60` (linha 15), `ROLE_COOKIE_MAX_AGE`
 = 7 dias (14), `verifyCookieValue` (96-119).
 
@@ -289,6 +293,11 @@ revogação imediata for requisito, invalidar o cookie no momento da troca de ro
 
 ## 5. Extração de IP inconsistente — **Baixa**
 
+> **Status (2026-08-11): RESOLVIDO.** O middleware passou a usar `getClientIp` de
+> `lib/rate-limit`, adotando a mesma política de confiança em proxy do resto da
+> aplicação (respeita `TRUSTED_PROXY_COUNT`). O túnel do Sentry não usa mais o primeiro
+> hop do `x-forwarded-for`, que é controlado pelo cliente.
+
 **Onde:** `middleware.ts` `checkSentryTunnelRateLimit` usa `x-forwarded-for.split(',')[0]`
 (**primeiro** hop, controlado pelo cliente, spoofável — linha 37). Já
 `src/lib/rate-limit.ts` `getClientIp` usa por padrão o **último** hop (mais difícil de
@@ -301,6 +310,10 @@ do header. Baixa gravidade (endpoint de telemetria), mas é inconsistente com o 
 no middleware para uma política única de confiança em proxies.
 
 ## 6. MP webhook consulta a API antes da idempotência — **Baixa**
+
+> **Status (2026-08-11): RESOLVIDO.** A checagem de idempotência foi movida para logo
+> após a verificação de assinatura e **antes** do fetch à API do MP. Se a consulta ao MP
+> falhar, a chave é liberada (`clearIdempotencyKey`) para não bloquear a reentrega.
 
 **Onde:** `src/app/api/webhooks/mercadopago/route.ts` — `fetch` à API do MP (linhas
 90-103) **antes** de `isDuplicateRequest` (105).
@@ -315,6 +328,10 @@ corpo verificado pela API.
 
 ## 7. Cliente Stripe duplicado — **Baixa**
 
+> **Status (2026-08-11): RESOLVIDO.** Novo `src/lib/payments/stripe-server.ts` com
+> `getStripeClient()`. O import dinâmico do SDK foi preservado (carrega só quando há
+> pagamento Stripe) e a `apiVersion` deixou de usar `as any`.
+
 **Onde:** `src/app/api/webhooks/stripe/route.ts` (40-43) e
 `src/app/api/payments/intent/route.ts` (54-58): ambos instanciam Stripe com
 `apiVersion: (process.env.STRIPE_API_VERSION as any) || '2024-12-18.acacia'`.
@@ -327,6 +344,12 @@ dois lugares; risco de divergência.
 
 ## 8. `canUserCreateRestaurant` libera sem profile — **Baixa / Observação**
 
+> **Status (2026-08-11): FECHADO — comportamento intencional.** Confirmado com o dono do
+> projeto: quem cria restaurante é quem passa pelo **fluxo de onboarding**, inclusive um
+> usuário recém-cadastrado (ainda sem `profile`). Os demais usuários são clientes que
+> compram dos restaurantes. A única restrição é um restaurante ativo por usuário.
+> A intenção foi documentada no próprio código.
+
 **Onde:** `src/lib/restaurant-access.ts` (244-266): se não existe `Profile`, retorna
 `{ allowed: true }`.
 
@@ -338,6 +361,11 @@ principal é "um restaurante ativo por usuário"). Registrado para confirmação
 autenticado; se não, adicionar checagem explícita de role.
 
 ## 9. Restos de exemplo e OpenAPI incompleto — **Info**
+
+> **Status (2026-08-11): PARCIAL.** As páginas de exemplo do Sentry
+> (`sentry-example-page` e `api/sentry-example-api`) foram removidas.
+> O OpenAPI incompleto **segue aberto**: migrar para `zod-openapi` é um trabalho próprio,
+> não um ajuste pontual.
 
 - `src/app/(main)/sentry-example-page/` e `src/app/api/sentry-example-api/route.ts` são
   exemplos de setup do Sentry — remover antes de produção.
@@ -353,6 +381,8 @@ Convivem `dashboard/cozinha`, `dashboard/menu`, `criar-restaurante`, `convite-eq
 público) e documentá-la; migrar de forma incremental com redirects.
 
 ## 11. `GRANT EXECUTE` duplicado no SQL — **Cosmético**
+
+> **Status (2026-08-11): RESOLVIDO.** Linha duplicada removida.
 
 **Onde:** `docs/supabase/custom-access-token-hook.sql` (linhas 55-56) repete o mesmo
 `GRANT EXECUTE ON FUNCTION public.custom_access_token_hook(jsonb) TO supabase_auth_admin;`.
@@ -382,6 +412,18 @@ actions `createTable`/`deleteTable` (já em RBAC) e remover a rota — mas isso 
 achado #13.
 
 ## 13. Tipo `RestaurantTable` diverge do banco — **Baixa**
+
+> **Status (2026-08-11): RESOLVIDO — e era um BUG, não só dívida de tipo.**
+> O tipo passou a refletir o schema (`number: string`, status maiúsculo via
+> `RestaurantTableStatus`). O compilador então revelou 11 pontos divergentes, todos em
+> `/admin/tables`: os contadores de mesas livres/ocupadas/reservadas comparavam com
+> minúsculas e **sempre davam 0**; os botões de status nunca apareciam; e a criação de
+> mesa enviava `parseInt(number)` e `status: 'available'` — inteiro numa coluna `String` e
+> valor inválido para o enum, ou seja, **criar mesa por essa tela falhava**.
+> Dois pontos extras (`getStatusColor`/`getStatusLabel`) recebiam `status: string` e por
+> isso escapavam do compilador — foram corrigidos e tipados.
+> Removida também a normalização defensiva em `/dashboard/mesas`, que só existia por
+> causa do tipo errado.
 
 **Onde:** `src/types/restaurant-management.types.ts` declara `number: number` e
 `status: 'available' | 'occupied' | 'reserved'` (minúsculas). O `prisma/schema.prisma`
