@@ -10,6 +10,7 @@ import { sendEmail, orderConfirmationTemplate, orderStatusTemplate } from '@/lib
 import { getServerSession } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import { calculateOrderPricing } from '@/lib/orders/pricing';
+import { parseOrderItems, toOrderItemsJson } from '@/lib/orders/order-items';
 import { z } from 'zod';
 
 export interface OrderItemData {
@@ -89,15 +90,6 @@ function isValidOrderStatus(status: string): status is OrderStatus {
   return Object.values(OrderStatus).includes(status as OrderStatus);
 }
 
-const orderItemSchema = z.object({
-  menuItemId: z.string(),
-  menuItemName: z.string(),
-  menuItemImage: z.string().nullable(),
-  menuItemPrice: z.number().nonnegative(),
-  quantity: z.number().int().positive(),
-  observation: z.string().optional(),
-});
-
 const addressSchema = z.object({
   street: z.string(),
   number: z.string(),
@@ -108,25 +100,8 @@ const addressSchema = z.object({
   zipCode: z.string(),
 });
 
-function parseJson(input: unknown): unknown {
-  if (typeof input === 'string') {
-    try {
-      return JSON.parse(input);
-    } catch {
-      return undefined;
-    }
-  }
-  return input;
-}
-
-function parseOrderItems(items: unknown): OrderItemData[] {
-  const parsed = parseJson(items);
-  if (!Array.isArray(parsed)) {
-    return [];
-  }
-  const validation = z.array(orderItemSchema).safeParse(parsed);
-  return validation.success ? validation.data : [];
-}
+// A leitura dos itens vive em @/lib/orders/order-items (tolerante aos formatos
+// legados gravados pelo garçom e pela mesa/QR — ver auditoria, achado #3).
 
 const emptyAddress: OrderData['address'] = {
   street: '',
@@ -333,7 +308,7 @@ export async function createOrder(
           order_type: 'DELIVERY',
           delivery_address: JSON.stringify(data.address),
           status: initialStatus,
-          items: pricedOrder.data!.items as unknown as Prisma.InputJsonValue,
+          items: toOrderItemsJson(pricedOrder.data!.items),
           total: pricedOrder.data!.total,
           restaurant_id: pricedOrder.data!.restaurantId,
           estimated_preparation_time: estimatedMinutes,

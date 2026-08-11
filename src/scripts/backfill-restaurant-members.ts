@@ -7,12 +7,18 @@
 // anteriores vinham materializando de forma implícita:
 //
 //   1. Restaurantes ativos cujo dono não tem membro OWNER ativo -> cria.
-//   2. Membros ativos cujo profile ainda é CLIENTE -> promove para EQUIPE.
+//   2. Profiles com role abaixo do necessário -> promove.
+//      Donos vão para GERENCIADOR (o middleware exige esse nível em /admin/*);
+//      demais membros ativos vão para EQUIPE. Nunca rebaixa ninguém.
 //
 // Uso:  npm run backfill:members
 //       npm run backfill:members -- --dry-run   (apenas relata, não escreve)
 //
 // Idempotente: rodar mais de uma vez não causa efeito adicional.
+//
+// Nota sobre o --dry-run: o passo 2 depende dos vínculos criados no passo 1.
+// Como o dry-run não escreve, ele pode subestimar quantos profiles serão
+// promovidos — a execução real é a fonte da verdade.
 
 import { PrismaClient, UserRole } from '@prisma/client';
 
@@ -103,22 +109,42 @@ async function backfillMemberProfiles(): Promise<{ promoted: number }> {
 
   const userIds = [...new Set(members.map((m) => m.user_id!).filter(Boolean))];
 
+  // Donos precisam de GERENCIADOR (o middleware exige esse nível para /admin/*),
+  // não apenas EQUIPE — é o mesmo nível que `upgradeUserToOwner` aplica na criação.
+  const ownerIds = new Set(
+    (
+      await prisma.restaurant.findMany({
+        where: { is_active: true, user_id: { in: userIds } },
+        select: { user_id: true },
+      })
+    ).map((r) => r.user_id)
+  );
+
   const profiles = await prisma.profile.findMany({
-    where: { id: { in: userIds }, role: UserRole.CLIENTE },
-    select: { id: true, email: true },
+    where: {
+      id: { in: userIds },
+      role: { in: [UserRole.CLIENTE, UserRole.EQUIPE] },
+    },
+    select: { id: true, email: true, role: true },
   });
 
+  let promoted = 0;
+
   for (const profile of profiles) {
-    console.log(`  ^ promovendo ${profile.email} de CLIENTE para EQUIPE`);
+    const target = ownerIds.has(profile.id) ? UserRole.GERENCIADOR : UserRole.EQUIPE;
+
+    if (profile.role === target) continue;
+    // Não rebaixa: um EQUIPE que não é dono já está no nível correto.
+    if (profile.role === UserRole.EQUIPE && target === UserRole.EQUIPE) continue;
+
+    console.log(`  ^ promovendo ${profile.email} de ${profile.role} para ${target}`);
     if (!dryRun) {
-      await prisma.profile.update({
-        where: { id: profile.id },
-        data: { role: UserRole.EQUIPE },
-      });
+      await prisma.profile.update({ where: { id: profile.id }, data: { role: target } });
     }
+    promoted++;
   }
 
-  return { promoted: profiles.length };
+  return { promoted };
 }
 
 async function main() {

@@ -2,7 +2,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { OrderStatus, Prisma, TableStatus } from '@prisma/client';
+import { toOrderItemsJson } from '@/lib/orders/order-items';
+import { OrderStatus, TableStatus } from '@prisma/client';
 import { recalculateRestaurantCapacity } from '@/lib/capacity-checker';
 import { calculateOrderPricing } from '@/lib/orders/pricing';
 import {
@@ -131,11 +132,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tab
         customer_name: `Mesa ${table.number}`,
         order_type: 'DINE_IN',
         status: OrderStatus.PENDING,
-        items: items.map((i) => ({
-          menuItemName: i.menuItemName,
-          quantity: i.quantity,
-          menuItemPrice: i.menuItemPrice,
-        })) as unknown as Prisma.InputJsonValue,
+        // `items` já vem completo de calculateOrderPricing — antes os campos
+        // menuItemId/menuItemImage eram descartados aqui.
+        items: toOrderItemsJson(items),
         total,
         subtotal: total,
         payment_method: 'CASH',

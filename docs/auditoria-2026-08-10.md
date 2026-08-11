@@ -225,7 +225,35 @@ checagem. Também acopla auth a provisionamento.
 chamado apenas no fluxo de criação/onboarding do restaurante. No mínimo, tornar o
 `ensureMembership=false` o padrão e documentar quando o provisionamento é desejado.
 
-## 3. `Order.items` como JSON sem tipo forte — **Média**
+## 3. `Order.items` como JSON sem tipo forte — **Média** (era, na prática, um BUG)
+
+> **Status (2026-08-11): RESOLVIDO.**
+>
+> A investigação mostrou que não era só dívida de tipo. Os três caminhos de criação
+> gravavam **formatos diferentes**:
+>
+> | Origem                         | Formato gravado                                                                            |
+> | ------------------------------ | ------------------------------------------------------------------------------------------ |
+> | Cliente (delivery)             | `menuItemId`, `menuItemName`, `menuItemImage`, `menuItemPrice`, `quantity`, `observation?` |
+> | Garçom (`waiter-actions`)      | `menuItemName`, `quantity`, `menuItemPrice`, **`notes`**                                   |
+> | Mesa/QR (`api/mesa/[tableId]`) | `menuItemName`, `quantity`, `menuItemPrice`                                                |
+>
+> O leitor (`parseOrderItems`) validava com um schema que **exigia** `menuItemId` e
+> `menuItemImage` e retornava `[]` quando a validação falhava. Resultado verificado
+> empiricamente: **todo pedido DINE_IN (garçom ou mesa/QR) perdia os itens na leitura** —
+> cozinha, `/dashboard/orders` e detalhe do pedido exibiam o pedido sem itens. O recibo
+> escapava porque não validava.
+>
+> **Correção:** novo módulo `src/lib/orders/order-items.ts` como fonte única:
+> `toOrderItemsJson` normaliza na escrita (os três caminhos passaram a usá-lo) e
+> `parseOrderItems` lê de forma tolerante — aceita array ou string JSON, entende `notes`
+> como `observation`, assume defaults para campos ausentes e valida **por item** (um item
+> corrompido não derruba o pedido inteiro). Leitura tolerante recupera também os pedidos
+> **já gravados**, sem migração de dados. Coberto por 8 testes com os formatos reais.
+>
+> **Fora do escopo (segue aberto):** `kitchen_notes` também é JSON livre e
+> `delivery_address` é gravado com `JSON.stringify` dentro de uma coluna Json (dupla
+> codificação) — problemas irmãos, a tratar separadamente.
 
 **Onde:** `prisma/schema.prisma` (Order.items: `Json`, Order.kitchen_notes: `Json`),
 `src/lib/payments/order-payment.ts` (`parseItems`, linhas 26-37).

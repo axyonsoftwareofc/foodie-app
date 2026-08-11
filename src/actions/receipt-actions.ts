@@ -3,15 +3,9 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { prisma } from '@/lib/prisma';
+import { parseOrderItems } from '@/lib/orders/order-items';
 import { ReceiptData, ReceiptItem, ReceiptAddress } from '@/types/payment.types';
 import type { PaymentMethod } from '@/types/payment.types';
-
-type ReceiptOrderItem = {
-  menuItemName: string;
-  menuItemPrice: number;
-  quantity: number;
-  observation?: string;
-};
 
 export async function generateReceipt(
   orderId: string
@@ -54,8 +48,7 @@ export async function generateReceipt(
       userEmail = profile.email || '';
     }
 
-    const orderItems = Array.isArray(order.items) ? (order.items as ReceiptOrderItem[]) : [];
-    const items: ReceiptItem[] = orderItems.map((item) => ({
+    const items: ReceiptItem[] = parseOrderItems(order.items).map((item) => ({
       name: item.menuItemName,
       quantity: item.quantity,
       unitPrice: item.menuItemPrice,

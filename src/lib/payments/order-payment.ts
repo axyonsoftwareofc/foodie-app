@@ -1,10 +1,5 @@
 import { prisma } from '@/lib/prisma';
-
-type PaymentOrderItem = {
-  menuItemName?: string;
-  menuItemPrice?: number;
-  quantity?: number;
-};
+import { parseOrderItems } from '@/lib/orders/order-items';
 
 export type OrderPaymentContext = {
   orderId: string;
@@ -21,19 +16,6 @@ export type OrderPaymentContext = {
 
 function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
-}
-
-function parseItems(items: unknown): PaymentOrderItem[] {
-  if (Array.isArray(items)) return items as PaymentOrderItem[];
-  if (typeof items === 'string') {
-    try {
-      const parsed = JSON.parse(items);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }
-  return [];
 }
 
 export async function getOrderPaymentContext(
@@ -78,11 +60,11 @@ export async function getOrderPaymentContext(
     return { error: 'Valor do pedido invalido', status: 400 };
   }
 
-  const items = parseItems(order.items)
+  const items = parseOrderItems(order.items)
     .map((item) => ({
       name: item.menuItemName || 'Item',
-      quantity: Number(item.quantity || 0),
-      price: roundMoney(Number(item.menuItemPrice || 0)),
+      quantity: item.quantity,
+      price: roundMoney(item.menuItemPrice),
     }))
     .filter((item) => item.quantity > 0 && item.price >= 0);
 

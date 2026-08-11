@@ -2,6 +2,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
+import { toOrderItemsJson } from '@/lib/orders/order-items';
 import { OrderStatus, Prisma, TableStatus } from '@prisma/client';
 import { getRestaurantAccess, recordAuditLog, WAITER_ROLES } from '@/lib/restaurant-access';
 import { z } from 'zod';
@@ -124,12 +125,16 @@ export async function createDineInOrder(
         customer_name: validated.customerName || `Mesa ${validated.tableNumber}`,
         order_type: 'DINE_IN',
         status: OrderStatus.PENDING,
-        items: validated.items.map((i) => ({
-          menuItemName: i.name,
-          quantity: i.quantity,
-          menuItemPrice: i.price,
-          notes: i.notes || undefined,
-        })) as unknown as Prisma.InputJsonValue,
+        items: toOrderItemsJson(
+          validated.items.map((i) => ({
+            menuItemId: i.productId,
+            menuItemName: i.name,
+            menuItemImage: null,
+            menuItemPrice: i.price,
+            quantity: i.quantity,
+            ...(i.notes ? { observation: i.notes } : {}),
+          }))
+        ),
         kitchen_notes: validated.kitchenNotes
           ? ({ general: validated.kitchenNotes } as unknown as Prisma.InputJsonValue)
           : Prisma.JsonNull,
